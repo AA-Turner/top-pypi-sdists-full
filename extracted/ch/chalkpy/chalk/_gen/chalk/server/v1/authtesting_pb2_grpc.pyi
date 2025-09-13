@@ -10,6 +10,8 @@ from abc import (
 from chalk._gen.chalk.server.v1.authtesting_pb2 import (
     GetAdminTestEndpointRequest,
     GetAdminTestEndpointResponse,
+    GetAuthServiceManagerTestEndpointRequest,
+    GetAuthServiceManagerTestEndpointResponse,
     GetAuthedTestEndpointRequest,
     GetAuthedTestEndpointResponse,
     GetDataScientistTestEndpointRequest,
@@ -62,6 +64,10 @@ class AuthTestingServiceStub:
         GetOwnerTestEndpointRequest,
         GetOwnerTestEndpointResponse,
     ]
+    GetAuthServiceManagerTestEndpoint: UnaryUnaryMultiCallable[
+        GetAuthServiceManagerTestEndpointRequest,
+        GetAuthServiceManagerTestEndpointResponse,
+    ]
     GetFeatureFlagTestEndpoint: UnaryUnaryMultiCallable[
         GetFeatureFlagTestEndpointRequest,
         GetFeatureFlagTestEndpointResponse,
@@ -110,6 +116,12 @@ class AuthTestingServiceServicer(metaclass=ABCMeta):
         request: GetOwnerTestEndpointRequest,
         context: ServicerContext,
     ) -> GetOwnerTestEndpointResponse: ...
+    @abstractmethod
+    def GetAuthServiceManagerTestEndpoint(
+        self,
+        request: GetAuthServiceManagerTestEndpointRequest,
+        context: ServicerContext,
+    ) -> GetAuthServiceManagerTestEndpointResponse: ...
     @abstractmethod
     def GetFeatureFlagTestEndpoint(
         self,

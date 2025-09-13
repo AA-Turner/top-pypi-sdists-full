@@ -32,7 +32,7 @@ import aws_cdk._jsii
 import constructs._jsii
 
 __jsii_assembly__ = jsii.JSIIAssembly.load(
-    "cdk-tweet-queue", "2.0.903", __name__[0:-6], "cdk-tweet-queue@2.0.903.jsii.tgz"
+    "cdk-tweet-queue", "2.0.904", __name__[0:-6], "cdk-tweet-queue@2.0.904.jsii.tgz"
 )
 
 __all__ = [

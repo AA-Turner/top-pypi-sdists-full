@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: behavex
-Version: 4.5.1
+Version: 4.6.0
 Summary: Agile testing framework on top of Behave (BDD).
 Author-email: Hernan Rey <behavex_users@googlegroups.com>
 License: The MIT License (MIT)
@@ -74,6 +74,8 @@ Dynamic: license-file
 
 Just to mention the most important features delivered in latest BehaveX releases:
 
+🏷️ **Tag Expressions v2 Support** *(v4.6.0)* - Native support for Cucumber-style tag expressions with boolean logic (and, or, not), parentheses grouping, wildcard matching (@prefix*, @*suffix, @*substring*), and complex filtering. Supported in Behave 1.3.0+ using zero external dependencies. See [Tag Expressions](#tag-expressions) for comprehensive examples and usage.
+
 🚀 **Enhanced Behave Integration** *(v4.5.0)* - Added support for newer behave versions (>= 1.3.0). Also, major performance overhaul using direct Behave Runner class integration, providing better programmatic control with improved status detection efficiency. See [Migration to BehaveX 4.5.0](#migration-to-behavex-450--behave--130) for upgrade considerations.
 
 🛠️ **Enhanced Error Status Handling** *(v4.5.0)* - Comprehensive improvements in "error" status management, now preserving original "error" status instead of converting to "failed" for more accurate reporting.
@@ -92,6 +94,7 @@ Just to mention the most important features delivered in latest BehaveX releases
 - [Installation Instructions](#installation-instructions)
 - [Migration to BehaveX 4.5.0](#migration-to-behavex-450--behave--130)
 - [Execution Instructions](#execution-instructions)
+- [Tag Expressions](#tag-expressions)
 - [Constraints](#constraints)
 - [Supported Behave Arguments](#supported-behave-arguments)
 - [Specific Arguments from BehaveX](#specific-arguments-from-behavex)
@@ -190,12 +193,20 @@ Execute BehaveX in the same way as Behave from the command line, using the `beha
 
 - **Run scenarios tagged as `TAG_1` but not `TAG_2`:**
   ```bash
+  # v1 syntax (all Behave versions)
   behavex -t=@TAG_1 -t=~@TAG_2
+
+  # v2 syntax (Cucumber Style, supported in Behave 1.3.0+)
+  behavex -t="@TAG_1 and not @TAG_2"
   ```
 
 - **Run scenarios tagged as `TAG_1` or `TAG_2`:**
   ```bash
+  # v1 syntax (all Behave versions)
   behavex -t=@TAG_1,@TAG_2
+
+  # v2 syntax (Cucumber Style, supported in Behave 1.3.0+)
+  behavex -t="@TAG_1 or @TAG_2"
   ```
 
 - **Run scenarios tagged as `TAG_1` using 4 parallel processes:**
@@ -248,12 +259,163 @@ Execute BehaveX in the same way as Behave from the command line, using the `beha
   behavex -t=@TAG_1 --order-tests-strict --parallel-processes=2
   ```
 
+- **Run complex tag expressions (Cucumber Style, supported in Behave 1.3.0+):**
+  ```bash
+  # Advanced filtering with wildcards
+  behavex -t="@smoke* and not @*_slow" --parallel-processes=3
+
+  # Production-ready filtering
+  behavex -t="(@api or @ui) and @high_priority and not @flaky" --parallel-processes=4
+  ```
+
 - **Run scenarios with custom order tag prefix and parallel execution:**
   ```bash
   behavex --order-tests --order-tag-prefix=PRIORITY --parallel-processes=3
   ```
 
+## Tag Expressions
 
+BehaveX supports two types of tag expressions for filtering test scenarios:
+
+### Tag Expressions v1 (Legacy Format)
+
+Tag Expressions v1 use a simple syntax compatible with all Behave versions:
+
+**Basic Examples:**
+```bash
+# Run scenarios with a specific tag
+behavex -t=@smoke
+
+# Exclude scenarios with a tag
+behavex -t=~@slow
+
+# Multiple conditions (AND logic)
+behavex -t=@smoke -t=~@slow
+
+# Multiple tags (OR logic)
+behavex -t=@smoke,@regression
+```
+
+**Advanced v1 Examples:**
+```bash
+# Run smoke tests but exclude slow ones
+behavex -t=@smoke -t=~@slow
+
+# Run regression or integration tests
+behavex -t=@regression,@integration
+
+# Run critical tests but exclude known issues
+behavex -t=@critical -t=~@known_issue
+
+# Complex filtering with multiple exclusions
+behavex -t=@api -t=~@slow -t=~@flaky
+```
+
+### Tag Expressions v2 (Cucumber Style, supported in Behave 1.3.0+)
+
+> **Note:** Tag Expressions v2 (Cucumber Style) require **Behave 1.3.0 or newer**. BehaveX will automatically detect v2 syntax and use Behave's native parser.
+
+Tag Expressions v2 support advanced boolean logic with a more intuitive syntax:
+
+**Boolean Operators:**
+```bash
+# AND logic
+behavex -t="@smoke and @api"
+
+# OR logic
+behavex -t="@smoke or @regression"
+
+# NOT logic
+behavex -t="not @slow"
+
+# Complex combinations
+behavex -t="@smoke and not @slow"
+```
+
+**Parentheses Grouping:**
+```bash
+# Group conditions with parentheses
+behavex -t="(@smoke or @regression) and not @slow"
+
+# Complex nested grouping
+behavex -t="(@smoke and @api) or (@regression and @ui)"
+
+# Deep nesting
+behavex -t="(((@smoke or @regression) and @api) or @critical) and not @slow"
+```
+
+**Wildcard Matching (Cucumber Style Feature, supported in Behave 1.3.0+):**
+```bash
+# Prefix matching
+behavex -t="@smoke*"                    # Matches @smoke, @smoke_test, @smoke_api
+
+# Suffix matching
+behavex -t="@*_test"                    # Matches @api_test, @ui_test, @smoke_test
+
+# Substring matching
+behavex -t="@*smoke*"                   # Matches @smoke, @smoke_test, @test_smoke
+
+# Complex wildcard combinations
+behavex -t="@smoke* and not @*_slow"    # Smoke tests excluding slow ones
+behavex -t="@*_api or @*_ui"            # All API or UI tests
+```
+
+**Advanced v2 Examples:**
+```bash
+# Production-ready test filtering
+behavex -t="(@smoke or @regression) and not (@slow or @flaky)"
+
+# Environment-specific testing
+behavex -t="@api and (@staging or @production) and not @experimental"
+
+# Feature-based filtering with wildcards
+behavex -t="@user* and (@*_positive or @*_critical) and not @*_slow"
+
+# Complex business logic filtering
+behavex -t="((@smoke and @high_priority) or @critical) and not (@known_issue or @skip)"
+
+# Multi-level wildcard filtering
+behavex -t="(@auth* or @payment*) and (@*_test or @*_check) and not @*_manual"
+```
+
+**Multiple Tag Arguments (Combined with AND logic):**
+```bash
+# Multiple -t arguments are combined with AND
+behavex -t="@smoke or @regression" -t="not @slow"
+# Equivalent to: (@smoke or @regression) and (not @slow)
+
+# Complex multi-argument filtering
+behavex -t="@api* and @*_test" -t="not @experimental" -t="@high_priority or @critical"
+```
+
+### Version Compatibility
+
+| Feature | Behave 1.2.6 | Behave 1.3.0+ |
+|---------|---------------|----------------|
+| Tag Expressions v1 | ✅ Full Support | ✅ Full Support |
+| Tag Expressions v2 | ❌ Not Supported | ✅ Full Support |
+| Boolean operators (and, or, not) | ❌ | ✅ |
+| Parentheses grouping | ❌ | ✅ |
+| Wildcard matching | ❌ | ✅ |
+
+### Migration from v1 to v2
+
+When upgrading to Behave 1.3.0+, you can migrate your tag expressions:
+
+```bash
+# v1 Format                          # v2 Equivalent
+behavex -t=@smoke -t=~@slow         →  behavex -t="@smoke and not @slow"
+behavex -t=@smoke,@regression       →  behavex -t="@smoke or @regression"
+behavex -t=@api -t=~@slow -t=~@flaky → behavex -t="@api and not @slow and not @flaky"
+```
+
+### Best Practices
+
+- **Use quotes** around v2 expressions to prevent shell interpretation
+- **Test expressions** with `--dry-run` to verify scenario selection
+- **Prefer v2 syntax** for better readability when using Behave 1.3.0+
+- **Use wildcards** to reduce maintenance when tag naming follows patterns
+- **Group complex logic** with parentheses for clarity
 
 ## Constraints
 
@@ -307,11 +469,13 @@ BehaveX manages concurrent executions of Behave instances in multiple processes.
 ### Examples:
 ```bash
 behavex --parallel-processes=3
-behavex -t=@<TAG> --parallel-processes=3
-behavex -t=@<TAG> --parallel-processes=2 --parallel-scheme=scenario
-behavex -t=@<TAG> --parallel-processes=5 --parallel-scheme=feature
-behavex -t=@<TAG> --parallel-processes=5 --parallel-scheme=feature --show-progress-bar
+behavex -t=@TAG --parallel-processes=3
+behavex -t=@TAG --parallel-processes=2 --parallel-scheme=scenario
+behavex -t=@TAG --parallel-processes=5 --parallel-scheme=feature
+behavex -t=@TAG --parallel-processes=5 --parallel-scheme=feature --show-progress-bar
 ```
+
+For advanced tag filtering examples, see the [Tag Expressions](#tag-expressions) section.
 
 ### Identifying Each Parallel Process
 
@@ -583,9 +747,14 @@ The HTML report provides a range of metrics to help you understand the performan
 
 BehaveX enhances the traditional Behave dry run feature to provide more value. The HTML report generated during a dry run can be shared with stakeholders to discuss scenario specifications and test plans.
 
-To execute a dry run, we recommend using the following command:
+To execute a dry run, use the `--dry-run` argument:
 
-> behavex -t=@TAG --dry-run
+```bash
+behavex --dry-run
+behavex -t=@TAG --dry-run
+```
+
+For advanced tag filtering in dry runs, see the [Tag Expressions](#tag-expressions) section.
 
 ## Muting Test Scenarios
 
@@ -619,7 +788,12 @@ Note that the **-o** or **--output-folder** argument does not work with parallel
 
 When running tests in parallel, you can display a progress bar in the console to monitor the test execution progress. To enable the progress bar, use the **--show-progress-bar** argument:
 
-> behavex -t=@TAG --parallel-processes=3 --show-progress-bar
+```bash
+behavex --parallel-processes=3 --show-progress-bar
+behavex -t=@TAG --parallel-processes=3 --show-progress-bar
+```
+
+For advanced tag filtering with progress bar, see the [Tag Expressions](#tag-expressions) section.
 
 If you are printing logs in the console, you can configure the progress bar to display updates on a new line by adding the following setting to the BehaveX configuration file:
 
@@ -642,6 +816,7 @@ BehaveX provides integration with Allure, a flexible, lightweight multi-language
 To generate Allure reports, use the `--formatter` argument to specify the Allure formatter:
 
 ```bash
+behavex --formatter=behavex.outputs.formatters.allure_behavex_formatter:AllureBehaveXFormatter
 behavex -t=@TAG --formatter=behavex.outputs.formatters.allure_behavex_formatter:AllureBehaveXFormatter
 ```
 
@@ -650,6 +825,8 @@ By default, the Allure results will be generated in the `output/allure-results` 
 ```bash
 behavex -t=@TAG --formatter=behavex.outputs.formatters.allure_behavex_formatter:AllureBehaveXFormatter --formatter-outdir=my-allure-results
 ```
+
+For advanced tag filtering with Allure reports, see the [Tag Expressions](#tag-expressions) section.
 
 ### Attaching Screenshots and Evidence to Allure Reports
 

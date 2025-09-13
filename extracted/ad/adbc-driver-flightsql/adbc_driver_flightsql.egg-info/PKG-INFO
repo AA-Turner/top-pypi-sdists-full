@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: adbc-driver-flightsql
-Version: 1.7.0
+Version: 1.8.0
 Summary: An ADBC driver for working with Apache Arrow Flight SQL.
 Author-email: Apache Arrow Developers <dev@arrow.apache.org>
 License-Expression: Apache-2.0

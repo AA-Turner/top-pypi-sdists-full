@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zope.pagetemplate
-Version: 5.2
+Version: 6.0
 Summary: Zope Page Templates
 Home-page: https://github.com/zopefoundation/zope.pagetemplate
 Author: Zope Foundation and Contributors
@@ -38,7 +38,7 @@ Provides-Extra: test
 Requires-Dist: zope.proxy; extra == "test"
 Requires-Dist: zope.security; extra == "test"
 Requires-Dist: zope.testing; extra == "test"
-Requires-Dist: zope.testrunner; extra == "test"
+Requires-Dist: zope.testrunner>=6.4; extra == "test"
 Requires-Dist: zope.untrustedpython>=5.0.dev0; extra == "test"
 Provides-Extra: untrusted
 Requires-Dist: zope.untrustedpython>=5.0.dev0; extra == "untrusted"
@@ -99,6 +99,12 @@ https://zopepagetemplate.readthedocs.io
 =========
  Changes
 =========
+
+6.0 (2025-09-12)
+================
+
+- Replace ``pkg_resources`` namespace with PEP 420 native namespace.
+
 
 5.2 (2025-08-06)
 ================

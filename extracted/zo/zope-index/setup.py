@@ -26,11 +26,10 @@ from distutils.errors import DistutilsExecError
 from distutils.errors import DistutilsPlatformError
 
 from setuptools import Extension
-from setuptools import find_packages
 from setuptools import setup
 
 
-version = '7.0'
+version = '8.0'
 
 
 def read(*rnames):
@@ -79,18 +78,24 @@ class optional_build_ext(build_ext):
 setup(name='zope.index',
       version=version,
       url='https://github.com/zopefoundation/zope.index',
-      license='ZPL 2.1',
+      license='ZPL-2.1',
       author='Zope Foundation and Contributors',
-      author_email='zope-dev@zope.org',
+      author_email='zope-dev@zope.dev',
       description="Indices for using with catalog like text, field, etc.",
       long_description=long_description,
+      # we need the following two parameters because we compile C code,
+      # otherwise only the shared library is installed:
+      package_dir={'': 'src'},
+      packages=['zope.index',
+                'zope.index.field',
+                'zope.index.text',
+                'zope.index.topic'],
       classifiers=[
           'Development Status :: 5 - Production/Stable',
           'Intended Audience :: Developers',
           'License :: OSI Approved :: Zope Public License',
           'Programming Language :: Python',
           'Programming Language :: Python :: 3',
-          'Programming Language :: Python :: 3.8',
           'Programming Language :: Python :: 3.9',
           'Programming Language :: Python :: 3.10',
           'Programming Language :: Python :: 3.11',
@@ -103,13 +108,10 @@ setup(name='zope.index',
           'Topic :: Internet :: WWW/HTTP',
           'Topic :: Software Development',
       ],
-      packages=find_packages('src'),
-      package_dir={'': 'src'},
-      namespace_packages=['zope'],
-      python_requires='>=3.8',
+      python_requires='>=3.9',
       extras_require={
           'test': [
-              'zope.testrunner',
+              'zope.testrunner >= 6.4',
           ],
           'tools': [
               'ZODB',

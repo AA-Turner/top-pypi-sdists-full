@@ -5,18 +5,24 @@ from __future__ import annotations
 from . import _version
 from .constants import ExemptionScope, HeaderNames
 from .errors import RateLimitExceeded
-from .extension import Limiter
-from .wrappers import RequestLimit
+from .extension import Limiter, RequestLimit
+from .limits import (
+    ApplicationLimit,
+    Limit,
+    MetaLimit,
+    RouteLimit,
+)
 
 __all__ = [
     "ExemptionScope",
     "HeaderNames",
     "Limiter",
+    "Limit",
+    "RouteLimit",
+    "ApplicationLimit",
+    "MetaLimit",
     "RateLimitExceeded",
     "RequestLimit",
 ]
-
-#: Aliased for backward compatibility
-HEADERS = HeaderNames
 
 __version__ = _version.get_versions()["version"]

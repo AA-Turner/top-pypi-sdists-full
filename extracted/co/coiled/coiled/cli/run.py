@@ -238,7 +238,8 @@ def run_via_ssh(
 
     if container and "/uv:" in container and command_string.startswith("uv"):
         command_string = (
-            "(apt update && apt upgrade && apt install -y --no-install-recommends ca-certificates) 2>&1 > /dev/null\n"
+            "(apt update && apt upgrade && apt install -y --no-install-recommends ca-certificates) "
+            "2>&1 > /dev/null\n"
             f"{command_string}"
         )
 

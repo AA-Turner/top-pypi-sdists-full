@@ -23,7 +23,7 @@ class IdpLogin:
             j['id_token'],
             j['state'],
             idp_uri=j['idp_uri'] if 'idp_uri' in j else None,
-            id_token_obj=IdToken.from_dict(j['id_token_obj']))
+            id_token_obj=IdToken.from_dict(j['id_token_obj']) if 'id_token_obj' in j else None)
 
     def ser(self):
         return base64.b64encode(json.dumps({

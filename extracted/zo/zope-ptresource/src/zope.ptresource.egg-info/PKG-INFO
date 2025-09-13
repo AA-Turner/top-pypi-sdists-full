@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: zope.ptresource
-Version: 5.1
+Version: 6.0
 Summary: Page template resource plugin for zope.browserresource
 Home-page: https://github.com/zopefoundation/zope.ptresource/
 Author: Zope Foundation and Contributors
@@ -33,7 +33,19 @@ Requires-Dist: zope.publisher
 Requires-Dist: zope.security
 Provides-Extra: test
 Requires-Dist: zope.testing; extra == "test"
-Requires-Dist: zope.testrunner; extra == "test"
+Requires-Dist: zope.testrunner>=6.4; extra == "test"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: project-url
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 ===============
 zope.ptresource
@@ -73,6 +85,12 @@ extensions in the package's ``configure.zcml`` file.
 =========
  Changes
 =========
+
+6.0 (2025-09-12)
+================
+
+- Replace ``pkg_resources`` namespace with PEP 420 native namespace.
+
 
 5.1 (2025-02-14)
 ================

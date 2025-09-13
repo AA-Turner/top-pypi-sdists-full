@@ -2605,6 +2605,13 @@ class VIEW3D_PT_tools_grease_pencil_sculpt_appearance(
         :rtype: typing.Any
         """
 
+    @classmethod
+    def poll(cls, context) -> None:
+        """
+
+        :param context:
+        """
+
 class VIEW3D_PT_tools_grease_pencil_v3_brush_stabilizer(_bpy_types.Panel, View3DPanel):
     bl_category: typing.Any
     bl_context: typing.Any

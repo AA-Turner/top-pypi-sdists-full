@@ -155,6 +155,7 @@ def test_serialize_workflow():
                                                 "id": "1381c078-efa2-4255-89a1-7b4cb742c7fc",
                                                 "label": "Start Node",
                                                 "type": "GENERIC",
+                                                "should_file_merge": True,
                                                 "display_data": {"position": {"x": 200.0, "y": -50.0}},
                                                 "base": {
                                                     "name": "BaseNode",
@@ -400,7 +401,7 @@ def test_serialize_workflow():
                     "type": "DICTIONARY_REFERENCE",
                     "entries": [
                         {
-                            "id": "d5c4d578-6ef1-4786-88f6-1ab0892d0798",
+                            "id": "8eb8b551-9b48-43b3-861f-52adb5c585a8",
                             "key": "question",
                             "value": {
                                 "type": "WORKFLOW_INPUT",

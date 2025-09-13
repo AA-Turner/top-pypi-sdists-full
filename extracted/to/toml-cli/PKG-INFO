@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: toml-cli
-Version: 0.8.1
+Version: 0.8.2
 Summary: Command line interface to read and write keys/values to/from toml files
 Project-URL: Repository, https://github.com/mrijken/toml-cli
 Author-email: Marc Rijken <marc@rijken.org>
@@ -25,7 +25,13 @@ continuous development steps.
 
 ## Install
 
+Install via
+
 `pip install toml-cli`
+
+or
+
+`uv tool install toml-cli`
 
 ## Get a value
 

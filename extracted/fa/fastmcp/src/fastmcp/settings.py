@@ -272,7 +272,7 @@ class Settings(BaseSettings):
 
                 If None, no automatic configuration will take place.
 
-                This setting is *always* overriden by any auth provider passed to the
+                This setting is *always* overridden by any auth provider passed to the
                 FastMCP constructor.
 
                 Note that most auth providers require additional configuration
@@ -342,6 +342,20 @@ class Settings(BaseSettings):
             ),
         ),
     ] = False
+
+    show_cli_banner: Annotated[
+        bool,
+        Field(
+            default=True,
+            description=inspect.cleandoc(
+                """
+                If True, the server banner will be displayed when running the server via CLI.
+                This setting can be overridden by the --no-banner CLI flag.
+                Set to False via FASTMCP_SHOW_CLI_BANNER=false to suppress the banner.
+                """
+            ),
+        ),
+    ] = True
 
 
 def __getattr__(name: str):

@@ -1,6 +1,6 @@
 use crate::constants::DATETIME_PARSER;
+use crate::difference::{DateDifferenceArg, RyDateDifference};
 use crate::errors::{map_py_overflow_err, map_py_value_err};
-use crate::ry_date_difference::{DateDifferenceArg, RyDateDifference};
 use crate::ry_datetime::RyDateTime;
 use crate::ry_iso_week_date::RyISOWeekDate;
 use crate::ry_signed_duration::RySignedDuration;
@@ -13,20 +13,18 @@ use crate::spanish::Spanish;
 use crate::{JiffEra, JiffEraYear, JiffRoundMode, JiffUnit, JiffWeekday};
 use jiff::Zoned;
 use jiff::civil::{Date, Weekday};
-use pyo3::basic::CompareOp;
-use pyo3::prelude::PyAnyMethods;
-use pyo3::types::{PyDict, PyDictMethods, PyTuple};
-use pyo3::{
-    Bound, IntoPyObject, IntoPyObjectExt, PyAny, PyErr, PyResult, Python, intern, pyclass,
-    pymethods,
-};
+use pyo3::prelude::*;
+use pyo3::pyclass::CompareOp;
+use pyo3::types::{PyDict, PyTuple};
+use pyo3::{IntoPyObject, IntoPyObjectExt};
+use ryo3_macro_rules::{any_repr, py_type_err, py_value_error};
 use std::fmt::Display;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::ops::Sub;
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[cfg_attr(feature = "serde", serde(transparent))]
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 #[pyclass(name = "Date", module = "ry.ryo3", frozen)]
 pub struct RyDate(pub(crate) Date);
 
@@ -104,10 +102,12 @@ impl RyDate {
         hasher.finish()
     }
 
+    #[expect(clippy::wrong_self_convention)]
     fn to_datetime(&self, time: &RyTime) -> RyDateTime {
         RyDateTime::from(self.0.to_datetime(time.0))
     }
 
+    #[expect(clippy::wrong_self_convention)]
     fn to_zoned(&self, tz: RyTimeZone) -> PyResult<RyZoned> {
         self.0
             .to_zoned(tz.into())
@@ -243,10 +243,12 @@ impl RyDate {
         Self(d)
     }
 
+    #[expect(clippy::wrong_self_convention)]
     fn to_py(&self) -> Date {
         self.to_pydate()
     }
 
+    #[expect(clippy::wrong_self_convention)]
     fn to_pydate(&self) -> Date {
         self.0
     }
@@ -276,19 +278,19 @@ impl RyDate {
         self.in_tz(tz)
     }
 
-    fn asdict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+    #[expect(clippy::wrong_self_convention)]
+    fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+        use crate::interns;
         let dict = PyDict::new(py);
-        dict.set_item(intern!(py, "year"), self.0.year())?;
-        dict.set_item(intern!(py, "month"), self.0.month())?;
-        dict.set_item(intern!(py, "day"), self.0.day())?;
+        dict.set_item(interns::year(py), self.0.year())?;
+        dict.set_item(interns::month(py), self.0.month())?;
+        dict.set_item(interns::day(py), self.0.day())?;
         Ok(dict)
     }
 
     fn series(&self, period: &RySpan) -> PyResult<RyDateSeries> {
         if period.0.is_zero() {
-            Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
-                "period cannot be zero",
-            ))
+            Err(py_value_error!("period cannot be zero"))
         } else {
             Ok(RyDateSeries::from(self.0.series(period.0)))
         }
@@ -415,14 +417,14 @@ impl RyDate {
 
     fn _since(&self, other: &RyDateDifference) -> PyResult<RySpan> {
         self.0
-            .since(other.0)
+            .since(other.diff)
             .map(RySpan::from)
             .map_err(map_py_value_err)
     }
 
     fn _until(&self, other: &RyDateDifference) -> PyResult<RySpan> {
         self.0
-            .until(other.0)
+            .until(other.diff)
             .map(RySpan::from)
             .map_err(map_py_value_err)
     }
@@ -448,6 +450,63 @@ impl RyDate {
 
     fn iso_week_date(&self) -> RyISOWeekDate {
         self.0.iso_week_date().into()
+    }
+
+    #[staticmethod]
+    fn from_any<'py>(value: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
+        let py = value.py();
+        if let Ok(pystr) = value.downcast::<pyo3::types::PyString>() {
+            let s = pystr.extract::<&str>()?;
+            Self::from_str(s).map(|dt| dt.into_bound_py_any(py).map(Bound::into_any))?
+        } else if let Ok(pybytes) = value.downcast::<pyo3::types::PyBytes>() {
+            let s = String::from_utf8_lossy(pybytes.as_bytes());
+            Self::from_str(&s).map(|dt| dt.into_bound_py_any(py).map(Bound::into_any))?
+        } else if value.is_exact_instance_of::<Self>() {
+            value.into_bound_py_any(py)
+        // } else if let Ok(v) = value.downcast::<PyInt>() {
+        //     let i = v.extract::<i64>()?;
+        //     let ts = if (-20_000_000_000..=20_000_000_000).contains(&i) {
+        //         jiff::Timestamp::from_second(i)
+        //     } else {
+        //         jiff::Timestamp::from_millisecond(i)
+        //     }
+        //     .map_err(map_py_value_err)?;
+        //     let zdt = ts.to_zoned(TimeZone::UTC);
+        //     let date = zdt.date();
+        //     Self::from(date).into_bound_py_any(py)
+        } else if let Ok(d) = value.extract::<RyDateTime>() {
+            let dt = d.date();
+            dt.into_bound_py_any(py)
+        } else if let Ok(d) = value.extract::<RyZoned>() {
+            let dt = d.date();
+            dt.into_bound_py_any(py)
+        } else if let Ok(d) = value.extract::<Date>() {
+            Self::from_pydate(d).into_bound_py_any(py)
+        } else {
+            let valtype = any_repr!(value);
+            py_type_err!("Date conversion error: {valtype}",)
+        }
+    }
+
+    /// Try to create a Date from a variety of python objects
+    #[cfg(feature = "pydantic")]
+    #[staticmethod]
+    fn _pydantic_validate<'py>(
+        value: &Bound<'py, PyAny>,
+        _handler: &Bound<'py, PyAny>,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        Self::from_any(value).map_err(map_py_value_err)
+    }
+
+    #[cfg(feature = "pydantic")]
+    #[classmethod]
+    fn __get_pydantic_core_schema__<'py>(
+        cls: &Bound<'py, ::pyo3::types::PyType>,
+        source: &Bound<'py, PyAny>,
+        handler: &Bound<'py, PyAny>,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        use ryo3_pydantic::GetPydanticCoreSchemaCls;
+        Self::get_pydantic_core_schema(cls, source, handler)
     }
 }
 

@@ -1,29 +1,9 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: super_collections
-Version: 0.5.3
+Version: 0.5.5
 Summary: file: README.md
 Author: Laurent Franceschetti
-License: MIT License
-        
-        Copyright (c) 2024 Laurent Franceschetti
-        
-        Permission is hereby granted, free of charge, to any person obtaining a copy
-        of this software and associated documentation files (the "Software"), to deal
-        in the Software without restriction, including without limitation the rights
-        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-        copies of the Software, and to permit persons to whom the Software is
-        furnished to do so, subject to the following conditions:
-        
-        The above copyright notice and this permission notice shall be included in all
-        copies or substantial portions of the Software.
-        
-        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-        SOFTWARE.
+License: MIT
 Project-URL: Source, https://github.com/fralau/super-collections
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
@@ -31,12 +11,17 @@ Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: hjson
 Provides-Extra: test
 Requires-Dist: pytest>=7.0; extra == "test"
+Requires-Dist: rich; extra == "test"
+Requires-Dist: pyyaml; extra == "test"
+Dynamic: license-file
 
 <div align="center">
 
@@ -76,6 +61,7 @@ markdown-toc -i README.md
   - [Install](#install)
     - [From the repository](#from-the-repository)
   - [Usage](#usage)
+  - [Export to JSON or Hjson](#export-to-json-or-hjson)
   - [Remarks](#remarks)
     - [Restrictions](#restrictions)
     - [Does it work?](#does-it-work)
@@ -193,6 +179,23 @@ statically declared in the code); or in an advanced REPL
 
 The methods `dict.update(other_dict)` and `list.extend(other_list)` 
 automatically cast the contents into SuperDict and SuperList as needed.
+
+## Export to JSON or Hjson
+
+You can export a SuperDict or SuperList to JSON or [Hjson](https://hjson.github.io/), for debug purposes.
+It is not guaranteed that it will preserve all the meaningful information you want, but all basic types
+will be preserved. 
+
+> Python DateTimes are converted into ISO Dates.
+
+```python
+print (d.to_json())
+print (d.to_hjson())
+```
+
+The module also exports a `json_encode()` function, which will attempt to serialize
+any object in Python to JSON (in an opinionated way).
+
 
 ## Remarks
 

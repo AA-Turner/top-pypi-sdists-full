@@ -42,6 +42,7 @@ def test_serialize_workflow():
         "id": "21f29cac-da87-495f-bba1-093d423f4e46",
         "label": "Get Current Weather Node",
         "type": "GENERIC",
+        "should_file_merge": True,
         "display_data": {
             "position": {"x": 200.0, "y": -50.0},
             "comment": {
@@ -169,7 +170,7 @@ def test_serialize_workflow():
                     "type": "DICTIONARY_REFERENCE",
                     "entries": [
                         {
-                            "id": "b6d4427d-16dd-478a-9780-f88d60d2263d",
+                            "id": "8eb8b551-9b48-43b3-861f-52adb5c585a8",
                             "key": "question",
                             "value": {
                                 "type": "WORKFLOW_INPUT",

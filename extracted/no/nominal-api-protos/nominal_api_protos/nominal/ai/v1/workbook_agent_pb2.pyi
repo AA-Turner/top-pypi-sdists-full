@@ -75,7 +75,7 @@ class ReasoningPart(_message.Message):
     def __init__(self, reasoning: _Optional[str] = ...) -> None: ...
 
 class StreamChatResponse(_message.Message):
-    __slots__ = ("finish", "error", "text_start", "text_delta", "text_end", "reasoning_start", "reasoning_delta", "reasoning_end", "workbook_mutation")
+    __slots__ = ("finish", "error", "text_start", "text_delta", "text_end", "reasoning_start", "reasoning_delta", "reasoning_end", "workbook_mutation", "tool_action")
     FINISH_FIELD_NUMBER: _ClassVar[int]
     ERROR_FIELD_NUMBER: _ClassVar[int]
     TEXT_START_FIELD_NUMBER: _ClassVar[int]
@@ -85,6 +85,7 @@ class StreamChatResponse(_message.Message):
     REASONING_DELTA_FIELD_NUMBER: _ClassVar[int]
     REASONING_END_FIELD_NUMBER: _ClassVar[int]
     WORKBOOK_MUTATION_FIELD_NUMBER: _ClassVar[int]
+    TOOL_ACTION_FIELD_NUMBER: _ClassVar[int]
     finish: Finish
     error: Error
     text_start: TextStart
@@ -94,7 +95,8 @@ class StreamChatResponse(_message.Message):
     reasoning_delta: ReasoningDelta
     reasoning_end: ReasoningEnd
     workbook_mutation: WorkbookMutation
-    def __init__(self, finish: _Optional[_Union[Finish, _Mapping]] = ..., error: _Optional[_Union[Error, _Mapping]] = ..., text_start: _Optional[_Union[TextStart, _Mapping]] = ..., text_delta: _Optional[_Union[TextDelta, _Mapping]] = ..., text_end: _Optional[_Union[TextEnd, _Mapping]] = ..., reasoning_start: _Optional[_Union[ReasoningStart, _Mapping]] = ..., reasoning_delta: _Optional[_Union[ReasoningDelta, _Mapping]] = ..., reasoning_end: _Optional[_Union[ReasoningEnd, _Mapping]] = ..., workbook_mutation: _Optional[_Union[WorkbookMutation, _Mapping]] = ...) -> None: ...
+    tool_action: ToolAction
+    def __init__(self, finish: _Optional[_Union[Finish, _Mapping]] = ..., error: _Optional[_Union[Error, _Mapping]] = ..., text_start: _Optional[_Union[TextStart, _Mapping]] = ..., text_delta: _Optional[_Union[TextDelta, _Mapping]] = ..., text_end: _Optional[_Union[TextEnd, _Mapping]] = ..., reasoning_start: _Optional[_Union[ReasoningStart, _Mapping]] = ..., reasoning_delta: _Optional[_Union[ReasoningDelta, _Mapping]] = ..., reasoning_end: _Optional[_Union[ReasoningEnd, _Mapping]] = ..., workbook_mutation: _Optional[_Union[WorkbookMutation, _Mapping]] = ..., tool_action: _Optional[_Union[ToolAction, _Mapping]] = ...) -> None: ...
 
 class Finish(_message.Message):
     __slots__ = ()
@@ -199,3 +201,13 @@ class WorkbookMutation(_message.Message):
     add_or_replace_variable: AddOrReplaceVariableMutation
     delete_variables: DeleteVariablesMutation
     def __init__(self, id: _Optional[str] = ..., add_tab: _Optional[_Union[AddTabMutation, _Mapping]] = ..., add_or_update_panel: _Optional[_Union[AddOrUpdatePanelMutation, _Mapping]] = ..., remove_panels: _Optional[_Union[RemovePanelsMutation, _Mapping]] = ..., add_or_replace_variable: _Optional[_Union[AddOrReplaceVariableMutation, _Mapping]] = ..., delete_variables: _Optional[_Union[DeleteVariablesMutation, _Mapping]] = ...) -> None: ...
+
+class ToolAction(_message.Message):
+    __slots__ = ("id", "tool_action_verb", "tool_target")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    TOOL_ACTION_VERB_FIELD_NUMBER: _ClassVar[int]
+    TOOL_TARGET_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    tool_action_verb: str
+    tool_target: str
+    def __init__(self, id: _Optional[str] = ..., tool_action_verb: _Optional[str] = ..., tool_target: _Optional[str] = ...) -> None: ...

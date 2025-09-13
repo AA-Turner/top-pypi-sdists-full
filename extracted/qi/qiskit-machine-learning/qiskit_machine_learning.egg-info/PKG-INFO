@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: qiskit-machine-learning
-Version: 0.8.3
+Version: 0.8.4
 Summary: Qiskit Machine Learning: A library of quantum computing machine learning experiments
 Home-page: https://github.com/qiskit-community/qiskit-machine-learning
 Author: Qiskit Machine Learning Development Team
@@ -28,7 +28,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Requires-Dist: qiskit<2.0,>=1.0
 Requires-Dist: numpy>=2.0
-Requires-Dist: scipy>=1.4
+Requires-Dist: scipy<1.16,>=1.4
 Requires-Dist: scikit-learn>=1.2
 Requires-Dist: setuptools>=40.1
 Requires-Dist: dill>=0.3.4

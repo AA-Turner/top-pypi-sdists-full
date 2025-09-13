@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: zope.globalrequest
-Version: 2.1
+Version: 3.0
 Summary: Global way of retrieving the currently active request.
 Home-page: https://github.com/zopefoundation/zope.globalrequest
 Author: Zope Foundation and Contributors
@@ -34,7 +34,7 @@ Requires-Dist: zope.interface
 Requires-Dist: zope.publisher
 Requires-Dist: zope.traversing
 Provides-Extra: test
-Requires-Dist: zope.testrunner; extra == "test"
+Requires-Dist: zope.testrunner>=6.4; extra == "test"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -66,6 +66,12 @@ the latter promotes a clean separation of concerns and the pattern of having a g
 
 Changelog
 =========
+
+3.0 (2025-09-12)
+----------------
+
+- Replace ``pkg_resources`` namespace with PEP 420 native namespace.
+
 
 2.1 (2025-09-04)
 ----------------

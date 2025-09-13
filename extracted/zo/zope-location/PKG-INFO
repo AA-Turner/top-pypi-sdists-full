@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: zope.location
-Version: 5.1
+Version: 6.0
 Summary: Zope Location
 Home-page: http://github.com/zopefoundation/zope.location/
 Author: Zope Foundation and Contributors
@@ -38,13 +38,13 @@ Requires-Dist: zope.component>=4.0.1; extra == "component"
 Provides-Extra: copy
 Requires-Dist: zope.copy>=4.0; extra == "copy"
 Provides-Extra: test-minimal
-Requires-Dist: zope.testrunner; extra == "test-minimal"
+Requires-Dist: zope.testrunner>=6.4; extra == "test-minimal"
 Provides-Extra: test-component
-Requires-Dist: zope.testrunner; extra == "test-component"
+Requires-Dist: zope.testrunner>=6.4; extra == "test-component"
 Requires-Dist: zope.component>=4.0.1; extra == "test-component"
 Requires-Dist: zope.configuration; extra == "test-component"
 Provides-Extra: test
-Requires-Dist: zope.testrunner; extra == "test"
+Requires-Dist: zope.testrunner>=6.4; extra == "test"
 Requires-Dist: zope.configuration; extra == "test"
 Requires-Dist: zope.component>=4.0.1; extra == "test"
 Requires-Dist: zope.copy>=4.0; extra == "test"
@@ -53,6 +53,18 @@ Requires-Dist: repoze.sphinx.autointerface; extra == "docs"
 Requires-Dist: Sphinx; extra == "docs"
 Requires-Dist: zope.component>=4.0.1; extra == "docs"
 Requires-Dist: zope.configuration; extra == "docs"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 ===================
  ``zope.location``
@@ -88,6 +100,12 @@ Documentation is hosted at https://zopelocation.readthedocs.io/
 =========
  Changes
 =========
+
+6.0 (2025-09-12)
+================
+
+- Replace ``pkg_resources`` namespace with PEP 420 native namespace.
+
 
 5.1 (2025-01-31)
 ================

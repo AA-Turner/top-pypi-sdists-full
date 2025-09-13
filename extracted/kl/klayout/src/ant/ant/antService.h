@@ -208,10 +208,9 @@ public:
    *    MoveP2X - dragging P2.x (if box-like)
    *    MoveP1Y - dragging P1.y (if box-like)
    *    MoveP2Y - dragging P2.y (if box-like)
-   *    MoveRuler - dragging a whole ruler (one)
    *    MoveSelection - dragging a whole ruler (many)
    */
-  enum MoveMode { MoveNone, MoveP1, MoveP2, MoveP12, MoveP21, MoveP1X, MoveP2X, MoveP1Y, MoveP2Y, MoveRuler, MoveSelected };
+  enum MoveMode { MoveNone, MoveP1, MoveP2, MoveP12, MoveP21, MoveP1X, MoveP2X, MoveP1Y, MoveP2Y, MoveSelected };
 
   Service (db::Manager *manager, lay::LayoutViewBase *view);
 
@@ -381,14 +380,19 @@ public:
 #endif
 
   /**
-   *  @brief Get the selection for the properties page
+   *  @brief Gets the selection for the properties page
    */
   void get_selection (std::vector <obj_iterator> &selection) const;
 
   /**
+   *  @brief Sets the selection for the properties page
+   */
+  void set_selection (const std::vector <obj_iterator> &selection);
+
+  /**
    *  @brief Direct access to the selection 
    */
-  const std::map<obj_iterator, unsigned int> &selection () const
+  const std::set<obj_iterator> &selection () const
   {
     return m_selected;
   }
@@ -558,9 +562,9 @@ private:
   //  and the moved rules in move mode
   std::vector<ant::View *> m_rulers;
   //  The selection
-  std::map<obj_iterator, unsigned int> m_selected;
+  std::set<obj_iterator> m_selected;
   //  The previous selection
-  std::map<obj_iterator, unsigned int> m_previous_selection;
+  std::set<obj_iterator> m_previous_selection;
   //  The reference point in move mode
   db::DPoint m_p1;
   //  The transformation in MoveSelection mode
@@ -596,7 +600,7 @@ private:
 
   std::pair<bool, db::DPoint> snap1 (const db::DPoint &p, bool obj_snap);
   lay::PointSnapToObjectResult snap1_details (const db::DPoint &p, bool obj_snap);
-  std::pair<bool, db::DPoint> snap2 (const db::DPoint &p1, const db::DPoint &p2, const ant::Object *obj, lay::angle_constraint_type ac);
+  db::DPoint snap2_visual (const db::DPoint &p1, const db::DPoint &p2, const ant::Object *obj, lay::angle_constraint_type ac);
   lay::PointSnapToObjectResult snap2_details (const db::DPoint &p1, const db::DPoint &p2, const ant::Object *obj, lay::angle_constraint_type ac);
   lay::TwoPointSnapToObjectResult auto_measure (const db::DPoint &p, lay::angle_constraint_type ac, const ant::Template &tpl);
 
@@ -614,6 +618,8 @@ private:
   virtual bool mouse_click_event (const db::DPoint &p, unsigned int buttons, bool prio);
   virtual bool mouse_double_click_event (const db::DPoint &p, unsigned int buttons, bool prio);
   virtual void deactivated ();
+
+  void snap_rulers (lay::angle_constraint_type ac);
 
   /**
    *  @brief Select a certain ruler

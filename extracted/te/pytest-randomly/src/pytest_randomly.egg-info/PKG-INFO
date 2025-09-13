@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest-randomly
-Version: 4.0.0
+Version: 4.0.1
 Summary: Pytest plugin to randomly order tests and control random.seed.
 Author-email: Adam Johnson <me@adamj.eu>
 License-Expression: MIT

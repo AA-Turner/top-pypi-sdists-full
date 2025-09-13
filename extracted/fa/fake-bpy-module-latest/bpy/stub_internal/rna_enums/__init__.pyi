@@ -1489,6 +1489,12 @@ type IconItems = typing.Literal[
     "SEQ_SPLITVIEW",  # SEQ_SPLITVIEW.
     "SEQ_STRIP_DUPLICATE",  # SEQ_STRIP_DUPLICATE.
     "SEQ_STRIP_META",  # SEQ_STRIP_META.
+    "MOD_BRIGHTNESS_CONTRAST",  # MOD_BRIGHTNESS_CONTRAST.
+    "MOD_COLOR_BALANCE",  # MOD_COLOR_BALANCE.
+    "MOD_CURVES",  # MOD_CURVES.
+    "MOD_HUE_CORRECT",  # MOD_HUE_CORRECT.
+    "MOD_TONEMAP",  # MOD_TONEMAP.
+    "MOD_WHITE_BALANCE",  # MOD_WHITE_BALANCE.
     "IMAGE_ALPHA",  # IMAGE_ALPHA.
     "IMAGE_RGB_ALPHA",  # IMAGE_RGB_ALPHA.
     "IMAGE_RGB",  # IMAGE_RGB.
@@ -2526,6 +2532,7 @@ type PreferenceSectionItems = typing.Literal[
     "SYSTEM",  # System.
     "SAVE_LOAD",  # Save & Load.
     "FILE_PATHS",  # File Paths.
+    "DEVELOPER_TOOLS",  # Developer Tools.
     "EXPERIMENTAL",  # Experimental.
 ]
 type PropDynamicpaintTypeItems = typing.Literal[

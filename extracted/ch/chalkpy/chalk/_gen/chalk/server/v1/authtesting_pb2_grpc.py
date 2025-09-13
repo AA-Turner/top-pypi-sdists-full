@@ -50,6 +50,11 @@ class AuthTestingServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_authtesting__pb2.GetOwnerTestEndpointRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_authtesting__pb2.GetOwnerTestEndpointResponse.FromString,
         )
+        self.GetAuthServiceManagerTestEndpoint = channel.unary_unary(
+            "/chalk.server.v1.AuthTestingService/GetAuthServiceManagerTestEndpoint",
+            request_serializer=chalk_dot_server_dot_v1_dot_authtesting__pb2.GetAuthServiceManagerTestEndpointRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_authtesting__pb2.GetAuthServiceManagerTestEndpointResponse.FromString,
+        )
         self.GetFeatureFlagTestEndpoint = channel.unary_unary(
             "/chalk.server.v1.AuthTestingService/GetFeatureFlagTestEndpoint",
             request_serializer=chalk_dot_server_dot_v1_dot_authtesting__pb2.GetFeatureFlagTestEndpointRequest.SerializeToString,
@@ -102,6 +107,12 @@ class AuthTestingServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def GetAuthServiceManagerTestEndpoint(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def GetFeatureFlagTestEndpoint(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -145,6 +156,11 @@ def add_AuthTestingServiceServicer_to_server(servicer, server):
             servicer.GetOwnerTestEndpoint,
             request_deserializer=chalk_dot_server_dot_v1_dot_authtesting__pb2.GetOwnerTestEndpointRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_authtesting__pb2.GetOwnerTestEndpointResponse.SerializeToString,
+        ),
+        "GetAuthServiceManagerTestEndpoint": grpc.unary_unary_rpc_method_handler(
+            servicer.GetAuthServiceManagerTestEndpoint,
+            request_deserializer=chalk_dot_server_dot_v1_dot_authtesting__pb2.GetAuthServiceManagerTestEndpointRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_authtesting__pb2.GetAuthServiceManagerTestEndpointResponse.SerializeToString,
         ),
         "GetFeatureFlagTestEndpoint": grpc.unary_unary_rpc_method_handler(
             servicer.GetFeatureFlagTestEndpoint,
@@ -353,6 +369,35 @@ class AuthTestingService(object):
             "/chalk.server.v1.AuthTestingService/GetOwnerTestEndpoint",
             chalk_dot_server_dot_v1_dot_authtesting__pb2.GetOwnerTestEndpointRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_authtesting__pb2.GetOwnerTestEndpointResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetAuthServiceManagerTestEndpoint(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.AuthTestingService/GetAuthServiceManagerTestEndpoint",
+            chalk_dot_server_dot_v1_dot_authtesting__pb2.GetAuthServiceManagerTestEndpointRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_authtesting__pb2.GetAuthServiceManagerTestEndpointResponse.FromString,
             options,
             channel_credentials,
             insecure,

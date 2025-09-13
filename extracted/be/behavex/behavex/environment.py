@@ -44,16 +44,8 @@ def extend_behave_hooks():
     Extend Behave hooks with BehaveX hooks code.
     """
 
-    # Behave version detection for compatibility
-    try:
-        version_parts = behave.__version__.split('.')
-        major = int(version_parts[0])
-        minor = int(version_parts[1])
-        patch = int(version_parts[2]) if len(version_parts) > 2 else 0
-        BEHAVE_VERSION = (major, minor, patch)
-    except (ImportError, AttributeError, ValueError, IndexError):
-        # Fallback to assume newer version if detection fails
-        BEHAVE_VERSION = (1, 2, 7)
+    # Use centralized behave version detection from global_vars
+    BEHAVE_VERSION = global_vars.behave_version
 
     global hooks_already_set
     behave_run_hook = ModelRunner.run_hook

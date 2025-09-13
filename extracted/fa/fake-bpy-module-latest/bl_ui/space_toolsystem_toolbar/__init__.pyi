@@ -273,7 +273,9 @@ class _defs_image_uv_transform:
     translate: typing.Any
 
 class _defs_node_edit:
+    add_reroute: typing.Any
     links_cut: typing.Any
+    links_mute: typing.Any
 
 class _defs_node_select:
     box: typing.Any

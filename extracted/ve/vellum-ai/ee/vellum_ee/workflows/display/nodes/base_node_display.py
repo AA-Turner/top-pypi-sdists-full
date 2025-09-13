@@ -162,7 +162,7 @@ class BaseNodeDisplay(Generic[NodeType], metaclass=BaseNodeDisplayMeta):
                     {
                         "id": id,
                         "name": attribute.name,
-                        "value": serialize_value(display_context, attribute.instance),
+                        "value": serialize_value(node_id, display_context, attribute.instance),
                     }
                 )
             except ValueError as e:
@@ -187,7 +187,7 @@ class BaseNodeDisplay(Generic[NodeType], metaclass=BaseNodeDisplayMeta):
         for output in node.Outputs:
             type = primitive_type_to_vellum_variable_type(output)
             value = (
-                serialize_value(display_context, output.instance)
+                serialize_value(node_id, display_context, output.instance)
                 if output.instance is not None and output.instance != undefined
                 else None
             )
@@ -214,6 +214,7 @@ class BaseNodeDisplay(Generic[NodeType], metaclass=BaseNodeDisplayMeta):
     def serialize_ports(self, display_context: "WorkflowDisplayContext") -> JsonArray:
         """Serialize the ports of the node."""
         node = self._node
+        node_id = self.node_id
         ports: JsonArray = []
 
         for port in node.Ports:
@@ -224,7 +225,9 @@ class BaseNodeDisplay(Generic[NodeType], metaclass=BaseNodeDisplayMeta):
                         "id": id,
                         "name": port.name,
                         "type": port._condition_type.value,
-                        "expression": (serialize_value(display_context, port._condition) if port._condition else None),
+                        "expression": (
+                            serialize_value(node_id, display_context, port._condition) if port._condition else None
+                        ),
                     }
                 )
             else:
@@ -248,21 +251,23 @@ class BaseNodeDisplay(Generic[NodeType], metaclass=BaseNodeDisplayMeta):
 
     def _serialize_attributes(self, display_context: "WorkflowDisplayContext") -> JsonArray:
         """Serialize node attributes, skipping unserializable ones."""
+        node = self._node
+        node_id = self.node_id
         attributes: JsonArray = []
-        for attribute in self._node:
+        for attribute in node:
             if attribute in self.__unserializable_attributes__:
                 continue
 
             id = (
                 str(self.attribute_ids_by_name[attribute.name])
                 if self.attribute_ids_by_name.get(attribute.name)
-                else str(uuid4_from_hash(f"{self.node_id}|{attribute.name}"))
+                else str(uuid4_from_hash(f"{node_id}|{attribute.name}"))
             )
             try:
                 attribute_dict: JsonObject = {
                     "id": id,
                     "name": attribute.name,
-                    "value": serialize_value(display_context, attribute.instance),
+                    "value": serialize_value(node_id, display_context, attribute.instance),
                 }
                 attributes.append(attribute_dict)
             except ValueError as e:
@@ -272,13 +277,29 @@ class BaseNodeDisplay(Generic[NodeType], metaclass=BaseNodeDisplayMeta):
 
     def serialize_generic_fields(self, display_context: "WorkflowDisplayContext") -> JsonObject:
         """Serialize generic fields that are common to all nodes."""
-        return {
+        result: JsonObject = {
             "display_data": self.get_display_data().dict(),
             "base": self.get_base().dict(),
             "definition": self.get_definition().dict(),
             "trigger": self.serialize_trigger(),
             "ports": self.serialize_ports(display_context),
         }
+
+        # Only include should_file_merge if there are custom methods defined
+        try:
+            node_class = self.__class__.infer_node_class()
+            has_custom_methods = any(
+                callable(getattr(node_class, name, None)) and inspect.isfunction(getattr(node_class, name, None))
+                for name in node_class.__dict__.keys()
+                if not name.startswith("__")
+            )
+
+            if has_custom_methods:
+                result["should_file_merge"] = True
+        except Exception:
+            pass
+
+        return result
 
     def get_base(self) -> CodeResourceDefinition:
         node = self._node
@@ -429,13 +450,20 @@ class BaseNodeDisplay(Generic[NodeType], metaclass=BaseNodeDisplayMeta):
                 if explicit_value.comment.expanded is not None
                 else NodeDisplayComment(value=docstring, expanded=True)
             )
-            return NodeDisplayData(
-                position=explicit_value.position,
-                z_index=explicit_value.z_index,
-                width=explicit_value.width,
-                height=explicit_value.height,
-                comment=comment,
-            )
+            from typing import Any, Dict
+
+            kwargs: Dict[str, Any] = {
+                "position": explicit_value.position,
+                "z_index": explicit_value.z_index,
+                "width": explicit_value.width,
+                "height": explicit_value.height,
+                "comment": comment,
+            }
+            if explicit_value.icon is not None:
+                kwargs["icon"] = explicit_value.icon
+            if explicit_value.color is not None:
+                kwargs["color"] = explicit_value.color
+            return NodeDisplayData(**kwargs)
 
         if explicit_value:
             return explicit_value

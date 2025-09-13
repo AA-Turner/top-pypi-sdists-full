@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: langchain-cohere
-Version: 0.4.5
+Version: 0.4.6
 Summary: An integration package connecting Cohere and LangChain
 Home-page: https://github.com/langchain-ai/langchain-cohere
 License: MIT
@@ -11,9 +11,9 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Dist: cohere (>=5.12.0,<6.0)
+Requires-Dist: cohere (>=5.18.0,<6.0)
 Requires-Dist: langchain-community (>=0.3.0,<0.4.0)
-Requires-Dist: langchain-core (>=0.3.27,<0.4.0)
+Requires-Dist: langchain-core (>=0.3.76,<0.4.0)
 Requires-Dist: pydantic (>=2,<3)
 Requires-Dist: types-pyyaml (>=6.0.12.20240917,<7.0.0.0)
 Project-URL: Repository, https://github.com/langchain-ai/langchain-cohere

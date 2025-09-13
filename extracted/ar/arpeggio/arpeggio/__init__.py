@@ -20,7 +20,7 @@ import bisect
 from arpeggio.utils import isstr
 import types
 
-__version__ = "2.0.2"
+__version__ = "2.0.3"
 
 if sys.version < '3':
     text = unicode
@@ -1535,6 +1535,10 @@ class Parser(DebugPrinter):
             # Do this here to free memory.
             if self.memoization:
                 self._clear_caches()
+
+            # Clear NoMatch instance to prevent reference cycles
+            # through traceback stack frames
+            self.nm = None
 
         # In debug mode export parse tree to dot file for
         # visualization

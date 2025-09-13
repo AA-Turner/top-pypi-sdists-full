@@ -86,7 +86,11 @@ class Tensor:
             grad_output = tensor.grad
             
             # Compute gradients w.r.t. parent tensors
+            from neurograd.utils.memory import start_op_timing, maybe_log_op_memory
+            op_name = getattr(tensor.grad_fn, 'name', None) or tensor.grad_fn.__class__.__name__
+            timing_context = start_op_timing()
             parent_grads = tensor.grad_fn.backward(grad_output)
+            maybe_log_op_memory(f"{op_name}_bwd", [grad_output], parent_grads, timing_context)
             
             # Handle single gradient return (convert to tuple)
             if not isinstance(parent_grads, tuple):

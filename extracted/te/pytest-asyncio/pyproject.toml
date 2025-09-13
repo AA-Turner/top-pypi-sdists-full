@@ -43,7 +43,7 @@ dynamic = [
 dependencies = [
   "backports-asyncio-runner>=1.1,<2; python_version<'3.11'",
   "pytest>=8.2,<9",
-  "typing-extensions>=4.12; python_version<'3.10'",
+  "typing-extensions>=4.12; python_version<'3.13'",
 ]
 optional-dependencies.docs = [
   "sphinx>=5.3",
@@ -67,7 +67,6 @@ packages = [
 include-package-data = true
 
 [tool.setuptools_scm]
-write_to = "pytest_asyncio/_version.py"
 local_scheme = "no-local-version"
 
 [tool.ruff]
@@ -138,9 +137,6 @@ source = [
 ]
 branch = true
 data_file = "coverage/coverage"
-omit = [
-  "*/_version.py",
-]
 parallel = true
 
 [tool.coverage.report]

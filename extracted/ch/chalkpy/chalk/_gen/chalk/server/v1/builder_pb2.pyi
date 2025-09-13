@@ -271,6 +271,47 @@ class GetDeploymentLogsResponse(_message.Message):
     logs: _containers.RepeatedCompositeFieldContainer[_log_pb2.LogEntry]
     def __init__(self, logs: _Optional[_Iterable[_Union[_log_pb2.LogEntry, _Mapping]]] = ...) -> None: ...
 
+class GetDeploymentDependenciesRequest(_message.Message):
+    __slots__ = ("deployment_id",)
+    DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    deployment_id: str
+    def __init__(self, deployment_id: _Optional[str] = ...) -> None: ...
+
+class GetDeploymentDependenciesResponse(_message.Message):
+    __slots__ = (
+        "runtime",
+        "requirements_file",
+        "requirements_contents",
+        "platform_version",
+        "profiling_mode",
+        "desired_engine_base_image",
+        "final_engine_image",
+    )
+    RUNTIME_FIELD_NUMBER: _ClassVar[int]
+    REQUIREMENTS_FILE_FIELD_NUMBER: _ClassVar[int]
+    REQUIREMENTS_CONTENTS_FIELD_NUMBER: _ClassVar[int]
+    PLATFORM_VERSION_FIELD_NUMBER: _ClassVar[int]
+    PROFILING_MODE_FIELD_NUMBER: _ClassVar[int]
+    DESIRED_ENGINE_BASE_IMAGE_FIELD_NUMBER: _ClassVar[int]
+    FINAL_ENGINE_IMAGE_FIELD_NUMBER: _ClassVar[int]
+    runtime: str
+    requirements_file: str
+    requirements_contents: str
+    platform_version: str
+    profiling_mode: str
+    desired_engine_base_image: str
+    final_engine_image: str
+    def __init__(
+        self,
+        runtime: _Optional[str] = ...,
+        requirements_file: _Optional[str] = ...,
+        requirements_contents: _Optional[str] = ...,
+        platform_version: _Optional[str] = ...,
+        profiling_mode: _Optional[str] = ...,
+        desired_engine_base_image: _Optional[str] = ...,
+        final_engine_image: _Optional[str] = ...,
+    ) -> None: ...
+
 class GetClusterTimescaleDBRequest(_message.Message):
     __slots__ = ("environment_id", "cluster_timescale_id")
     ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
@@ -720,6 +761,7 @@ class EnvoyGatewayProviderConfig(_message.Message):
         "instance_type",
         "nodepool",
         "node_selector",
+        "prevent_disruption",
     )
     class NodeSelectorEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -738,6 +780,7 @@ class EnvoyGatewayProviderConfig(_message.Message):
     INSTANCE_TYPE_FIELD_NUMBER: _ClassVar[int]
     NODEPOOL_FIELD_NUMBER: _ClassVar[int]
     NODE_SELECTOR_FIELD_NUMBER: _ClassVar[int]
+    PREVENT_DISRUPTION_FIELD_NUMBER: _ClassVar[int]
     timeout_duration: str
     dns_hostname: str
     replicas: int
@@ -747,6 +790,7 @@ class EnvoyGatewayProviderConfig(_message.Message):
     instance_type: str
     nodepool: str
     node_selector: _containers.ScalarMap[str, str]
+    prevent_disruption: bool
     def __init__(
         self,
         timeout_duration: _Optional[str] = ...,
@@ -758,6 +802,7 @@ class EnvoyGatewayProviderConfig(_message.Message):
         instance_type: _Optional[str] = ...,
         nodepool: _Optional[str] = ...,
         node_selector: _Optional[_Mapping[str, str]] = ...,
+        prevent_disruption: bool = ...,
     ) -> None: ...
 
 class GCPGatewayProviderConfig(_message.Message):
@@ -1154,21 +1199,24 @@ class OtelCollectorSpec(_message.Message):
     ) -> None: ...
 
 class ClickHouseSpec(_message.Message):
-    __slots__ = ("click_house_version", "request", "limit", "storage")
+    __slots__ = ("click_house_version", "request", "limit", "storage", "gateway_id")
     CLICK_HOUSE_VERSION_FIELD_NUMBER: _ClassVar[int]
     REQUEST_FIELD_NUMBER: _ClassVar[int]
     LIMIT_FIELD_NUMBER: _ClassVar[int]
     STORAGE_FIELD_NUMBER: _ClassVar[int]
+    GATEWAY_ID_FIELD_NUMBER: _ClassVar[int]
     click_house_version: str
     request: KubeResourceConfig
     limit: KubeResourceConfig
     storage: KubePersistentVolumeClaim
+    gateway_id: str
     def __init__(
         self,
         click_house_version: _Optional[str] = ...,
         request: _Optional[_Union[KubeResourceConfig, _Mapping]] = ...,
         limit: _Optional[_Union[KubeResourceConfig, _Mapping]] = ...,
         storage: _Optional[_Union[KubePersistentVolumeClaim, _Mapping]] = ...,
+        gateway_id: _Optional[str] = ...,
     ) -> None: ...
 
 class TelemetryDeploymentSpec(_message.Message):
@@ -1232,6 +1280,18 @@ class CreateTelemetryDeploymentRequest(_message.Message):
     ) -> None: ...
 
 class CreateTelemetryDeploymentResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class DeleteTelemetryDeploymentRequest(_message.Message):
+    __slots__ = ("cluster_id", "namespace")
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    NAMESPACE_FIELD_NUMBER: _ClassVar[int]
+    cluster_id: str
+    namespace: str
+    def __init__(self, cluster_id: _Optional[str] = ..., namespace: _Optional[str] = ...) -> None: ...
+
+class DeleteTelemetryDeploymentResponse(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
 

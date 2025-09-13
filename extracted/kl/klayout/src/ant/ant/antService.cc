@@ -1410,8 +1410,8 @@ Service::begin_move (lay::Editable::MoveMode mode, const db::DPoint &p, lay::ang
     double dmin = std::numeric_limits <double>::max ();
 
     const ant::Object *robj_min = 0;
-    for (std::map<obj_iterator, unsigned int>::const_iterator r = m_selected.begin (); r != m_selected.end (); ++r) {
-      const ant::Object *robj = dynamic_cast<const ant::Object *> ((*r->first).ptr ());
+    for (auto r = m_selected.begin (); r != m_selected.end (); ++r) {
+      const ant::Object *robj = dynamic_cast<const ant::Object *> ((*r)->ptr ());
       if (robj) {
         double d;
         if (is_selected (*robj, p, l, d)) {
@@ -1425,17 +1425,17 @@ Service::begin_move (lay::Editable::MoveMode mode, const db::DPoint &p, lay::ang
 
     //  further investigate what part to drag
 
-    for (std::map<obj_iterator, unsigned int>::const_iterator r = m_selected.begin (); r != m_selected.end (); ++r) {
+    for (auto r = m_selected.begin (); r != m_selected.end (); ++r) {
 
-      obj_iterator ri = r->first;
+      obj_iterator ri = *r;
       const ant::Object *robj = dynamic_cast <const ant::Object *> ((*ri).ptr ());
       if (robj && (! robj_min || robj == robj_min)) {
         
-        if (dragging_what (robj, search_dbox, m_move_mode, m_p1, m_seg_index) && m_move_mode != MoveRuler) {
+        if (dragging_what (robj, search_dbox, m_move_mode, m_p1, m_seg_index)) {
           
           //  found anything: make the moved ruler the selection
           clear_selection ();
-          m_selected.insert (std::make_pair (ri, 0));
+          m_selected.insert (ri);
           m_current = *robj;
           m_original = m_current; 
           m_rulers.push_back (new ant::View (this, &m_current, true));
@@ -1492,7 +1492,7 @@ Service::begin_move (lay::Editable::MoveMode mode, const db::DPoint &p, lay::ang
 
           //  found anything: make the moved ruler the selection
           clear_selection ();
-          m_selected.insert (std::make_pair (mp_view->annotation_shapes ().iterator_from_pointer (&*r), 0));
+          m_selected.insert (mp_view->annotation_shapes ().iterator_from_pointer (&*r));
           m_current = *robj;
           m_original = m_current;
           m_rulers.push_back (new ant::View (this, &m_current, true));
@@ -1516,27 +1516,69 @@ Service::begin_move (lay::Editable::MoveMode mode, const db::DPoint &p, lay::ang
 }
 
 void
-Service::move_transform (const db::DPoint &p, db::DFTrans tr, lay::angle_constraint_type /*ac*/)
+Service::snap_rulers (lay::angle_constraint_type ac)
+{
+  if (m_rulers.empty ()) {
+    return;
+  }
+
+  lay::PointSnapToObjectResult min_snp;
+  double min_dist = -1.0;
+  db::DVector min_delta;
+
+  for (auto r = m_rulers.begin (); r != m_rulers.end (); ++r) {
+
+    const ant::Object *ruler = (*r)->ruler ();
+
+    db::DPoint p1 = m_trans * ruler->p1 ();
+    db::DPoint p2 = m_trans * ruler->p2 ();
+
+    auto tr = db::DTrans ((m_p1 - db::DPoint ()) - m_trans.disp ()) * m_trans * db::DTrans (db::DPoint () - m_p1);
+    db::DPoint org1 = tr * ruler->p1 ();
+    db::DPoint org2 = tr * ruler->p2 ();
+
+    auto snp = snap2_details (org1, p1, ruler, ac);
+    double dist = p1.distance (snp.snapped_point);
+
+    if (min_dist < 0 || dist < min_dist) {
+      min_snp = snp;
+      min_dist = dist;
+      min_delta = snp.snapped_point - p1;
+    }
+
+    snp = snap2_details (org2, p2, ruler, ac);
+    dist = p2.distance (snp.snapped_point);
+
+    if (min_dist < 0 || dist < min_dist) {
+      min_snp = snp;
+      min_dist = dist;
+      min_delta = snp.snapped_point - p2;
+    }
+
+  }
+
+  if (min_snp.object_snap != lay::PointSnapToObjectResult::NoObject) {
+    mouse_cursor_from_snap_details (min_snp);
+  }
+
+  m_trans = db::DTrans (min_delta) * m_trans;
+}
+
+void
+Service::move_transform (const db::DPoint & /*p*/, db::DFTrans tr, lay::angle_constraint_type ac)
 {
   if (m_rulers.empty () || m_selected.empty ()) {
     return;
   }
 
-  if (m_move_mode == MoveRuler) {
+  auto ac_eff = ac == lay::AC_Global ? m_snap_mode : ac;
+  clear_mouse_cursors ();
 
-    db::DVector dp = p - db::DPoint ();
-
-    m_original.transform (db::DTrans (m_p1 - db::DPoint ()) * db::DTrans (tr) * db::DTrans (db::DPoint () - m_p1));
-    m_current.transform (db::DTrans (dp) * db::DTrans (tr) * db::DTrans (-dp));
-
-    //  display current rulers' parameters
-    show_message ();
-
-    m_rulers [0]->redraw ();
-
-  } else if (m_move_mode == MoveSelected) {
+  if (m_move_mode == MoveSelected) {
 
     m_trans *= db::DTrans (m_p1 - db::DPoint ()) * db::DTrans (tr) * db::DTrans (db::DPoint () - m_p1);
+
+    snap_rulers (ac_eff);
 
     for (std::vector<ant::View *>::iterator r = m_rulers.begin (); r != m_rulers.end (); ++r) {
       (*r)->transform_by (db::DCplxTrans (m_trans));
@@ -1553,89 +1595,65 @@ Service::move (const db::DPoint &p, lay::angle_constraint_type ac)
     return;
   }
 
+  auto ac_eff = ac == lay::AC_Global ? m_snap_mode : ac;
+  clear_mouse_cursors ();
+
   if (m_move_mode == MoveP1) {
     
-    m_current.seg_p1 (m_seg_index, snap2 (m_p1, p, &m_current, ac).second);
+    m_current.seg_p1 (m_seg_index, snap2_visual (m_p1, p, &m_current, ac));
     m_rulers [0]->redraw ();
 
   } else if (m_move_mode == MoveP2) {
     
-    m_current.seg_p2 (m_seg_index, snap2 (m_p1, p, &m_current, ac).second);
+    m_current.seg_p2 (m_seg_index, snap2_visual (m_p1, p, &m_current, ac));
     m_rulers [0]->redraw ();
 
   } else if (m_move_mode == MoveP12) {
     
-    db::DPoint p12 = snap2 (m_p1, p, &m_current, ac).second;
+    db::DPoint p12 = snap2_visual (m_p1, p, &m_current, ac);
     m_current.seg_p1 (m_seg_index, db::DPoint (m_current.seg_p1 (m_seg_index).x(), p12.y ()));
     m_current.seg_p2 (m_seg_index, db::DPoint (p12.x (), m_current.seg_p2 (m_seg_index).y ()));
     m_rulers [0]->redraw ();
 
   } else if (m_move_mode == MoveP21) {
     
-    db::DPoint p21 = snap2 (m_p1, p, &m_current, ac).second;
+    db::DPoint p21 = snap2_visual (m_p1, p, &m_current, ac);
     m_current.seg_p1 (m_seg_index, db::DPoint (p21.x (), m_current.seg_p1 (m_seg_index).y ()));
     m_current.seg_p2 (m_seg_index, db::DPoint (m_current.seg_p2 (m_seg_index).x(), p21.y ()));
     m_rulers [0]->redraw ();
 
   } else if (m_move_mode == MoveP1X) {
     
-    db::DPoint pc = snap2 (m_p1, p, &m_current, ac).second;
+    db::DPoint pc = snap2_visual (m_p1, p, &m_current, ac);
     m_current.seg_p1 (m_seg_index, db::DPoint (pc.x (), m_current.seg_p1 (m_seg_index).y ()));
     m_rulers [0]->redraw ();
 
   } else if (m_move_mode == MoveP2X) {
     
-    db::DPoint pc = snap2 (m_p1, p, &m_current, ac).second;
+    db::DPoint pc = snap2_visual (m_p1, p, &m_current, ac);
     m_current.seg_p2 (m_seg_index, db::DPoint (pc.x (), m_current.seg_p2 (m_seg_index).y ()));
     m_rulers [0]->redraw ();
 
   } else if (m_move_mode == MoveP1Y) {
     
-    db::DPoint pc = snap2 (m_p1, p, &m_current, ac).second;
+    db::DPoint pc = snap2_visual (m_p1, p, &m_current, ac);
     m_current.seg_p1 (m_seg_index, db::DPoint (m_current.seg_p1 (m_seg_index).x (), pc.y ()));
     m_rulers [0]->redraw ();
 
   } else if (m_move_mode == MoveP2Y) {
     
-    db::DPoint pc = snap2 (m_p1, p, &m_current, ac).second;
+    db::DPoint pc = snap2_visual (m_p1, p, &m_current, ac);
     m_current.seg_p2 (m_seg_index, db::DPoint (m_current.seg_p2 (m_seg_index).x (), pc.y ()));
-    m_rulers [0]->redraw ();
-
-  } else if (m_move_mode == MoveRuler) {
-
-    //  try two ways of snapping
-    db::DVector dp = lay::snap_angle (p - m_p1, ac == lay::AC_Global ? m_snap_mode : ac);
-
-    db::DPoint p1 = m_original.p1 () + dp;
-    db::DPoint p2 = m_original.p2 () + dp;
-
-    std::pair<bool, db::DPoint> r1 = snap1 (p1, m_obj_snap && m_original.snap ());
-    db::DPoint q1 = r1.second;
-    std::pair<bool, db::DPoint> r2 = snap1 (p2, m_obj_snap && m_original.snap ());
-    db::DPoint q2 = r2.second;
-
-    if ((!r2.first && r1.first) || ((r1.first || (!r1.first && !r2.first)) && q1.distance (p1) < q2.distance (p2))) {
-      q2 = q1 + (m_original.p2 () - m_original.p1 ());
-    } else {
-      q1 = q2 + (m_original.p1 () - m_original.p2 ());
-    }
-
-    m_current.p1 (q1);
-    m_current.p2 (q2);
-
     m_rulers [0]->redraw ();
 
   } else if (m_move_mode == MoveSelected) {
 
     db::DVector dp = p - m_p1;
-    //  round the drag distance to grid if required: this is the least we can do in this case
-    if (m_grid_snap) {
-      dp = db::DVector (lay::snap (dp.x (), m_grid), lay::snap (dp.y (), m_grid));
-    } 
-
-    dp = lay::snap_angle (dp, ac == lay::AC_Global ? m_snap_mode : ac);
+    dp = lay::snap_angle (dp, ac_eff);
 
     m_trans = db::DTrans (dp + (m_p1 - db::DPoint ()) - m_trans.disp ()) * m_trans * db::DTrans (db::DPoint () - m_p1);
+
+    snap_rulers (ac_eff);
 
     for (std::vector<ant::View *>::iterator r = m_rulers.begin (); r != m_rulers.end (); ++r) {
       (*r)->transform_by (db::DCplxTrans (m_trans));
@@ -1646,7 +1664,6 @@ Service::move (const db::DPoint &p, lay::angle_constraint_type ac)
   if (m_move_mode != MoveSelected) {
     show_message ();
   }
-
 }
 
 void 
@@ -1667,16 +1684,16 @@ Service::end_move (const db::DPoint &, lay::angle_constraint_type)
     if (m_move_mode == MoveSelected) {
 
       //  replace the rulers that were moved:
-      for (std::map<obj_iterator, unsigned int>::const_iterator s = m_selected.begin (); s != m_selected.end (); ++s) {
+      for (auto s = m_selected.begin (); s != m_selected.end (); ++s) {
 
-        const ant::Object *robj = dynamic_cast<const ant::Object *> (s->first->ptr ());
+        const ant::Object *robj = dynamic_cast<const ant::Object *> ((*s)->ptr ());
         if (robj) {
 
           //  compute moved object and replace
           ant::Object *rnew = new ant::Object (*robj);
           rnew->transform (m_trans);
           int new_id = rnew->id ();
-          mp_view->annotation_shapes ().replace (s->first, db::DUserObject (rnew));
+          mp_view->annotation_shapes ().replace (*s, db::DUserObject (rnew));
           annotation_changed_event (new_id);
 
         }
@@ -1690,7 +1707,7 @@ Service::end_move (const db::DPoint &, lay::angle_constraint_type)
 
       //  replace the ruler that was moved
       m_current.clean_points ();
-      mp_view->annotation_shapes ().replace (m_selected.begin ()->first, db::DUserObject (new ant::Object (m_current)));
+      mp_view->annotation_shapes ().replace (*m_selected.begin (), db::DUserObject (new ant::Object (m_current)));
       annotation_changed_event (m_current.id ());
 
       //  clear the selection (that was artifically created before)
@@ -1703,6 +1720,7 @@ Service::end_move (const db::DPoint &, lay::angle_constraint_type)
   //  termine the operation
   m_move_mode = MoveNone;
 
+  clear_mouse_cursors ();
 }
 
 void
@@ -1717,9 +1735,8 @@ Service::selection_to_view ()
   }
   m_rulers.clear ();
   m_rulers.reserve (m_selected.size ());
-  for (std::map<obj_iterator, unsigned int>::iterator r = m_selected.begin (); r != m_selected.end (); ++r) {
-    r->second = (unsigned int) m_rulers.size ();
-    const ant::Object *robj = dynamic_cast<const ant::Object *> (r->first->ptr ());
+  for (auto r = m_selected.begin (); r != m_selected.end (); ++r) {
+    const ant::Object *robj = dynamic_cast<const ant::Object *> ((*r)->ptr ());
     m_rulers.push_back (new ant::View (this, robj, true /*selected*/));
   }
 }
@@ -1728,8 +1745,8 @@ db::DBox
 Service::selection_bbox ()
 {
   db::DBox box;
-  for (std::map<obj_iterator, unsigned int>::iterator r = m_selected.begin (); r != m_selected.end (); ++r) {
-    const ant::Object *robj = dynamic_cast<const ant::Object *> (r->first->ptr ());
+  for (auto r = m_selected.begin (); r != m_selected.end (); ++r) {
+    const ant::Object *robj = dynamic_cast<const ant::Object *> ((*r)->ptr ());
     if (robj) {
       box += robj->box ();
     }
@@ -1741,16 +1758,16 @@ void
 Service::transform (const db::DCplxTrans &trans)
 {
   //  replace the rulers that were transformed:
-  for (std::map<obj_iterator, unsigned int>::const_iterator s = m_selected.begin (); s != m_selected.end (); ++s) {
+  for (auto s = m_selected.begin (); s != m_selected.end (); ++s) {
 
-    const ant::Object *robj = dynamic_cast<const ant::Object *> (s->first->ptr ());
+    const ant::Object *robj = dynamic_cast<const ant::Object *> ((*s)->ptr ());
     if (robj) {
 
       //  compute transformed object and replace
       int id = robj->id ();
       ant::Object *rnew = new ant::Object (*robj);
       rnew->transform (trans);
-      mp_view->annotation_shapes ().replace (s->first, db::DUserObject (rnew));
+      mp_view->annotation_shapes ().replace (*s, db::DUserObject (rnew));
       annotation_changed_event (id);
 
     }
@@ -1767,6 +1784,7 @@ Service::edit_cancel ()
   if (m_move_mode != MoveNone) {
 
     m_move_mode = MoveNone;
+    m_selected.clear ();
     selection_to_view ();
 
   }
@@ -2040,7 +2058,7 @@ Service::mouse_move_event (const db::DPoint &p, unsigned int buttons, bool prio)
     //  otherwise we risk manipulating p1 too.
     ant::Object::point_list pts = m_current.points ();
     if (! pts.empty ()) {
-      pts.back () = snap2 (m_p1, p, mp_active_ruler->ruler (), ac_from_buttons (buttons)).second;
+      pts.back () = snap_details.snapped_point;
     }
     m_current.set_points_exact (pts);
 
@@ -2095,11 +2113,16 @@ Service::snap2_details (const db::DPoint &p1, const db::DPoint &p2, const ant::O
   return lay::obj_snap (m_obj_snap && obj->snap () ? mp_view : 0, p1, p2, g, snap_mode, snap_range);
 }
 
-std::pair <bool, db::DPoint>
-Service::snap2 (const db::DPoint &p1, const db::DPoint &p2, const ant::Object *obj, lay::angle_constraint_type ac)
+db::DPoint
+Service::snap2_visual (const db::DPoint &p1, const db::DPoint &p2, const ant::Object *obj, lay::angle_constraint_type ac)
 {
   lay::PointSnapToObjectResult res = snap2_details (p1, p2, obj, ac);
-  return std::make_pair (res.object_snap != lay::PointSnapToObjectResult::NoObject, res.snapped_point);
+
+  if (res.object_snap != lay::PointSnapToObjectResult::NoObject) {
+    mouse_cursor_from_snap_details (res);
+  }
+
+  return res.snapped_point;
 }
 
 
@@ -2173,9 +2196,8 @@ void
 Service::copy_selected ()
 {
   //  extract all selected rulers and paste in "micron" space
-  for (std::map<obj_iterator, unsigned int>::iterator r = m_selected.begin (); r != m_selected.end (); ++r) {
-    r->second = (unsigned int) m_rulers.size ();
-    const ant::Object *robj = dynamic_cast<const ant::Object *> (r->first->ptr ());
+  for (auto r = m_selected.begin (); r != m_selected.end (); ++r) {
+    const ant::Object *robj = dynamic_cast<const ant::Object *> ((*r)->ptr ());
     if (robj) {
       db::Clipboard::instance () += new db::ClipboardValue<ant::Object> (*robj);
     }
@@ -2212,7 +2234,7 @@ Service::paste ()
     if (! new_objects.empty ()) {
 
       for (auto r = new_objects.begin (); r != new_objects.end (); ++r) {
-        m_selected.insert (std::make_pair (mp_view->annotation_shapes ().iterator_from_pointer (*r), 0));
+        m_selected.insert (mp_view->annotation_shapes ().iterator_from_pointer (*r));
       }
 
       selection_to_view ();
@@ -2240,8 +2262,8 @@ Service::del_selected ()
   //  positions will hold a set of iterators that are to be erased
   std::vector <lay::AnnotationShapes::iterator> positions;
   positions.reserve (m_selected.size ());
-  for (std::map<obj_iterator, unsigned int>::iterator r = m_selected.begin (); r != m_selected.end (); ++r) {
-    positions.push_back (r->first);
+  for (auto r = m_selected.begin (); r != m_selected.end (); ++r) {
+    positions.push_back (*r);
   }
 
   //  clear selection
@@ -2276,7 +2298,7 @@ Service::select (obj_iterator obj, lay::Editable::SelectionMode mode)
   if (mode == lay::Editable::Replace || mode == lay::Editable::Add) {
     //  select
     if (m_selected.find (obj) == m_selected.end ()) {
-      m_selected.insert (std::make_pair (obj, 0));
+      m_selected.insert (obj);
       return true;
     }
   } else if (mode == lay::Editable::Reset) {
@@ -2290,7 +2312,7 @@ Service::select (obj_iterator obj, lay::Editable::SelectionMode mode)
     if (m_selected.find (obj) != m_selected.end ()) {
       m_selected.erase (obj);
     } else {
-      m_selected.insert (std::make_pair (obj, 0));
+      m_selected.insert (obj);
     }
     return true;
   }
@@ -2312,7 +2334,7 @@ Service::click_proximity (const db::DPoint &pos, lay::Editable::SelectionMode mo
 
   //  for single-point selections either exclude the current selection or the
   //  accumulated previous selection from the search.
-  const std::map<obj_iterator, unsigned int> *exclude = 0;
+  const std::set<obj_iterator> *exclude = 0;
   if (mode == lay::Editable::Replace) {
     exclude = &m_previous_selection;
   } else if (mode == lay::Editable::Add) {
@@ -2493,7 +2515,7 @@ Service::transient_to_selection ()
     for (lay::AnnotationShapes::iterator r = mp_view->annotation_shapes ().begin (); r != mp_view->annotation_shapes ().end (); ++r) {
       const ant::Object *robj = dynamic_cast <const ant::Object *> (r->ptr ());
       if (robj == mp_transient_ruler->ruler ()) {
-        m_selected.insert (std::make_pair (r, 0));
+        m_selected.insert (r);
         selection_to_view ();
         return;
       }
@@ -2523,7 +2545,7 @@ Service::select (const db::DBox &box, lay::Editable::SelectionMode mode)
 
   //  for single-point selections either exclude the current selection or the
   //  accumulated previous selection from the search.
-  const std::map<obj_iterator, unsigned int> *exclude = 0;
+  const std::set<obj_iterator> *exclude = 0;
   if (mode == lay::Editable::Replace) {
     exclude = &m_previous_selection;
   } else if (mode == lay::Editable::Add) {
@@ -2605,7 +2627,7 @@ Service::select (const db::DBox &box, lay::Editable::SelectionMode mode)
       //  select the one that was found
       if (any_selected) {
         select (mp_view->annotation_shapes ().iterator_from_pointer (&*rmin), mode);
-        m_previous_selection.insert (std::make_pair (mp_view->annotation_shapes ().iterator_from_pointer (&*rmin), mode));
+        m_previous_selection.insert (mp_view->annotation_shapes ().iterator_from_pointer (&*rmin));
         needs_update = true;
       }
 
@@ -2667,9 +2689,20 @@ Service::get_selection (std::vector <obj_iterator> &sel) const
   sel.reserve (m_selected.size ());
 
   //  positions will hold a set of iterators that are to be erased
-  for (std::map<obj_iterator, unsigned int>::const_iterator r = m_selected.begin (); r != m_selected.end (); ++r) {
-    sel.push_back (r->first);
+  for (auto r = m_selected.begin (); r != m_selected.end (); ++r) {
+    sel.push_back (*r);
   }
+}
+
+void
+Service::set_selection (const std::vector<obj_iterator> &selection)
+{
+  m_selected.clear ();
+  for (auto i = selection.begin (); i != selection.end (); ++i) {
+    m_selected.insert (*i);
+  }
+
+  selection_to_view ();
 }
 
 void

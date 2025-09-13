@@ -16,8 +16,12 @@ from .client import ClaudeSDKClient
 from .query import query
 from .types import (
     AssistantMessage,
+    CanUseTool,
     ClaudeCodeOptions,
     ContentBlock,
+    HookCallback,
+    HookContext,
+    HookMatcher,
     McpSdkServerConfig,
     McpServerConfig,
     Message,
@@ -30,6 +34,7 @@ from .types import (
     SystemMessage,
     TextBlock,
     ThinkingBlock,
+    ToolPermissionContext,
     ToolResultBlock,
     ToolUseBlock,
     UserMessage,
@@ -269,7 +274,7 @@ def create_sdk_mcp_server(
     return McpSdkServerConfig(type="sdk", name=name, instance=server)
 
 
-__version__ = "0.0.21"
+__version__ = "0.0.22"
 
 __all__ = [
     # Main exports
@@ -292,11 +297,20 @@ __all__ = [
     "ToolUseBlock",
     "ToolResultBlock",
     "ContentBlock",
-    # Permission results (keep these as they may be used by internal callbacks)
+    # Tool callbacks
+    "CanUseTool",
+    "ToolPermissionContext",
     "PermissionResult",
     "PermissionResultAllow",
     "PermissionResultDeny",
     "PermissionUpdate",
+    "HookCallback",
+    "HookContext",
+    "HookMatcher",
+    # MCP Server Support
+    "create_sdk_mcp_server",
+    "tool",
+    "SdkMcpTool",
     # Errors
     "ClaudeSDKError",
     "CLIConnectionError",

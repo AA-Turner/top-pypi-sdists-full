@@ -1,14 +1,13 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: DracoPy
-Version: 1.5.0
+Version: 1.7.0
 Summary: Python wrapper for Google's Draco Mesh Compression Library
 Home-page: https://github.com/seung-lab/DracoPy
-Author: Manuel Castro, William Silversmith :: Contributors :: Fatih Erol, Faru Nuri Sonmez, Zeyu Zhao, Denis Riviere
+Author: Manuel Castro, William Silversmith :: Contributors :: Fatih Erol, Faru Nuri Sonmez,  Forrest Collman, Zeyu Zhao, Denis Riviere, Brett Tully, Hanseul Jun,  Afshawn Lotfi, Pan Xinmiao, Kenneth Bongort
 Author-email: macastro@princeton.edu, ws9@princeton.edu
-License: License :: OSI Approved :: Apache Software License
+License: Apache-2.0
 Classifier: Intended Audience :: Developers
 Classifier: Development Status :: 5 - Production/Stable
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.8
@@ -24,6 +23,15 @@ Classifier: Operating System :: Microsoft :: Windows :: Windows 10
 Classifier: Topic :: Utilities
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: summary
 
 [![PyPI version](https://badge.fury.io/py/DracoPy.svg)](https://badge.fury.io/py/DracoPy)
 

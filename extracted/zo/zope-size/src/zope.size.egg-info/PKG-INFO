@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: zope.size
-Version: 5.1
+Version: 6.0
 Summary: Interfaces and simple adapter that give the size of an object
 Home-page: http://github.com/zopefoundation/zope.size
 Author: Zope Foundation and Contributors
@@ -39,6 +39,18 @@ Requires-Dist: zope.security[zcml]; extra == "test"
 Provides-Extra: docs
 Requires-Dist: Sphinx; extra == "docs"
 Requires-Dist: repoze.sphinx.autointerface; extra == "docs"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 ===============
  ``zope.size``
@@ -76,6 +88,12 @@ Documentation is hosted at https://zopesize.readthedocs.io
 
 Changes
 =======
+
+6.0 (2025-09-12)
+----------------
+
+- Replace ``pkg_resources`` namespace with PEP 420 native namespace.
+
 
 5.1 (2025-02-14)
 ----------------

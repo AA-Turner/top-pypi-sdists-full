@@ -49,6 +49,13 @@ from aiohomematic.const import (
     SysvarType,
 )
 from aiohomematic.exceptions import AioHomematicException, BaseHomematicException
+from aiohomematic.property_decorators import (
+    cached_slot_property,
+    get_attributes_for_config_property,
+    get_attributes_for_info_property,
+    get_attributes_for_log_context,
+    get_attributes_for_state_property,
+)
 
 _LOGGER: Final = logging.getLogger(__name__)
 
@@ -465,13 +472,13 @@ def hash_sha256(value: Any) -> str:
 
 def _make_value_hashable(value: Any) -> Any:
     """Make a hashable object."""
-    if isinstance(value, (tuple, list)):
+    if isinstance(value, tuple | list):
         return tuple(_make_value_hashable(e) for e in value)
 
     if isinstance(value, dict):
         return tuple(sorted((k, _make_value_hashable(v)) for k, v in value.items()))
 
-    if isinstance(value, (set, frozenset)):
+    if isinstance(value, set | frozenset):
         return tuple(sorted(_make_value_hashable(e) for e in value))
 
     return value
@@ -514,7 +521,7 @@ def cleanup_text_from_html_tags(text: str) -> str:
 _BOUNDARY_MSG = "error_boundary"
 
 
-def _safe_context(context: Mapping[str, Any] | None) -> dict[str, Any]:
+def _safe_log_context(context: Mapping[str, Any] | None) -> dict[str, Any]:
     """Extract safe context from a mapping."""
     ctx: dict[str, Any] = {}
     if not context:
@@ -534,57 +541,6 @@ def _safe_context(context: Mapping[str, Any] | None) -> dict[str, Any]:
     return ctx
 
 
-def build_log_context_from_obj(obj: Any | None) -> dict[str, Any]:
-    """
-    Extract structured context like device_id/channel/parameter from common objects.
-
-    Tries best-effort extraction without raising. Returns a dict suitable for logger.extra.
-    """
-    ctx: dict[str, Any] = {}
-    if obj is None:
-        return ctx
-    try:
-        # DataPoint-like: has channel and parameter
-        if hasattr(obj, "channel"):
-            ch = getattr(obj, "channel")
-            try:
-                # channel address/id
-                channel_address = ch.address if not callable(ch.address) else ch.address()
-                ctx["channel"] = channel_address
-            except Exception:
-                # Fallback to str
-                ctx["channel"] = str(ch)
-            try:
-                if (dev := ch.device if hasattr(ch, "device") else None) is not None:
-                    device_id = dev.id if not callable(dev.id) else dev.id()
-                    ctx["device_id"] = device_id
-            except Exception:
-                pass
-        # Parameter on DataPoint-like
-        if hasattr(obj, "parameter"):
-            with contextlib.suppress(Exception):
-                ctx["parameter"] = getattr(obj, "parameter")
-
-        # Also support objects exposing address directly
-        if "device_id" not in ctx and hasattr(obj, "device"):
-            dev = getattr(obj, "device")
-            try:
-                device_id = dev.id if not callable(dev.id) else dev.id()
-                ctx["device_id"] = device_id
-            except Exception:
-                pass
-        if "channel" not in ctx and hasattr(obj, "address"):
-            try:
-                addr = obj.address if not callable(obj.address) else obj.address()
-                ctx["channel"] = addr
-            except Exception:
-                pass
-    except Exception:
-        # Never allow context building to break the application
-        return {}
-    return ctx
-
-
 def log_boundary_error(
     logger: logging.Logger,
     *,
@@ -592,7 +548,8 @@ def log_boundary_error(
     action: str,
     err: Exception,
     level: int | None = None,
-    context: Mapping[str, Any] | None = None,
+    log_context: Mapping[str, Any] | None = None,
+    message: str | None = None,
 ) -> None:
     """
     Log a boundary error with the provided logger.
@@ -602,42 +559,70 @@ def log_boundary_error(
     logging level if not explicitly provided. Additionally, it enriches the log
     record with extra context about the error and action boundaries.
 
-    :param logger: The logger instance used to log the error.
-    :type logger: logging.Logger
-    :param boundary: The name of the boundary at which the error occurred.
-    :type boundary: str
-    :param action: The action being performed when the error occurred.
-    :type action: str
-    :param err: The exception instance representing the error to log.
-    :type err: Exception
-    :param level: The optional logging level. Defaults to WARNING for recoverable
-        domain errors and ERROR for non-recoverable errors if not provided.
-    :type level: int | None
-    :param context: Optional mapping of additional information or context to
-        include in the log record.
-    :type context: Mapping[str, Any] | None
-    :return: None. This function logs the provided information but does not
-        return a value.
-    :rtype: None
     """
-    extra = {
-        "boundary": boundary,
-        "action": action,
-        "err_type": err.__class__.__name__,
-        "err": extract_exc_args(exc=err),
-        **_safe_context(context),
-    }
+    err_name = err.__class__.__name__
+    log_message = f"[boundary={boundary} action={action} err={err_name}"
+
+    if (err_args := extract_exc_args(exc=err)) and err_args != err_name:
+        log_message += f": {err_args}"
+    log_message += "]"
+
+    if message:
+        log_message += f" {message}"
+
+    if log_context:
+        log_message += f" ctx={orjson.dumps(_safe_log_context(log_context), option=orjson.OPT_SORT_KEYS).decode()}"
 
     # Choose level if not provided:
-    chosen_level = level
-    if chosen_level is None:
+    if (chosen_level := level) is None:
         # Use WARNING for expected/recoverable domain errors, ERROR otherwise.
         chosen_level = logging.WARNING if isinstance(err, BaseHomematicException) else logging.ERROR
 
-    if chosen_level >= logging.ERROR:
-        logger.exception(_BOUNDARY_MSG, extra=extra)
-    else:
-        logger.log(chosen_level, _BOUNDARY_MSG, extra=extra)
+    logger.log(chosen_level, log_message)
+
+
+class LogContextMixin:
+    """Mixin to add log context methods to class."""
+
+    __slots__ = ("_cached_log_context",)
+
+    @cached_slot_property
+    def log_context(self) -> Mapping[str, Any]:
+        """Return the log context for this object."""
+        return {
+            key: value for key, value in get_attributes_for_log_context(data_object=self).items() if value is not None
+        }
+
+
+class PayloadMixin:
+    """Mixin to add payload methods to class."""
+
+    __slots__ = ()
+
+    @property
+    def config_payload(self) -> Mapping[str, Any]:
+        """Return the config payload."""
+        return {
+            key: value
+            for key, value in get_attributes_for_config_property(data_object=self).items()
+            if value is not None
+        }
+
+    @property
+    def info_payload(self) -> Mapping[str, Any]:
+        """Return the info payload."""
+        return {
+            key: value for key, value in get_attributes_for_info_property(data_object=self).items() if value is not None
+        }
+
+    @property
+    def state_payload(self) -> Mapping[str, Any]:
+        """Return the state payload."""
+        return {
+            key: value
+            for key, value in get_attributes_for_state_property(data_object=self).items()
+            if value is not None
+        }
 
 
 # Define public API for this module

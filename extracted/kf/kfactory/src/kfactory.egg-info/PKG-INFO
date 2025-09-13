@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kfactory
-Version: 1.13.1
+Version: 1.14.0
 Summary: KLayout API implementation of gdsfactory
 Author-email: gdsfactory community <contact@gdsfactory.com>
 Classifier: Programming Language :: Python :: 3.11
@@ -12,19 +12,19 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: aenum<4,>=3.1.15
 Requires-Dist: cachetools>=5.2.0
-Requires-Dist: gitpython<4,>=3.1.44
-Requires-Dist: loguru<0.8,>=0.7.3
 Requires-Dist: klayout<0.31.0,>=0.30
+Requires-Dist: loguru<0.8,>=0.7.3
 Requires-Dist: pydantic<2.12,>=2.11
+Requires-Dist: pydantic-extra-types>=2.10.5
 Requires-Dist: pydantic-settings<3,>=2.0.1
+Requires-Dist: pygit2<2,>=1.18.2
+Requires-Dist: rapidfuzz<4,>=3.13.0
 Requires-Dist: rectangle-packer<3,>=2.0.2
 Requires-Dist: requests<3,>=2.23.3
 Requires-Dist: ruamel.yaml.string<0.2,>=0.1.1
 Requires-Dist: scipy<2,>=1.14.1
-Requires-Dist: tomli<3,>=2.2.1
 Requires-Dist: toolz<2,>=1
 Requires-Dist: typer<0.18,>=0.15.2
-Requires-Dist: pydantic-extra-types>=2.10.5
 Provides-Extra: dev
 Requires-Dist: kfactory[ci]; extra == "dev"
 Requires-Dist: mypy>=1.15.0; extra == "dev"
@@ -71,14 +71,14 @@ Requires-Dist: ipytree>=0.2.2; extra == "ipy"
 Requires-Dist: ipywidgets>=8.1.5; extra == "ipy"
 Dynamic: license-file
 
-# KFactory 1.13.1
+# KFactory 1.14.0
 
 [![codecov](https://codecov.io/gh/gdsfactory/kfactory/graph/badge.svg?token=dArcfnQE4w)](https://codecov.io/gh/gdsfactory/kfactory)
 
 Kfactory is the backend for [gdsfactory](https://github.com/gdsfactory/gdsfactory). It is built upon [KLayout](https://klayout.de).
 It offers basic operations like gdsfactory, so it can be used on its own as as layout tool as well.
 
-It is recommended to pin the version of KFactory in `requirements.txt` or `pyproject.toml` with `kfactory==1.13.1` for example.
+It is recommended to pin the version of KFactory in `requirements.txt` or `pyproject.toml` with `kfactory==1.14.0` for example.
 
 Features similar to gdsfactory:
 

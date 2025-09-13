@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tabpfn"
-version = "2.1.4"
+version = "2.1.3"
 dependencies = [
   "torch>=2.1,<3",
   "scikit-learn>=1.2.0,<1.7",
@@ -19,8 +19,6 @@ dependencies = [
   # for union types in Pydantic.
   # Once Python 3.10 is the minimum version, this can be removed.
   "eval-type-backport>=0.2.2",
-  "joblib>=1.2.0",
-  "tabpfn-common-utils[telemetry-interactive]>=0.1.8"
 ]
 requires-python = ">=3.9"
 authors = [
@@ -36,14 +34,12 @@ authors = [
   { name = "Eddie Bergman" },
   # Prior Labs Contributors
   { name = "Leo Grinsztajn" },
-  { name = "Felix Jabloski" },
-  { name = "Klemens Flöge" },
-  { name = "Oscar Key" },
-  { name = "Felix Birkel" },
-  { name = "Philipp Jund" },
-  { name = "Brendan Roof" },
-  { name = "Dominik Safaric" },
-  { name = "Benjamin Jaeger" }
+  { name = "Felix Jabloski"},
+  { name = "Klemens Flöge"},
+  { name = "Oscar Key"},
+  { name = "Felix Birkel"},
+  { name = "Philipp Jund"},
+
 ]
 
 readme = "README.md"
@@ -79,7 +75,6 @@ dev = [
   # Test
   "pytest",
   "pytest-xdist",
-  "pytest-mock>=3.14.1",
   "onnx", # required for onnx export tests
   "psutil", # required for testing internal memory tool on windows
   # Docs

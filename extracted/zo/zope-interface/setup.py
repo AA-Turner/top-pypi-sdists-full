@@ -26,12 +26,11 @@ from distutils.errors import DistutilsExecError
 from distutils.errors import DistutilsPlatformError
 
 from setuptools import Extension
-from setuptools import find_packages
 from setuptools import setup
 from setuptools.command.build_ext import build_ext
 
 
-version = '7.2'
+version = '8.0'
 
 
 class optional_build_ext(build_ext):
@@ -105,7 +104,7 @@ setup(
     name='zope.interface',
     version=version,
     url='https://github.com/zopefoundation/zope.interface',
-    license='ZPL 2.1',
+    license='ZPL-2.1',
     description='Interfaces for Python',
     author='Zope Foundation and Contributors',
     author_email='zope-dev@zope.dev',
@@ -118,7 +117,6 @@ setup(
         "Operating System :: OS Independent",
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
@@ -129,16 +127,17 @@ setup(
         "Framework :: Zope :: 3",
         "Topic :: Software Development :: Libraries :: Python Modules",
     ],
-    packages=find_packages('src'),
+    # we need the following two parameters because we compile C code,
+    # otherwise only the shared library is installed:
     package_dir={'': 'src'},
-    namespace_packages=["zope"],
+    packages=['zope.interface', 'zope.interface.common'],
     cmdclass={
         'build_ext': optional_build_ext,
     },
     include_package_data=True,
     zip_safe=False,
     install_requires=['setuptools'],
-    python_requires='>=3.8',
+    python_requires='>=3.9',
     extras_require={
         'docs': ['Sphinx',
                  'repoze.sphinx.autointerface',

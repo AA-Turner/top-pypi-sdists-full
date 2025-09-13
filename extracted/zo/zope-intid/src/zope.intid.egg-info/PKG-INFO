@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: zope.intid
-Version: 5.1
+Version: 6.0
 Summary: Integer Id Utility
 Home-page: http://github.com/zopefoundation/zope.intid
 Author: Albertas Agejevas and Gintautas Miliauskas
@@ -48,6 +48,20 @@ Provides-Extra: docs
 Requires-Dist: repoze.sphinx.autointerface; extra == "docs"
 Requires-Dist: sphinx_rtd_theme; extra == "docs"
 Requires-Dist: Sphinx; extra == "docs"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: maintainer
+Dynamic: maintainer-email
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 ================
  ``zope.intid``
@@ -84,6 +98,12 @@ Documentation is hosted at http://zopeintid.readthedocs.io
 =========
  Changes
 =========
+
+6.0 (2025-09-12)
+================
+
+- Replace ``pkg_resources`` namespace with PEP 420 native namespace.
+
 
 5.1 (2025-02-14)
 ================

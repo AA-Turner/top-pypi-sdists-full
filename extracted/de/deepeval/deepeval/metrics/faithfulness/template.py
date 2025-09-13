@@ -4,7 +4,7 @@ from typing import Optional, List
 class FaithfulnessTemplate:
     @staticmethod
     def generate_claims(actual_output: str):
-        return f"""Based on the given text, please extract a comprehensive list of FACTUAL, undisputed truths, that can inferred from the provided text.
+        return f"""Based on the given text, please extract a comprehensive list of FACTUAL, undisputed truths, that can inferred from the provided actual AI output.
 These truths, MUST BE COHERENT, and CANNOT be taken out of context.
     
 Example:
@@ -24,9 +24,10 @@ Example JSON:
 IMPORTANT: Please make sure to only return in JSON format, with the "claims" key as a list of strings. No words or explanation is needed.
 Only include claims that are factual, BUT IT DOESN'T MATTER IF THEY ARE FACTUALLY CORRECT. The claims you extract should include the full context it was presented in, NOT cherry picked facts.
 You should NOT include any prior knowledge, and take the text at face value when extracting claims.
+You should be aware that it is an AI that is outputting these claims.
 **
 
-Text:
+AI Output:
 {actual_output}
 
 JSON:
@@ -72,7 +73,7 @@ JSON:
     def generate_verdicts(claims: List[str], retrieval_context: str):
         return f"""Based on the given claims, which is a list of strings, generate a list of JSON objects to indicate whether EACH claim contradicts any facts in the retrieval context. The JSON will have 2 fields: 'verdict' and 'reason'.
 The 'verdict' key should STRICTLY be either 'yes', 'no', or 'idk', which states whether the given claim agrees with the context. 
-Provide a 'reason' ONLY if the answer is 'no'. 
+Provide a 'reason' ONLY if the answer is 'no' or 'idk'. 
 The provided claim is drawn from the actual output. Try to provide a correction in the reason using the facts in the retrieval context.
 
 **
@@ -84,28 +85,30 @@ Example:
 {{
     "verdicts": [
         {{
-            "verdict": "idk"
+            "verdict": "idk",
+            "reason": "The claim about Barack Obama is although incorrect, it is not directly addressed in the retrieval context, and so poses no contradiction."
         }},
         {{
-            "verdict": "idk"
+            "verdict": "idk",
+            "reason": "The claim about Zurich being a city in London is incorrect but does not pose a contradiction to the retrieval context."
         }},
         {{
             "verdict": "yes"
         }},
         {{
             "verdict": "no",
-            "reason": "The actual output claims Einstein won the Nobel Prize in 1969, which is untrue as the retrieval context states it is 1968 instead."
+            "reason": "The actual output claims Einstein won the Nobel Prize in 1969, which is untrue as the retrieval context states it is 1968 instead. This contradicts the retrieval context."
         }},
         {{
             "verdict": "no",
-            "reason": "The actual output claims Einstein is a German chef, which is not correct as the retrieval context states he was a German scientist instead."
+            "reason": "The actual output claims Einstein is a German chef, which is not correct as the retrieval context states he was a German scientist instead. This contradicts the retrieval context."
         }},
     ]  
 }}
 ===== END OF EXAMPLE ======
 
 The length of 'verdicts' SHOULD BE STRICTLY EQUAL to that of claims.
-You DON'T have to provide a reason if the answer is 'yes' or 'idk'.
+You DON'T have to provide a reason if the answer is 'yes'.
 ONLY provide a 'no' answer if the retrieval context DIRECTLY CONTRADICTS the claims. YOU SHOULD NEVER USE YOUR PRIOR KNOWLEDGE IN YOUR JUDGEMENT.
 Claims made using vague, suggestive, speculative language such as 'may have', 'possibility due to', does NOT count as a contradiction.
 Claims that are not backed up by the retrieval context or are not mentioned in it MUST be answered 'idk'.

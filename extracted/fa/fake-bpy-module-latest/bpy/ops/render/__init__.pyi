@@ -198,6 +198,8 @@ def render(
     use_viewport: bool | None = False,
     layer: str = "",
     scene: str = "",
+    start_frame: int | None = 0,
+    end_frame: int | None = 0,
 ) -> None:
     """Render active scene
 
@@ -213,6 +215,10 @@ def render(
     :type layer: str
     :param scene: Scene, Scene to render, current scene if not specified
     :type scene: str
+    :param start_frame: Start Frame, Frame to start rendering animation at. If not specified, the scene start frame will be assumed. This should only be specified if doing an animation render
+    :type start_frame: int | None
+    :param end_frame: End Frame, Frame to end rendering animation at. If not specified, the scene end frame will be assumed. This should only be specified if doing an animation render
+    :type end_frame: int | None
     """
 
 def shutter_curve_preset(

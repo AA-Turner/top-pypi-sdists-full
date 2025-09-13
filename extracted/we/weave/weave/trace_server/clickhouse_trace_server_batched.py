@@ -1,27 +1,5 @@
 # Clickhouse Trace Server
 
-# A note on query structure:
-# There are four major kinds of things that we query:
-# - calls,
-# - object_versions,
-# - tables
-# - files
-#
-# calls are identified by ID.
-#
-# object_versions, tables, and files are identified by digest. For these kinds of
-# things, we dedupe at merge time using Clickhouse's ReplacingMergeTree, but we also
-# need to dedupe at query time.
-#
-# Previously, we did query time deduping in *_deduped VIEWs. But it turns out
-# clickhouse doesn't push down the project_id predicate into those views, so we were
-# always scanning whole tables.
-#
-# Now, we've just written the what were views before into this file directly as
-# subqueries, and put the project_id predicate in the innermost subquery, which fixes
-# the problem.
-
-
 import dataclasses
 import datetime
 import hashlib
@@ -37,6 +15,7 @@ from zoneinfo import ZoneInfo
 import clickhouse_connect
 import ddtrace
 from clickhouse_connect.driver.client import Client as CHClient
+from clickhouse_connect.driver.httputil import get_pool_manager
 from clickhouse_connect.driver.query import QueryResult
 from clickhouse_connect.driver.summary import QuerySummary
 from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import (
@@ -160,6 +139,12 @@ from weave.trace_server.workers.evaluate_model_worker.evaluate_model_worker impo
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
+
+
+# Create a shared connection pool manager for all ClickHouse connections
+# maxsize: Maximum connections per pool (set higher than thread count to avoid blocking)
+# num_pools: Number of distinct connection pools (for different hosts/configs)
+_CH_POOL_MANAGER = get_pool_manager(maxsize=50, num_pools=2)
 
 
 class ClickHouseTraceServer(tsi.TraceServerInterface):
@@ -768,8 +753,7 @@ class ClickHouseTraceServer(tsi.TraceServerInterface):
         return tsi.ObjQueryRes(objs=[_ch_obj_to_obj_schema(obj) for obj in objs])
 
     def obj_delete(self, req: tsi.ObjDeleteReq) -> tsi.ObjDeleteRes:
-        """
-        Delete object versions by digest, belonging to given object_id.
+        """Delete object versions by digest, belonging to given object_id.
         All deletion in this method is "soft". Deletion occurs by inserting
         a new row into the object_versions table with the deleted_at field set.
         Inserted rows share identical primary keys (order by) with original rows,
@@ -963,7 +947,7 @@ class ClickHouseTraceServer(tsi.TraceServerInterface):
     def table_create_from_digests(
         self, req: tsi.TableCreateFromDigestsReq
     ) -> tsi.TableCreateFromDigestsRes:
-        """Create a table by specifying row digests, instead actual rows"""
+        """Create a table by specifying row digests, instead actual rows."""
         # Calculate table digest from row digests
         table_hasher = hashlib.sha256()
         for row_digest in req.row_digests:
@@ -1833,6 +1817,8 @@ class ClickHouseTraceServer(tsi.TraceServerInterface):
         rows_to_insert = []
         results = []
 
+        set_root_span_dd_tags({"feedback_create_batch.count": len(req.batch)})
+
         for feedback_req in req.batch:
             assert_non_null_wb_user_id(feedback_req)
             validate_feedback_create_req(feedback_req, self)
@@ -2075,18 +2061,24 @@ class ClickHouseTraceServer(tsi.TraceServerInterface):
     # Private Methods
     @property
     def ch_client(self) -> CHClient:
-        """Returns and creates (if necessary) the clickhouse client"""
+        """Returns a thread-local clickhouse client.
+
+        Each thread gets its own client instance to avoid session conflicts,
+        but all clients share the same underlying connection pool via _CH_POOL_MANAGER.
+        """
         if not hasattr(self._thread_local, "ch_client"):
             self._thread_local.ch_client = self._mint_client()
         return self._thread_local.ch_client
 
     def _mint_client(self) -> CHClient:
+        """Create a new ClickHouse client using the shared pool manager."""
         client = clickhouse_connect.get_client(
             host=self._host,
             port=self._port,
             user=self._user,
             password=self._password,
             secure=self._port == 8443,
+            pool_mgr=_CH_POOL_MANAGER,
         )
         # Safely create the database if it does not exist
         client.command(f"CREATE DATABASE IF NOT EXISTS {self._database}")
@@ -2112,9 +2104,6 @@ class ClickHouseTraceServer(tsi.TraceServerInterface):
         finally:
             self._thread_local.ch_client = original_client
             client.close()
-
-    # def __del__(self) -> None:
-    #     self.ch_client.close()
 
     @ddtrace.tracer.wrap(name="clickhouse_trace_server_batched._insert_call_batch")
     def _insert_call_batch(self, batch: list) -> None:
@@ -2146,8 +2135,7 @@ class ClickHouseTraceServer(tsi.TraceServerInterface):
         object_query_builder: ObjectMetadataQueryBuilder,
         metadata_only: bool = False,
     ) -> list[SelectableCHObjSchema]:
-        """
-        Main query for fetching objects.
+        """Main query for fetching objects.
 
         conditions:
             conditions should include operations on version_index, digest, kind (is_op)
@@ -2347,8 +2335,7 @@ class ClickHouseTraceServer(tsi.TraceServerInterface):
 
     @ddtrace.tracer.wrap(name="clickhouse_trace_server_batched._strip_large_values")
     def _strip_large_values(self, batch: list[list[Any]]) -> list[list[Any]]:
-        """
-        Iterate through the batch and replace large JSON values with placeholders.
+        """Iterate through the batch and replace large JSON values with placeholders.
 
         Only considers JSON dump columns and ensures their combined size stays under
         the limit by selectively replacing the largest values.
@@ -2403,8 +2390,7 @@ class ClickHouseTraceServer(tsi.TraceServerInterface):
 
 
 def _num_bytes(data: Any) -> int:
-    """
-    Calculate the number of bytes in a string.
+    """Calculate the number of bytes in a string.
 
     This can be computationally expensive, only call when necessary.
     Never raise on a failed str cast, just return 0.

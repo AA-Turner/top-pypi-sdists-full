@@ -25,6 +25,7 @@ from orionis.foundation.contracts.application import IApplication
 from orionis.foundation.exceptions import OrionisTypeError, OrionisRuntimeError, OrionisValueError
 from orionis.services.asynchrony.coroutines import Coroutine
 from orionis.services.log.contracts.log_service import ILogger
+from orionis.support.wrapper.dataclass import DataClass
 
 class Application(Container, IApplication):
     """
@@ -556,170 +557,99 @@ class Application(Container, IApplication):
         *,
         app: App | dict = App(),
         auth: Auth | dict = Auth(),
-        cache : Cache | dict = Cache(),
-        cors : Cors | dict = Cors(),
-        database : Database | dict = Database(),
-        filesystems : Filesystems | dict = Filesystems(),
-        logging : Logging | dict = Logging(),
-        mail : Mail | dict = Mail(),
-        path : Paths | dict = Paths(),
-        queue : Queue | dict = Queue(),
-        session : Session | dict = Session(),
-        testing : Testing | dict = Testing()
+        cache: Cache | dict = Cache(),
+        cors: Cors | dict = Cors(),
+        database: Database | dict = Database(),
+        filesystems: Filesystems | dict = Filesystems(),
+        logging: Logging | dict = Logging(),
+        mail: Mail | dict = Mail(),
+        path: Paths | dict = Paths(),
+        queue: Queue | dict = Queue(),
+        session: Session | dict = Session(),
+        testing: Testing | dict = Testing()
     ) -> 'Application':
         """
-        Configure the application with comprehensive service configuration objects.
+        Configure all major application subsystems using configuration entities or dictionaries.
 
-        This method provides a centralized way to configure all major application
-        subsystems using either configuration entity instances or dictionary objects.
-        Each configurator manages settings for a specific aspect of the application
-        such as authentication, caching, database connectivity, logging, and more.
+        This method provides a centralized interface for setting up the application's
+        configuration by accepting configuration objects or dictionaries for each major
+        subsystem. Each configurator parameter corresponds to a specific aspect of the
+        application, such as authentication, caching, database, logging, mail, paths,
+        queue, session, and testing. The method validates and loads each configurator
+        into the application's configuration system.
 
         Parameters
         ----------
         app : App or dict, optional
-            Application-level configuration including name, environment, debug settings,
-            and URL configuration. Default creates a new App() instance.
+            Application-level configuration (e.g., name, environment, debug settings).
+            Defaults to a new App() instance.
         auth : Auth or dict, optional
-            Authentication system configuration including guards, providers, and
-            password settings. Default creates a new Auth() instance.
+            Authentication configuration (e.g., guards, providers, password settings).
+            Defaults to a new Auth() instance.
         cache : Cache or dict, optional
-            Caching system configuration including default store, prefix settings,
-            and driver-specific options. Default creates a new Cache() instance.
+            Caching configuration (e.g., default store, prefix, driver options).
+            Defaults to a new Cache() instance.
         cors : Cors or dict, optional
-            Cross-Origin Resource Sharing configuration including allowed origins,
-            methods, and headers. Default creates a new Cors() instance.
+            CORS configuration (e.g., allowed origins, methods, headers).
+            Defaults to a new Cors() instance.
         database : Database or dict, optional
-            Database connectivity configuration including default connection, migration
-            settings, and connection definitions. Default creates a new Database() instance.
+            Database configuration (e.g., connections, migration settings).
+            Defaults to a new Database() instance.
         filesystems : Filesystems or dict, optional
-            File storage system configuration including default disk, cloud storage
-            settings, and disk definitions. Default creates a new Filesystems() instance.
+            Filesystem configuration (e.g., disks, cloud storage).
+            Defaults to a new Filesystems() instance.
         logging : Logging or dict, optional
-            Logging system configuration including default channel, log levels,
-            and channel definitions. Default creates a new Logging() instance.
+            Logging configuration (e.g., channels, levels).
+            Defaults to a new Logging() instance.
         mail : Mail or dict, optional
-            Email system configuration including default mailer, transport settings,
-            and mailer definitions. Default creates a new Mail() instance.
+            Mail configuration (e.g., mailers, transport settings).
+            Defaults to a new Mail() instance.
         path : Paths or dict, optional
-            Application path configuration including directories for controllers,
-            models, views, and other application components. Default creates a new Paths() instance.
+            Application path configuration (e.g., directories for components).
+            Defaults to a new Paths() instance.
         queue : Queue or dict, optional
-            Queue system configuration including default connection, worker settings,
-            and connection definitions. Default creates a new Queue() instance.
+            Queue configuration (e.g., connections, worker settings).
+            Defaults to a new Queue() instance.
         session : Session or dict, optional
-            Session management configuration including driver, lifetime, encryption,
-            and storage settings. Default creates a new Session() instance.
+            Session configuration (e.g., driver, lifetime, encryption).
+            Defaults to a new Session() instance.
         testing : Testing or dict, optional
-            Testing framework configuration including database settings, environment
-            variables, and test-specific options. Default creates a new Testing() instance.
+            Testing configuration (e.g., database, environment variables).
+            Defaults to a new Testing() instance.
 
         Returns
         -------
         Application
-            The current application instance to enable method chaining.
+            The current Application instance, allowing for method chaining.
 
         Raises
         ------
         OrionisTypeError
             If any configurator parameter is not an instance of its expected type
-            or a dictionary that can be converted to the expected type.
+            or a dictionary convertible to the expected type.
 
         Notes
         -----
-        Each configurator is validated for type correctness and then passed to its
-        corresponding load method for processing and storage in the application's
-        configuration system.
+        - Each configurator is validated and loaded using its corresponding load method.
+        - This method does not perform deep validation of the contents of each configurator.
+        - The method returns the Application instance itself for fluent chaining.
         """
 
-        # Convert dataclass instances to dictionaries
-        from orionis.services.introspection.dataclass.extractor import extractor
+        # Load each configurator into the application's configuration system.
+        self.loadConfigApp(app)                 # Load application-level configuration
+        self.loadConfigAuth(auth)               # Load authentication configuration
+        self.loadConfigCache(cache)             # Load cache configuration
+        self.loadConfigCors(cors)               # Load CORS configuration
+        self.loadConfigDatabase(database)       # Load database configuration
+        self.loadConfigFilesystems(filesystems) # Load filesystems configuration
+        self.loadConfigLogging(logging)         # Load logging configuration
+        self.loadConfigMail(mail)               # Load mail configuration
+        self.loadConfigPaths(path)              # Load path configuration
+        self.loadConfigQueue(queue)             # Load queue configuration
+        self.loadConfigSession(session)         # Load session configuration
+        self.loadConfigTesting(testing)         # Load testing configuration
 
-        # Load app configurator
-        if (isinstance(app, type) and issubclass(app, App)):
-            app = extractor(app)
-        if not isinstance(app, (App, dict)):
-            raise OrionisTypeError(f"Expected App instance or dict, got {type(app).__name__}")
-        self.loadConfigApp(app)
-
-        # Load auth configurator
-        if (isinstance(auth, type) and issubclass(auth, Auth)):
-            auth = extractor(auth)
-        if not isinstance(auth, (Auth, dict)):
-            raise OrionisTypeError(f"Expected Auth instance or dict, got {type(auth).__name__}")
-        self.loadConfigAuth(auth)
-
-        # Load cache configurator
-        if (isinstance(cache, type) and issubclass(cache, Cache)):
-            cache = extractor(cache)
-        if not isinstance(cache, (Cache, dict)):
-            raise OrionisTypeError(f"Expected Cache instance or dict, got {type(cache).__name__}")
-        self.loadConfigCache(cache)
-
-        # Load cors configurator
-        if (isinstance(cors, type) and issubclass(cors, Cors)):
-            cors = extractor(cors)
-        if not isinstance(cors, (Cors, dict)):
-            raise OrionisTypeError(f"Expected Cors instance or dict, got {type(cors).__name__}")
-        self.loadConfigCors(cors)
-
-        # Load database configurator
-        if (isinstance(database, type) and issubclass(database, Database)):
-            database = extractor(database)
-        if not isinstance(database, (Database, dict)):
-            raise OrionisTypeError(f"Expected Database instance or dict, got {type(database).__name__}")
-        self.loadConfigDatabase(database)
-
-        # Load filesystems configurator
-        if (isinstance(filesystems, type) and issubclass(filesystems, Filesystems)):
-            filesystems = extractor(filesystems)
-        if not isinstance(filesystems, (Filesystems, dict)):
-            raise OrionisTypeError(f"Expected Filesystems instance or dict, got {type(filesystems).__name__}")
-        self.loadConfigFilesystems(filesystems)
-
-        # Load logging configurator
-        if (isinstance(logging, type) and issubclass(logging, Logging)):
-            logging = extractor(logging)
-        if not isinstance(logging, (Logging, dict)):
-            raise OrionisTypeError(f"Expected Logging instance or dict, got {type(logging).__name__}")
-        self.loadConfigLogging(logging)
-
-        # Load mail configurator
-        if (isinstance(mail, type) and issubclass(mail, Mail)):
-            mail = extractor(mail)
-        if not isinstance(mail, (Mail, dict)):
-            raise OrionisTypeError(f"Expected Mail instance or dict, got {type(mail).__name__}")
-        self.loadConfigMail(mail)
-
-        # Load paths configurator
-        if (isinstance(path, type) and issubclass(path, Paths)):
-            path = extractor(path)
-        if not isinstance(path, (Paths, dict)):
-            raise OrionisTypeError(f"Expected Paths instance or dict, got {type(path).__name__}")
-        self.loadConfigPaths(path)
-
-        # Load queue configurator
-        if (isinstance(queue, type) and issubclass(queue, Queue)):
-            queue = extractor(queue)
-        if not isinstance(queue, (Queue, dict)):
-            raise OrionisTypeError(f"Expected Queue instance or dict, got {type(queue).__name__}")
-        self.loadConfigQueue(queue)
-
-        # Load session configurator
-        if (isinstance(session, type) and issubclass(session, Session)):
-            session = extractor(session)
-        if not isinstance(session, (Session, dict)):
-            raise OrionisTypeError(f"Expected Session instance or dict, got {type(session).__name__}")
-        self.loadConfigSession(session)
-
-        # Load testing configurator
-        if (isinstance(testing, type) and issubclass(testing, Testing)):
-            testing = extractor(testing)
-        if not isinstance(testing, (Testing, dict)):
-            raise OrionisTypeError(f"Expected Testing instance or dict, got {type(testing).__name__}")
-        self.loadConfigTesting(testing)
-
-        # Return self instance for method chaining
+        # Return self for method chaining
         return self
 
     def setConfigApp(
@@ -751,11 +681,8 @@ class Application(Container, IApplication):
         arguments and then calls loadConfigApp() to store the configuration.
         """
 
-        # Create App instance with provided parameters
-        app = App(**app_config)
-
         # Load configuration using App instance
-        self.loadConfigApp(app)
+        self.loadConfigApp(**app_config)
 
         # Return the application instance for method chaining
         return self
@@ -765,49 +692,57 @@ class Application(Container, IApplication):
         app: App | dict
     ) -> 'Application':
         """
-        Load and store application configuration from an App instance or dictionary.
+        Load and store the application configuration from an `App` instance or dictionary.
 
-        This method validates and stores the application configuration in the
-        internal configurators storage. If a dictionary is provided, it will
-        be converted to an App instance before storage.
+        This method validates and stores the application-level configuration in the internal
+        configurators dictionary. If a dictionary is provided, it is converted to an `App`
+        instance before storage. The configuration is always stored as a dictionary representation
+        of the `App` dataclass.
 
         Parameters
         ----------
         app : App or dict
-            The application configuration as either an App instance or a dictionary
-            containing configuration parameters that can be used to construct an
-            App instance.
+            The application configuration, either as an `App` instance or a dictionary
+            containing configuration parameters compatible with the `App` dataclass.
 
         Returns
         -------
         Application
-            The current application instance to enable method chaining.
+            The current `Application` instance, enabling method chaining.
 
         Raises
         ------
         OrionisTypeError
-            If the app parameter is not an instance of App or a dictionary.
+            If the `app` parameter is not an instance of `App`, a subclass of `App`, or a dictionary.
 
         Notes
         -----
-        Dictionary inputs are automatically converted to App instances using
-        the dictionary unpacking operator (**app).
+        - If a class type is provided, it is converted using the `DataClass` wrapper.
+        - If a dictionary is provided, it is unpacked into an `App` instance.
+        - The resulting configuration is stored in the internal configurators under the 'app' key.
+        - The method always returns the current `Application` instance.
         """
 
-        # Validate app type
-        if not isinstance(app, (App, dict)):
+        # Convert class type to dict using DataClass wrapper
+        if (isinstance(app, type) and issubclass(app, App)):
+            _app = DataClass(App).fromDataclass(app).toDict()
+
+        # Convert dictionary to App instance, then to dict
+        elif isinstance(app, dict):
+            _app = App(**app).toDict()
+
+        # Convert App instance to dict
+        elif isinstance(app, App):
+            _app = app.toDict()
+
+        # Raise error if type is invalid
+        else:
             raise OrionisTypeError(f"Expected App instance or dict, got {type(app).__name__}")
 
-        # If app is a dict, convert it to App instance
-        if isinstance(app, dict):
-            app = App(**app).toDict()
-        elif isinstance(app, App):
-            app = app.toDict()
+        # Store the configuration dictionary in internal configurators
+        self.__configurators['app'] = _app
 
-        # Store the configuration
-        self.__configurators['app'] = app
-
-        # Return the application instance for method chaining
+        # Return self for method chaining
         return self
 
     def setConfigAuth(
@@ -815,35 +750,34 @@ class Application(Container, IApplication):
         **auth_config
     ) -> 'Application':
         """
-        Configure the authentication system using keyword arguments.
+        Configure the authentication subsystem using keyword arguments.
 
-        This method provides a convenient way to set authentication configuration
-        by passing individual configuration parameters as keyword arguments.
-        The parameters are used to create an Auth configuration instance.
+        This method allows you to set authentication configuration for the application
+        by passing individual configuration parameters as keyword arguments. The provided
+        parameters are used to construct an `Auth` configuration instance, which is then
+        loaded into the application's internal configurators.
 
         Parameters
         ----------
         **auth_config : dict
-            Configuration parameters for authentication. These must match the
-            field names and types expected by the Auth dataclass from
-            orionis.foundation.config.auth.entities.auth.Auth.
+            Keyword arguments representing authentication configuration options.
+            These must match the field names and types expected by the `Auth` dataclass
+            from `orionis.foundation.config.auth.entities.auth.Auth`.
 
         Returns
         -------
         Application
-            The current application instance to enable method chaining.
+            Returns the current `Application` instance to enable method chaining.
 
         Notes
         -----
-        This method internally creates an Auth instance from the provided keyword
-        arguments and then calls loadConfigAuth() to store the configuration.
+        - This method internally creates an `Auth` instance from the provided keyword
+          arguments and then calls `loadConfigAuth()` to store the configuration.
+        - The configuration is validated and stored for use during application bootstrapping.
         """
 
-        # Create Auth instance with provided parameters
-        auth = Auth(**auth_config)
-
-        # Load configuration using Auth instance
-        self.loadConfigAuth(auth)
+        # Load authentication configuration using provided keyword arguments
+        self.loadConfigAuth(**auth_config)
 
         # Return the application instance for method chaining
         return self
@@ -855,47 +789,56 @@ class Application(Container, IApplication):
         """
         Load and store authentication configuration from an Auth instance or dictionary.
 
-        This method validates and stores the authentication configuration in the
-        internal configurators storage. If a dictionary is provided, it will
-        be converted to an Auth instance before storage.
+        This method validates and stores the authentication configuration in the application's
+        internal configurators dictionary. If a dictionary is provided, it is converted to an
+        Auth instance before being stored. The configuration is always stored as a dictionary
+        representation of the Auth dataclass.
 
         Parameters
         ----------
         auth : Auth or dict
-            The authentication configuration as either an Auth instance or a dictionary
-            containing configuration parameters that can be used to construct an
-            Auth instance.
+            The authentication configuration, either as an Auth instance or a dictionary
+            containing parameters compatible with the Auth dataclass.
 
         Returns
         -------
         Application
-            The current application instance to enable method chaining.
+            The current Application instance, enabling method chaining. This allows further
+            configuration or initialization calls to be chained after this method.
 
         Raises
         ------
         OrionisTypeError
-            If the auth parameter is not an instance of Auth or a dictionary.
+            If the `auth` parameter is not an instance of Auth, a subclass of Auth, or a dictionary.
 
         Notes
         -----
-        Dictionary inputs are automatically converted to Auth instances using
-        the dictionary unpacking operator (**auth).
+        - If a class type is provided, it is converted using the DataClass wrapper.
+        - If a dictionary is provided, it is unpacked into an Auth instance.
+        - The resulting configuration is stored in the internal configurators under the 'auth' key.
+        - The method always returns the current Application instance.
         """
 
-        # Validate auth type
-        if not isinstance(auth, (Auth, dict)):
+        # Convert class type to dict using DataClass wrapper
+        if (isinstance(auth, type) and issubclass(auth, Auth)):
+            _auth = DataClass(Auth).fromDataclass(auth).toDict()
+
+        # Convert dictionary to Auth instance, then to dict
+        elif isinstance(auth, dict):
+            _auth = Auth(**auth).toDict()
+
+        # Convert Auth instance to dict
+        elif isinstance(auth, Auth):
+            _auth = auth.toDict()
+
+        # Raise error if type is invalid
+        else:
             raise OrionisTypeError(f"Expected Auth instance or dict, got {type(auth).__name__}")
 
-        # If auth is a dict, convert it to Auth instance
-        if isinstance(auth, dict):
-            auth = Auth(**auth).toDict()
-        elif isinstance(auth, Auth):
-            auth = auth.toDict()
+        # Store the configuration dictionary in internal configurators
+        self.__configurators['auth'] = _auth
 
-        # Store the configuration
-        self.__configurators['auth'] = auth
-
-        # Return the application instance for method chaining
+        # Return self for method chaining
         return self
 
     def setConfigCache(
@@ -903,35 +846,34 @@ class Application(Container, IApplication):
         **cache_config
     ) -> 'Application':
         """
-        Configure the cache system using keyword arguments.
+        Configure the cache subsystem using keyword arguments.
 
-        This method provides a convenient way to set cache configuration by
-        passing individual configuration parameters as keyword arguments.
-        The parameters are used to create a Cache configuration instance.
+        This method allows you to set cache configuration for the application
+        by passing individual configuration parameters as keyword arguments. The provided
+        parameters are used to construct a `Cache` configuration instance, which is then
+        loaded into the application's internal configurators.
 
         Parameters
         ----------
         **cache_config : dict
-            Configuration parameters for the cache system. These must match the
-            field names and types expected by the Cache dataclass from
-            orionis.foundation.config.cache.entities.cache.Cache.
+            Keyword arguments representing cache configuration options.
+            These must match the field names and types expected by the `Cache` dataclass
+            from `orionis.foundation.config.cache.entities.cache.Cache`.
 
         Returns
         -------
         Application
-            The current application instance to enable method chaining.
+            Returns the current `Application` instance to enable method chaining.
 
         Notes
         -----
-        This method internally creates a Cache instance from the provided keyword
-        arguments and then calls loadConfigCache() to store the configuration.
+        - This method internally creates a `Cache` instance from the provided keyword
+          arguments and then calls `loadConfigCache()` to store the configuration.
+        - The configuration is validated and stored for use during application bootstrapping.
         """
 
-        # Create Cache instance with provided parameters
-        cache = Cache(**cache_config)
-
-        # Load configuration using Cache instance
-        self.loadConfigCache(cache)
+        # Load cache configuration using provided keyword arguments
+        self.loadConfigCache(**cache_config)
 
         # Return the application instance for method chaining
         return self
@@ -943,47 +885,56 @@ class Application(Container, IApplication):
         """
         Load and store cache configuration from a Cache instance or dictionary.
 
-        This method validates and stores the cache configuration in the
-        internal configurators storage. If a dictionary is provided, it will
-        be converted to a Cache instance before storage.
+        This method validates and stores the cache configuration in the application's
+        internal configurators dictionary. If a dictionary is provided, it is converted to a
+        Cache instance before being stored. The configuration is always stored as a dictionary
+        representation of the Cache dataclass.
 
         Parameters
         ----------
         cache : Cache or dict
-            The cache configuration as either a Cache instance or a dictionary
-            containing configuration parameters that can be used to construct a
-            Cache instance.
+            The cache configuration, either as a Cache instance or a dictionary
+            containing parameters compatible with the Cache dataclass.
 
         Returns
         -------
         Application
-            The current application instance to enable method chaining.
+            The current Application instance, enabling method chaining. This allows further
+            configuration or initialization calls to be chained after this method.
 
         Raises
         ------
         OrionisTypeError
-            If the cache parameter is not an instance of Cache or a dictionary.
+            If the `cache` parameter is not an instance of Cache, a subclass of Cache, or a dictionary.
 
         Notes
         -----
-        Dictionary inputs are automatically converted to Cache instances using
-        the dictionary unpacking operator (**cache).
+        - If a class type is provided, it is converted using the DataClass wrapper.
+        - If a dictionary is provided, it is unpacked into a Cache instance.
+        - The resulting configuration is stored in the internal configurators under the 'cache' key.
+        - The method always returns the current Application instance.
         """
 
-        # Validate cache type
-        if not isinstance(cache, (Cache, dict)):
+        # Convert class type to dict using DataClass wrapper
+        if (isinstance(cache, type) and issubclass(cache, Cache)):
+            _cache = DataClass(Cache).fromDataclass(cache).toDict()
+
+        # Convert dictionary to Cache instance, then to dict
+        elif isinstance(cache, dict):
+            _cache = Cache(**cache).toDict()
+
+        # Convert Cache instance to dict
+        elif isinstance(cache, Cache):
+            _cache = cache.toDict()
+
+        # Raise error if type is invalid
+        else:
             raise OrionisTypeError(f"Expected Cache instance or dict, got {type(cache).__name__}")
 
-        # If cache is a dict, convert it to Cache instance
-        if isinstance(cache, dict):
-            cache = Cache(**cache).toDict()
-        elif isinstance(cache, Cache):
-            cache = cache.toDict()
+        # Store the configuration dictionary in internal configurators
+        self.__configurators['cache'] = _cache
 
-        # Store the configuration
-        self.__configurators['cache'] = cache
-
-        # Return the application instance for method chaining
+        # Return self for method chaining
         return self
 
     def setConfigCors(
@@ -991,35 +942,34 @@ class Application(Container, IApplication):
         **cors_config
     ) -> 'Application':
         """
-        Configure the CORS (Cross-Origin Resource Sharing) system using keyword arguments.
+        Configure the CORS subsystem using keyword arguments.
 
-        This method provides a convenient way to set CORS configuration by
-        passing individual configuration parameters as keyword arguments.
-        The parameters are used to create a Cors configuration instance.
+        This method allows you to set CORS configuration for the application
+        by passing individual configuration parameters as keyword arguments. The provided
+        parameters are used to construct a `Cors` configuration instance, which is then
+        loaded into the application's internal configurators.
 
         Parameters
         ----------
         **cors_config : dict
-            Configuration parameters for CORS settings. These must match the
-            field names and types expected by the Cors dataclass from
-            orionis.foundation.config.cors.entities.cors.Cors.
+            Keyword arguments representing CORS configuration options.
+            These must match the field names and types expected by the `Cors` dataclass
+            from `orionis.foundation.config.cors.entities.cors.Cors`.
 
         Returns
         -------
         Application
-            The current application instance to enable method chaining.
+            Returns the current `Application` instance to enable method chaining.
 
         Notes
         -----
-        This method internally creates a Cors instance from the provided keyword
-        arguments and then calls loadConfigCors() to store the configuration.
+        - This method internally creates a `Cors` instance from the provided keyword
+          arguments and then calls `loadConfigCors()` to store the configuration.
+        - The configuration is validated and stored for use during application bootstrapping.
         """
 
-        # Create Cors instance with provided parameters
-        cors = Cors(**cors_config)
-
-        # Load configuration using Cors instance
-        self.loadConfigCors(cors)
+        # Load CORS configuration using provided keyword arguments
+        self.loadConfigCors(**cors_config)
 
         # Return the application instance for method chaining
         return self
@@ -1031,47 +981,56 @@ class Application(Container, IApplication):
         """
         Load and store CORS configuration from a Cors instance or dictionary.
 
-        This method validates and stores the CORS (Cross-Origin Resource Sharing)
-        configuration in the internal configurators storage. If a dictionary is
-        provided, it will be converted to a Cors instance before storage.
+        This method validates and stores the CORS configuration in the application's
+        internal configurators dictionary. If a dictionary is provided, it is converted to a
+        Cors instance before being stored. The configuration is always stored as a dictionary
+        representation of the Cors dataclass.
 
         Parameters
         ----------
         cors : Cors or dict
-            The CORS configuration as either a Cors instance or a dictionary
-            containing configuration parameters that can be used to construct a
-            Cors instance.
+            The CORS configuration, either as a Cors instance or a dictionary
+            containing parameters compatible with the Cors dataclass.
 
         Returns
         -------
         Application
-            The current application instance to enable method chaining.
+            The current Application instance, enabling method chaining. This allows further
+            configuration or initialization calls to be chained after this method.
 
         Raises
         ------
         OrionisTypeError
-            If the cors parameter is not an instance of Cors or a dictionary.
+            If the `cors` parameter is not an instance of Cors, a subclass of Cors, or a dictionary.
 
         Notes
         -----
-        Dictionary inputs are automatically converted to Cors instances using
-        the dictionary unpacking operator (**cors).
+        - If a class type is provided, it is converted using the DataClass wrapper.
+        - If a dictionary is provided, it is unpacked into a Cors instance.
+        - The resulting configuration is stored in the internal configurators under the 'cors' key.
+        - The method always returns the current Application instance.
         """
 
-        # Validate cors type
-        if not isinstance(cors, (Cors, dict)):
+        # Convert class type to dict using DataClass wrapper
+        if (isinstance(cors, type) and issubclass(cors, Cors)):
+            _cors = DataClass(Cors).fromDataclass(cors).toDict()
+
+        # Convert dictionary to Cors instance, then to dict
+        elif isinstance(cors, dict):
+            _cors = Cors(**cors).toDict()
+
+        # Convert Cors instance to dict
+        elif isinstance(cors, Cors):
+            _cors = cors.toDict()
+
+        # Raise error if type is invalid
+        else:
             raise OrionisTypeError(f"Expected Cors instance or dict, got {type(cors).__name__}")
 
-        # If cors is a dict, convert it to Cors instance
-        if isinstance(cors, dict):
-            cors = Cors(**cors).toDict()
-        elif isinstance(cors, Cors):
-            cors = cors.toDict()
+        # Store the configuration dictionary in internal configurators
+        self.__configurators['cors'] = _cors
 
-        # Store the configuration
-        self.__configurators['cors'] = cors
-
-        # Return the application instance for method chaining
+        # Return self for method chaining
         return self
 
     def setConfigDatabase(
@@ -1079,35 +1038,34 @@ class Application(Container, IApplication):
         **database_config
     ) -> 'Application':
         """
-        Configure the database system using keyword arguments.
+        Configure the database subsystem using keyword arguments.
 
-        This method provides a convenient way to set database configuration by
-        passing individual configuration parameters as keyword arguments.
-        The parameters are used to create a Database configuration instance.
+        This method allows you to set database configuration for the application
+        by passing individual configuration parameters as keyword arguments. The provided
+        parameters are used to construct a `Database` configuration instance, which is then
+        loaded into the application's internal configurators.
 
         Parameters
         ----------
         **database_config : dict
-            Configuration parameters for the database system. These must match the
-            field names and types expected by the Database dataclass from
-            orionis.foundation.config.database.entities.database.Database.
+            Keyword arguments representing database configuration options.
+            These must match the field names and types expected by the `Database` dataclass
+            from `orionis.foundation.config.database.entities.database.Database`.
 
         Returns
         -------
         Application
-            The current application instance to enable method chaining.
+            Returns the current `Application` instance to enable method chaining.
 
         Notes
         -----
-        This method internally creates a Database instance from the provided keyword
-        arguments and then calls loadConfigDatabase() to store the configuration.
+        - This method internally creates a `Database` instance from the provided keyword
+          arguments and then calls `loadConfigDatabase()` to store the configuration.
+        - The configuration is validated and stored for use during application bootstrapping.
         """
 
-        # Create Database instance with provided parameters
-        database = Database(**database_config)
-
-        # Load configuration using Database instance
-        self.loadConfigDatabase(database)
+        # Load database configuration using provided keyword arguments
+        self.loadConfigDatabase(**database_config)
 
         # Return the application instance for method chaining
         return self
@@ -1119,47 +1077,56 @@ class Application(Container, IApplication):
         """
         Load and store database configuration from a Database instance or dictionary.
 
-        This method validates and stores the database configuration in the
-        internal configurators storage. If a dictionary is provided, it will
-        be converted to a Database instance before storage.
+        This method validates and stores the database configuration in the application's
+        internal configurators dictionary. If a dictionary is provided, it is converted to a
+        Database instance before being stored. The configuration is always stored as a dictionary
+        representation of the Database dataclass.
 
         Parameters
         ----------
         database : Database or dict
-            The database configuration as either a Database instance or a dictionary
-            containing configuration parameters that can be used to construct a
-            Database instance.
+            The database configuration, either as a Database instance or a dictionary
+            containing parameters compatible with the Database dataclass.
 
         Returns
         -------
         Application
-            The current application instance to enable method chaining.
+            The current Application instance, enabling method chaining. This allows further
+            configuration or initialization calls to be chained after this method.
 
         Raises
         ------
         OrionisTypeError
-            If the database parameter is not an instance of Database or a dictionary.
+            If the `database` parameter is not an instance of Database, a subclass of Database, or a dictionary.
 
         Notes
         -----
-        Dictionary inputs are automatically converted to Database instances using
-        the dictionary unpacking operator (**database).
+        - If a class type is provided, it is converted using the DataClass wrapper.
+        - If a dictionary is provided, it is unpacked into a Database instance.
+        - The resulting configuration is stored in the internal configurators under the 'database' key.
+        - The method always returns the current Application instance.
         """
 
-        # Validate database type
-        if not isinstance(database, (Database, dict)):
+        # Convert class type to dict using DataClass wrapper
+        if (isinstance(database, type) and issubclass(database, Database)):
+            _database = DataClass(Database).fromDataclass(database).toDict()
+
+        # Convert dictionary to Database instance, then to dict
+        elif isinstance(database, dict):
+            _database = Database(**database).toDict()
+
+        # Convert Database instance to dict
+        elif isinstance(database, Database):
+            _database = database.toDict()
+
+        # Raise error if type is invalid
+        else:
             raise OrionisTypeError(f"Expected Database instance or dict, got {type(database).__name__}")
 
-        # If database is a dict, convert it to Database instance
-        if isinstance(database, dict):
-            database = Database(**database).toDict()
-        elif isinstance(database, Database):
-            database = database.toDict()
+        # Store the configuration dictionary in internal configurators
+        self.__configurators['database'] = _database
 
-        # Store the configuration
-        self.__configurators['database'] = database
-
-        # Return the application instance for method chaining
+        # Return self for method chaining
         return self
 
     def setConfigFilesystems(
@@ -1167,35 +1134,34 @@ class Application(Container, IApplication):
         **filesystems_config
     ) -> 'Application':
         """
-        Configure the filesystems using keyword arguments.
+        Configure the filesystems subsystem using keyword arguments.
 
-        This method provides a convenient way to set filesystem configuration by
-        passing individual configuration parameters as keyword arguments.
-        The parameters are used to create a Filesystems configuration instance.
+        This method allows you to set filesystems configuration for the application
+        by passing individual configuration parameters as keyword arguments. The provided
+        parameters are used to construct a `Filesystems` configuration instance, which is then
+        loaded into the application's internal configurators.
 
         Parameters
         ----------
         **filesystems_config : dict
-            Configuration parameters for the filesystems. These must match the
-            field names and types expected by the Filesystems dataclass from
-            orionis.foundation.config.filesystems.entitites.filesystems.Filesystems.
+            Keyword arguments representing filesystems configuration options.
+            These must match the field names and types expected by the `Filesystems` dataclass
+            from `orionis.foundation.config.filesystems.entitites.filesystems.Filesystems`.
 
         Returns
         -------
         Application
-            The current application instance to enable method chaining.
+            Returns the current `Application` instance to enable method chaining.
 
         Notes
         -----
-        This method internally creates a Filesystems instance from the provided keyword
-        arguments and then calls loadConfigFilesystems() to store the configuration.
+        - This method internally creates a `Filesystems` instance from the provided keyword
+          arguments and then calls `loadConfigFilesystems()` to store the configuration.
+        - The configuration is validated and stored for use during application bootstrapping.
         """
 
-        # Create Filesystems instance with provided parameters
-        filesystems = Filesystems(**filesystems_config)
-
-        # Load configuration using Filesystems instance
-        self.loadConfigFilesystems(filesystems)
+        # Load filesystems configuration using provided keyword arguments
+        self.loadConfigFilesystems(**filesystems_config)
 
         # Return the application instance for method chaining
         return self
@@ -1207,47 +1173,56 @@ class Application(Container, IApplication):
         """
         Load and store filesystems configuration from a Filesystems instance or dictionary.
 
-        This method validates and stores the filesystems configuration in the
-        internal configurators storage. If a dictionary is provided, it will
-        be converted to a Filesystems instance before storage.
+        This method validates and stores the filesystems configuration in the application's
+        internal configurators dictionary. If a dictionary is provided, it is converted to a
+        Filesystems instance before being stored. The configuration is always stored as a dictionary
+        representation of the Filesystems dataclass.
 
         Parameters
         ----------
         filesystems : Filesystems or dict
-            The filesystems configuration as either a Filesystems instance or a dictionary
-            containing configuration parameters that can be used to construct a
-            Filesystems instance.
+            The filesystems configuration, either as a Filesystems instance or a dictionary
+            containing parameters compatible with the Filesystems dataclass.
 
         Returns
         -------
         Application
-            The current application instance to enable method chaining.
+            The current Application instance, enabling method chaining. This allows further
+            configuration or initialization calls to be chained after this method.
 
         Raises
         ------
         OrionisTypeError
-            If the filesystems parameter is not an instance of Filesystems or a dictionary.
+            If the `filesystems` parameter is not an instance of Filesystems, a subclass of Filesystems, or a dictionary.
 
         Notes
         -----
-        Dictionary inputs are automatically converted to Filesystems instances using
-        the dictionary unpacking operator (**filesystems).
+        - If a class type is provided, it is converted using the DataClass wrapper.
+        - If a dictionary is provided, it is unpacked into a Filesystems instance.
+        - The resulting configuration is stored in the internal configurators under the 'filesystems' key.
+        - The method always returns the current Application instance.
         """
 
-        # Validate filesystems type
-        if not isinstance(filesystems, (Filesystems, dict)):
+        # Convert class type to dict using DataClass wrapper
+        if (isinstance(filesystems, type) and issubclass(filesystems, Filesystems)):
+            _filesystems = DataClass(Filesystems).fromDataclass(filesystems).toDict()
+
+        # Convert dictionary to Filesystems instance, then to dict
+        elif isinstance(filesystems, dict):
+            _filesystems = Filesystems(**filesystems).toDict()
+
+        # Convert Filesystems instance to dict
+        elif isinstance(filesystems, Filesystems):
+            _filesystems = filesystems.toDict()
+
+        # Raise error if type is invalid
+        else:
             raise OrionisTypeError(f"Expected Filesystems instance or dict, got {type(filesystems).__name__}")
 
-        # If filesystems is a dict, convert it to Filesystems instance
-        if isinstance(filesystems, dict):
-            filesystems = Filesystems(**filesystems).toDict()
-        elif isinstance(filesystems, Filesystems):
-            filesystems = filesystems.toDict()
+        # Store the configuration dictionary in internal configurators
+        self.__configurators['filesystems'] = _filesystems
 
-        # Store the configuration
-        self.__configurators['filesystems'] = filesystems
-
-        # Return the application instance for method chaining
+        # Return self for method chaining
         return self
 
     def setConfigLogging(
@@ -1255,35 +1230,34 @@ class Application(Container, IApplication):
         **logging_config
     ) -> 'Application':
         """
-        Configure the logging system using keyword arguments.
+        Configure the logging subsystem using keyword arguments.
 
-        This method provides a convenient way to set logging configuration by
-        passing individual configuration parameters as keyword arguments.
-        The parameters are used to create a Logging configuration instance.
+        This method allows you to set logging configuration for the application
+        by passing individual configuration parameters as keyword arguments. The provided
+        parameters are used to construct a `Logging` configuration instance, which is then
+        loaded into the application's internal configurators.
 
         Parameters
         ----------
         **logging_config : dict
-            Configuration parameters for the logging system. These must match the
-            field names and types expected by the Logging dataclass from
-            orionis.foundation.config.logging.entities.logging.Logging.
+            Keyword arguments representing logging configuration options.
+            These must match the field names and types expected by the `Logging` dataclass
+            from `orionis.foundation.config.logging.entities.logging.Logging`.
 
         Returns
         -------
         Application
-            The current application instance to enable method chaining.
+            Returns the current `Application` instance to enable method chaining.
 
         Notes
         -----
-        This method internally creates a Logging instance from the provided keyword
-        arguments and then calls loadConfigLogging() to store the configuration.
+        - This method internally creates a `Logging` instance from the provided keyword
+          arguments and then calls `loadConfigLogging()` to store the configuration.
+        - The configuration is validated and stored for use during application bootstrapping.
         """
 
-        # Create Logging instance with provided parameters
-        logging = Logging(**logging_config)
-
-        # Load configuration using Logging instance
-        self.loadConfigLogging(logging)
+        # Load logging configuration using provided keyword arguments
+        self.loadConfigLogging(**logging_config)
 
         # Return the application instance for method chaining
         return self
@@ -1295,47 +1269,56 @@ class Application(Container, IApplication):
         """
         Load and store logging configuration from a Logging instance or dictionary.
 
-        This method validates and stores the logging configuration in the
-        internal configurators storage. If a dictionary is provided, it will
-        be converted to a Logging instance before storage.
+        This method validates and stores the logging configuration in the application's
+        internal configurators dictionary. If a dictionary is provided, it is converted to a
+        Logging instance before being stored. The configuration is always stored as a dictionary
+        representation of the Logging dataclass.
 
         Parameters
         ----------
         logging : Logging or dict
-            The logging configuration as either a Logging instance or a dictionary
-            containing configuration parameters that can be used to construct a
-            Logging instance.
+            The logging configuration, either as a Logging instance or a dictionary
+            containing parameters compatible with the Logging dataclass.
 
         Returns
         -------
         Application
-            The current application instance to enable method chaining.
+            The current Application instance, enabling method chaining. This allows further
+            configuration or initialization calls to be chained after this method.
 
         Raises
         ------
         OrionisTypeError
-            If the logging parameter is not an instance of Logging or a dictionary.
+            If the `logging` parameter is not an instance of Logging, a subclass of Logging, or a dictionary.
 
         Notes
         -----
-        Dictionary inputs are automatically converted to Logging instances using
-        the dictionary unpacking operator (**logging).
+        - If a class type is provided, it is converted using the DataClass wrapper.
+        - If a dictionary is provided, it is unpacked into a Logging instance.
+        - The resulting configuration is stored in the internal configurators under the 'logging' key.
+        - The method always returns the current Application instance.
         """
 
-        # Validate logging type
-        if not isinstance(logging, (Logging, dict)):
+        # Convert class type to dict using DataClass wrapper
+        if (isinstance(logging, type) and issubclass(logging, Logging)):
+            _logging = DataClass(Logging).fromDataclass(logging).toDict()
+
+        # Convert dictionary to Logging instance, then to dict
+        elif isinstance(logging, dict):
+            _logging = Logging(**logging).toDict()
+
+        # Convert Logging instance to dict
+        elif isinstance(logging, Logging):
+            _logging = logging.toDict()
+
+        # Raise error if type is invalid
+        else:
             raise OrionisTypeError(f"Expected Logging instance or dict, got {type(logging).__name__}")
 
-        # If logging is a dict, convert it to Logging instance
-        if isinstance(logging, dict):
-            logging = Logging(**logging).toDict()
-        elif isinstance(logging, Logging):
-            logging = logging.toDict()
+        # Store the configuration dictionary in internal configurators
+        self.__configurators['logging'] = _logging
 
-        # Store the configuration
-        self.__configurators['logging'] = logging
-
-        # Return the application instance for method chaining
+        # Return self for method chaining
         return self
 
     def setConfigMail(
@@ -1343,35 +1326,34 @@ class Application(Container, IApplication):
         **mail_config
     ) -> 'Application':
         """
-        Configure the mail system using keyword arguments.
+        Configure the mail subsystem using keyword arguments.
 
-        This method provides a convenient way to set mail configuration by
-        passing individual configuration parameters as keyword arguments.
-        The parameters are used to create a Mail configuration instance.
+        This method allows you to set mail configuration for the application
+        by passing individual configuration parameters as keyword arguments. The provided
+        parameters are used to construct a `Mail` configuration instance, which is then
+        loaded into the application's internal configurators.
 
         Parameters
         ----------
         **mail_config : dict
-            Configuration parameters for the mail system. These must match the
-            field names and types expected by the Mail dataclass from
-            orionis.foundation.config.mail.entities.mail.Mail.
+            Keyword arguments representing mail configuration options.
+            These must match the field names and types expected by the `Mail` dataclass
+            from `orionis.foundation.config.mail.entities.mail.Mail`.
 
         Returns
         -------
         Application
-            The current application instance to enable method chaining.
+            Returns the current `Application` instance to enable method chaining.
 
         Notes
         -----
-        This method internally creates a Mail instance from the provided keyword
-        arguments and then calls loadConfigMail() to store the configuration.
+        - This method internally creates a `Mail` instance from the provided keyword
+          arguments and then calls `loadConfigMail()` to store the configuration.
+        - The configuration is validated and stored for use during application bootstrapping.
         """
 
-        # Create Mail instance with provided parameters
-        mail = Mail(**mail_config)
-
-        # Load configuration using Mail instance
-        self.loadConfigMail(mail)
+        # Load mail configuration using provided keyword arguments
+        self.loadConfigMail(**mail_config)
 
         # Return the application instance for method chaining
         return self
@@ -1383,47 +1365,56 @@ class Application(Container, IApplication):
         """
         Load and store mail configuration from a Mail instance or dictionary.
 
-        This method validates and stores the mail configuration in the
-        internal configurators storage. If a dictionary is provided, it will
-        be converted to a Mail instance before storage.
+        This method validates and stores the mail configuration in the application's
+        internal configurators dictionary. If a dictionary is provided, it is converted to a
+        Mail instance before being stored. The configuration is always stored as a dictionary
+        representation of the Mail dataclass.
 
         Parameters
         ----------
         mail : Mail or dict
-            The mail configuration as either a Mail instance or a dictionary
-            containing configuration parameters that can be used to construct a
-            Mail instance.
+            The mail configuration, either as a Mail instance or a dictionary
+            containing parameters compatible with the Mail dataclass.
 
         Returns
         -------
         Application
-            The current application instance to enable method chaining.
+            The current Application instance, enabling method chaining. This allows further
+            configuration or initialization calls to be chained after this method.
 
         Raises
         ------
         OrionisTypeError
-            If the mail parameter is not an instance of Mail or a dictionary.
+            If the `mail` parameter is not an instance of Mail, a subclass of Mail, or a dictionary.
 
         Notes
         -----
-        Dictionary inputs are automatically converted to Mail instances using
-        the dictionary unpacking operator (**mail).
+        - If a class type is provided, it is converted using the DataClass wrapper.
+        - If a dictionary is provided, it is unpacked into a Mail instance.
+        - The resulting configuration is stored in the internal configurators under the 'mail' key.
+        - The method always returns the current Application instance.
         """
 
-        # Validate mail type
-        if not isinstance(mail, (Mail, dict)):
+        # Convert class type to dict using DataClass wrapper
+        if (isinstance(mail, type) and issubclass(mail, Mail)):
+            _mail = DataClass(Mail).fromDataclass(mail).toDict()
+
+        # Convert dictionary to Mail instance, then to dict
+        elif isinstance(mail, dict):
+            _mail = Mail(**mail).toDict()
+
+        # Convert Mail instance to dict
+        elif isinstance(mail, Mail):
+            _mail = mail.toDict()
+
+        # Raise error if type is invalid
+        else:
             raise OrionisTypeError(f"Expected Mail instance or dict, got {type(mail).__name__}")
 
-        # If mail is a dict, convert it to Mail instance
-        if isinstance(mail, dict):
-            mail = Mail(**mail).toDict()
-        elif isinstance(mail, Mail):
-            mail = mail.toDict()
+        # Store the configuration dictionary in internal configurators
+        self.__configurators['mail'] = _mail
 
-        # Store the configuration
-        self.__configurators['mail'] = mail
-
-        # Return the application instance for method chaining
+        # Return self for method chaining
         return self
 
     def setConfigQueue(
@@ -1431,35 +1422,34 @@ class Application(Container, IApplication):
         **queue_config
     ) -> 'Application':
         """
-        Configure the queue system using keyword arguments.
+        Configure the queue subsystem using keyword arguments.
 
-        This method provides a convenient way to set queue configuration by
-        passing individual configuration parameters as keyword arguments.
-        The parameters are used to create a Queue configuration instance.
+        This method allows you to set queue configuration for the application
+        by passing individual configuration parameters as keyword arguments. The provided
+        parameters are used to construct a `Queue` configuration instance, which is then
+        loaded into the application's internal configurators.
 
         Parameters
         ----------
         **queue_config : dict
-            Configuration parameters for the queue system. These must match the
-            field names and types expected by the Queue dataclass from
-            orionis.foundation.config.queue.entities.queue.Queue.
+            Keyword arguments representing queue configuration options.
+            These must match the field names and types expected by the `Queue` dataclass
+            from `orionis.foundation.config.queue.entities.queue.Queue`.
 
         Returns
         -------
         Application
-            The current application instance to enable method chaining.
+            Returns the current `Application` instance to enable method chaining.
 
         Notes
         -----
-        This method internally creates a Queue instance from the provided keyword
-        arguments and then calls loadConfigQueue() to store the configuration.
+        - This method internally creates a `Queue` instance from the provided keyword
+          arguments and then calls `loadConfigQueue()` to store the configuration.
+        - The configuration is validated and stored for use during application bootstrapping.
         """
 
-        # Create Queue instance with provided parameters
-        queue = Queue(**queue_config)
-
-        # Load configuration using Queue instance
-        self.loadConfigQueue(queue)
+        # Load queue configuration using provided keyword arguments
+        self.loadConfigQueue(**queue_config)
 
         # Return the application instance for method chaining
         return self
@@ -1471,47 +1461,56 @@ class Application(Container, IApplication):
         """
         Load and store queue configuration from a Queue instance or dictionary.
 
-        This method validates and stores the queue configuration in the
-        internal configurators storage. If a dictionary is provided, it will
-        be converted to a Queue instance before storage.
+        This method validates and stores the queue configuration in the application's
+        internal configurators dictionary. If a dictionary is provided, it is converted to a
+        Queue instance before being stored. The configuration is always stored as a dictionary
+        representation of the Queue dataclass.
 
         Parameters
         ----------
         queue : Queue or dict
-            The queue configuration as either a Queue instance or a dictionary
-            containing configuration parameters that can be used to construct a
-            Queue instance.
+            The queue configuration, either as a Queue instance or a dictionary
+            containing parameters compatible with the Queue dataclass.
 
         Returns
         -------
         Application
-            The current application instance to enable method chaining.
+            The current Application instance, enabling method chaining. This allows further
+            configuration or initialization calls to be chained after this method.
 
         Raises
         ------
         OrionisTypeError
-            If the queue parameter is not an instance of Queue or a dictionary.
+            If the `queue` parameter is not an instance of Queue, a subclass of Queue, or a dictionary.
 
         Notes
         -----
-        Dictionary inputs are automatically converted to Queue instances using
-        the dictionary unpacking operator (**queue).
+        - If a class type is provided, it is converted using the DataClass wrapper.
+        - If a dictionary is provided, it is unpacked into a Queue instance.
+        - The resulting configuration is stored in the internal configurators under the 'queue' key.
+        - The method always returns the current Application instance.
         """
 
-        # Validate queue type
-        if not isinstance(queue, (Queue, dict)):
+        # Convert class type to dict using DataClass wrapper
+        if (isinstance(queue, type) and issubclass(queue, Queue)):
+            _queue = DataClass(Queue).fromDataclass(queue).toDict()
+
+        # Convert dictionary to Queue instance, then to dict
+        elif isinstance(queue, dict):
+            _queue = Queue(**queue).toDict()
+
+        # Convert Queue instance to dict
+        elif isinstance(queue, Queue):
+            _queue = queue.toDict()
+
+        # Raise error if type is invalid
+        else:
             raise OrionisTypeError(f"Expected Queue instance or dict, got {type(queue).__name__}")
 
-        # If queue is a dict, convert it to Queue instance
-        if isinstance(queue, dict):
-            queue = Queue(**queue).toDict()
-        elif isinstance(queue, Queue):
-            queue = queue.toDict()
+        # Store the configuration dictionary in internal configurators
+        self.__configurators['queue'] = _queue
 
-        # Store the configuration
-        self.__configurators['queue'] = queue
-
-        # Return the application instance for method chaining
+        # Return self for method chaining
         return self
 
     def setConfigSession(
@@ -1519,35 +1518,34 @@ class Application(Container, IApplication):
         **session_config
     ) -> 'Application':
         """
-        Configure the session system using keyword arguments.
+        Configure the session subsystem using keyword arguments.
 
-        This method provides a convenient way to set session configuration by
-        passing individual configuration parameters as keyword arguments.
-        The parameters are used to create a Session configuration instance.
+        This method allows you to set session configuration for the application
+        by passing individual configuration parameters as keyword arguments. The provided
+        parameters are used to construct a `Session` configuration instance, which is then
+        loaded into the application's internal configurators.
 
         Parameters
         ----------
         **session_config : dict
-            Configuration parameters for the session system. These must match the
-            field names and types expected by the Session dataclass from
-            orionis.foundation.config.session.entities.session.Session.
+            Keyword arguments representing session configuration options.
+            These must match the field names and types expected by the `Session` dataclass
+            from `orionis.foundation.config.session.entities.session.Session`.
 
         Returns
         -------
         Application
-            The current application instance to enable method chaining.
+            Returns the current `Application` instance to enable method chaining.
 
         Notes
         -----
-        This method internally creates a Session instance from the provided keyword
-        arguments and then calls loadConfigSession() to store the configuration.
+        - This method internally creates a `Session` instance from the provided keyword
+          arguments and then calls `loadConfigSession()` to store the configuration.
+        - The configuration is validated and stored for use during application bootstrapping.
         """
 
-        # Create Session instance with provided parameters
-        session = Session(**session_config)
-
-        # Load configuration using Session instance
-        self.loadConfigSession(session)
+        # Load session configuration using provided keyword arguments
+        self.loadConfigSession(**session_config)
 
         # Return the application instance for method chaining
         return self
@@ -1559,47 +1557,56 @@ class Application(Container, IApplication):
         """
         Load and store session configuration from a Session instance or dictionary.
 
-        This method validates and stores the session configuration in the
-        internal configurators storage. If a dictionary is provided, it will
-        be converted to a Session instance before storage.
+        This method validates and stores the session configuration in the application's
+        internal configurators dictionary. If a dictionary is provided, it is converted to a
+        Session instance before being stored. The configuration is always stored as a dictionary
+        representation of the Session dataclass.
 
         Parameters
         ----------
         session : Session or dict
-            The session configuration as either a Session instance or a dictionary
-            containing configuration parameters that can be used to construct a
-            Session instance.
+            The session configuration, either as a Session instance or a dictionary
+            containing parameters compatible with the Session dataclass.
 
         Returns
         -------
         Application
-            The current application instance to enable method chaining.
+            The current Application instance, enabling method chaining. This allows further
+            configuration or initialization calls to be chained after this method.
 
         Raises
         ------
         OrionisTypeError
-            If the session parameter is not an instance of Session or a dictionary.
+            If the `session` parameter is not an instance of Session, a subclass of Session, or a dictionary.
 
         Notes
         -----
-        Dictionary inputs are automatically converted to Session instances using
-        the dictionary unpacking operator (**session).
+        - If a class type is provided, it is converted using the DataClass wrapper.
+        - If a dictionary is provided, it is unpacked into a Session instance.
+        - The resulting configuration is stored in the internal configurators under the 'session' key.
+        - The method always returns the current Application instance.
         """
 
-        # Validate session type
-        if not isinstance(session, (Session, dict)):
+        # Convert class type to dict using DataClass wrapper
+        if (isinstance(session, type) and issubclass(session, Session)):
+            _session = DataClass(Session).fromDataclass(session).toDict()
+
+        # Convert dictionary to Session instance, then to dict
+        elif isinstance(session, dict):
+            _session = Session(**session).toDict()
+
+        # Convert Session instance to dict
+        elif isinstance(session, Session):
+            _session = session.toDict()
+
+        # Raise error if type is invalid
+        else:
             raise OrionisTypeError(f"Expected Session instance or dict, got {type(session).__name__}")
 
-        # If session is a dict, convert it to Session instance
-        if isinstance(session, dict):
-            session = Session(**session).toDict()
-        elif isinstance(session, Session):
-            session = session.toDict()
+        # Store the configuration dictionary in internal configurators
+        self.__configurators['session'] = _session
 
-        # Store the configuration
-        self.__configurators['session'] = session
-
-        # Return the application instance for method chaining
+        # Return self for method chaining
         return self
 
     def setConfigTesting(
@@ -1607,35 +1614,34 @@ class Application(Container, IApplication):
         **testing_config
     ) -> 'Application':
         """
-        Configure the testing framework using keyword arguments.
+        Configure the testing subsystem using keyword arguments.
 
-        This method provides a convenient way to set testing configuration by
-        passing individual configuration parameters as keyword arguments.
-        The parameters are used to create a Testing configuration instance.
+        This method allows you to set testing configuration for the application
+        by passing individual configuration parameters as keyword arguments. The provided
+        parameters are used to construct a `Testing` configuration instance, which is then
+        loaded into the application's internal configurators.
 
         Parameters
         ----------
         **testing_config : dict
-            Configuration parameters for the testing framework. These must match the
-            field names and types expected by the Testing dataclass from
-            orionis.foundation.config.testing.entities.testing.Testing.
+            Keyword arguments representing testing configuration options.
+            These must match the field names and types expected by the `Testing` dataclass
+            from `orionis.foundation.config.testing.entities.testing.Testing`.
 
         Returns
         -------
         Application
-            The current application instance to enable method chaining.
+            Returns the current `Application` instance to enable method chaining.
 
         Notes
         -----
-        This method internally creates a Testing instance from the provided keyword
-        arguments and then calls loadConfigTesting() to store the configuration.
+        - This method internally creates a `Testing` instance from the provided keyword
+          arguments and then calls `loadConfigTesting()` to store the configuration.
+        - The configuration is validated and stored for use during application bootstrapping.
         """
 
-        # Create Testing instance with provided parameters
-        testing = Testing(**testing_config)
-
-        # Load configuration using Testing instance
-        self.loadConfigTesting(testing)
+        # Load testing configuration using provided keyword arguments
+        self.loadConfigTesting(**testing_config)
 
         # Return the application instance for method chaining
         return self
@@ -1647,47 +1653,56 @@ class Application(Container, IApplication):
         """
         Load and store testing configuration from a Testing instance or dictionary.
 
-        This method validates and stores the testing framework configuration in the
-        internal configurators storage. If a dictionary is provided, it will be
-        converted to a Testing instance before storage.
+        This method validates and stores the testing configuration in the application's
+        internal configurators dictionary. If a dictionary is provided, it is converted to a
+        Testing instance before being stored. The configuration is always stored as a dictionary
+        representation of the Testing dataclass.
 
         Parameters
         ----------
         testing : Testing or dict
-            The testing configuration as either a Testing instance or a dictionary
-            containing configuration parameters that can be used to construct a
-            Testing instance.
+            The testing configuration, either as a Testing instance or a dictionary
+            containing parameters compatible with the Testing dataclass.
 
         Returns
         -------
         Application
-            The current application instance to enable method chaining.
+            The current Application instance, enabling method chaining. This allows further
+            configuration or initialization calls to be chained after this method.
 
         Raises
         ------
         OrionisTypeError
-            If the testing parameter is not an instance of Testing or a dictionary.
+            If the `testing` parameter is not an instance of Testing, a subclass of Testing, or a dictionary.
 
         Notes
         -----
-        Dictionary inputs are automatically converted to Testing instances using
-        the dictionary unpacking operator (**testing).
+        - If a class type is provided, it is converted using the DataClass wrapper.
+        - If a dictionary is provided, it is unpacked into a Testing instance.
+        - The resulting configuration is stored in the internal configurators under the 'testing' key.
+        - The method always returns the current Application instance.
         """
 
-        # Validate testing type
-        if not isinstance(testing, (Testing, dict)):
+        # Convert class type to dict using DataClass wrapper
+        if (isinstance(testing, type) and issubclass(testing, Testing)):
+            _testing = DataClass(Testing).fromDataclass(testing).toDict()
+
+        # Convert dictionary to Testing instance, then to dict
+        elif isinstance(testing, dict):
+            _testing = Testing(**testing).toDict()
+
+        # Convert Testing instance to dict
+        elif isinstance(testing, Testing):
+            _testing = testing.toDict()
+
+        # Raise error if type is invalid
+        else:
             raise OrionisTypeError(f"Expected Testing instance or dict, got {type(testing).__name__}")
 
-        # If testing is a dict, convert it to Testing instance
-        if isinstance(testing, dict):
-            testing = Testing(**testing).toDict()
-        elif isinstance(testing, Testing):
-            testing = testing.toDict()
+        # Store the configuration dictionary in internal configurators
+        self.__configurators['testing'] = _testing
 
-        # Store the configuration
-        self.__configurators['testing'] = testing
-
-        # Return the application instance for method chaining
+        # Return self for method chaining
         return self
 
     def setConfigPaths(
@@ -1770,47 +1785,56 @@ class Application(Container, IApplication):
         """
         Load and store path configuration from a Paths instance or dictionary.
 
-        This method validates and stores the application path configuration in the
-        internal configurators storage. If a dictionary is provided, it will be
-        converted to a Paths instance before storage.
+        This method validates and stores the path configuration in the application's
+        internal configurators dictionary. If a dictionary is provided, it is converted to a
+        Paths instance before being stored. The configuration is always stored as a dictionary
+        representation of the Paths dataclass.
 
         Parameters
         ----------
         paths : Paths or dict
-            The path configuration as either a Paths instance or a dictionary
-            containing path parameters that can be used to construct a Paths instance.
+            The path configuration, either as a Paths instance or a dictionary
+            containing parameters compatible with the Paths dataclass.
 
         Returns
         -------
         Application
-            The current application instance to enable method chaining.
+            The current Application instance, enabling method chaining. This allows further
+            configuration or initialization calls to be chained after this method.
 
         Raises
         ------
         OrionisTypeError
-            If the paths parameter is not an instance of Paths or a dictionary.
+            If the `paths` parameter is not an instance of Paths, a subclass of Paths, or a dictionary.
 
         Notes
         -----
-        Dictionary inputs are automatically converted to Paths instances using
-        the dictionary unpacking operator (**paths). This method is used internally
-        by withConfigurators() and can be called directly for path configuration.
+        - If a class type is provided, it is converted using the DataClass wrapper.
+        - If a dictionary is provided, it is unpacked into a Paths instance.
+        - The resulting configuration is stored in the internal configurators under the 'path' key.
+        - The method always returns the current Application instance.
         """
 
-        # Validate paths type
-        if not isinstance(paths, (Paths, dict)):
+        # Convert class type to dict using DataClass wrapper
+        if (isinstance(paths, type) and issubclass(paths, Paths)):
+            _paths = DataClass(Paths).fromDataclass(paths).toDict()
+
+        # Convert dictionary to Paths instance, then to dict
+        elif isinstance(paths, dict):
+            _paths = Paths(**paths).toDict()
+
+        # Convert Paths instance to dict
+        elif isinstance(paths, Paths):
+            _paths = paths.toDict()
+
+        # Raise error if type is invalid
+        else:
             raise OrionisTypeError(f"Expected Paths instance or dict, got {type(paths).__name__}")
 
-        # If paths is a dict, convert it to Paths instance
-        if isinstance(paths, dict):
-            paths = Paths(**paths).toDict()
-        elif isinstance(paths, Paths):
-            paths = paths.toDict()
+        # Store the configuration dictionary in internal configurators
+        self.__configurators['path'] = _paths
 
-        # Store the configuration
-        self.__configurators['path'] = paths
-
-        # Return the application instance for method chaining
+        # Return self for method chaining
         return self
 
     def __loadConfig(
@@ -1848,12 +1872,9 @@ class Application(Container, IApplication):
                 if not self.__configurators:
                     self.__config = Configuration().toDict()
 
-                # Convert configurators to a dictionary
+                # Assign the configurators to config and clean up
                 else:
-                    self.__config = Configuration(**self.__configurators).toDict()
-
-                # Remove __configurators ofter loading configuration
-                if hasattr(self, '_Application__configurators'):
+                    self.__config = self.__configurators
                     del self.__configurators
 
         except Exception as e:

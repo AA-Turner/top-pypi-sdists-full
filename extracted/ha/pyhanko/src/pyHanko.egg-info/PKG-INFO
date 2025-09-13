@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: pyHanko
-Version: 0.30.0
+Version: 0.31.0
 Summary: Tools for stamping and signing PDF files
 Author-email: Matthias Valvekens <dev@mvalvekens.be>
 Maintainer-email: Matthias Valvekens <dev@mvalvekens.be>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/MatthiasValvekens/pyHanko
-Project-URL: Documentation, https://pyhanko.readthedocs.io/
-Project-URL: Changes, https://pyhanko.readthedocs.io/en/latest/changelog.html
+Project-URL: Documentation, https://docs.pyhanko.eu/
+Project-URL: Changes, https://docs.pyhanko.eu/en/latest/changelog.html
 Project-URL: Source Code, https://github.com/MatthiasValvekens/pyHanko
 Project-URL: Issue Tracker, https://github.com/MatthiasValvekens/pyHanko/issues
 Keywords: signature,pdf,pades,digital-signature,pkcs11
@@ -28,7 +28,7 @@ License-File: LICENSE
 License-File: src/pyhanko/pdf_utils/LICENSE.PyPDF2
 Requires-Dist: asn1crypto>=1.5.1
 Requires-Dist: tzlocal>=4.3
-Requires-Dist: pyhanko-certvalidator<0.29,>=0.28.0
+Requires-Dist: pyhanko-certvalidator<0.30,>=0.29.0
 Requires-Dist: requests>=2.31.0
 Requires-Dist: pyyaml>=6.0
 Requires-Dist: cryptography>=43.0.3
@@ -61,7 +61,7 @@ distributed separately as ``pyhanko-cli``.
 
 ### Documentation
 
-The [documentation for pyHanko is hosted on ReadTheDocs](https://pyhanko.readthedocs.io/en/latest/)
+The [documentation for pyHanko is hosted on ReadTheDocs](https://docs.pyhanko.eu/en/latest/)
 and includes information on CLI usage, library usage, and API reference documentation derived from
 inline docstrings.
 

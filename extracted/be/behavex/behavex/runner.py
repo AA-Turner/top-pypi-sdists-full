@@ -22,6 +22,7 @@ import multiprocessing
 import os
 import os.path
 import platform
+import re
 import signal
 import sys
 import time
@@ -607,12 +608,13 @@ def launch_by_feature(features,
 
     # Prepare features grouped by order
     if order_tests_strict:
-        # Each feature gets its own group for strict sequential ordering
+        # Group features by their order value for strict sequential ordering
         features_by_order = {}
-        # Sort features by order first
-        sorted_features = sorted(parallel_features, key=lambda f: f.get("feature_order", 9999))
-        for index, parallel_feature in enumerate(sorted_features):
-            features_by_order[index] = [parallel_feature]
+        for parallel_feature in parallel_features:
+            order = parallel_feature.get("feature_order", 9999)
+            if order not in features_by_order:
+                features_by_order[order] = []
+            features_by_order[order].append(parallel_feature)
     elif order_tests_enabled:
         # Sort features by order but allow parallel execution
         parallel_features.sort(key=lambda f: f.get("feature_order", 9999))
@@ -758,12 +760,13 @@ def launch_by_scenario(features,
 
         # Prepare scenarios grouped by order
         if order_tests_strict:
-            # Each scenario gets its own group for strict sequential ordering
+            # Group scenarios by their order value for strict sequential ordering
             scenarios_by_order = {}
-            # Sort scenarios by order first
-            sorted_scenarios = sorted(parallel_scenarios, key=lambda s: s.get("scenario_order", 9999))
-            for index, scenario_info in enumerate(sorted_scenarios):
-                scenarios_by_order[index] = [scenario_info]
+            for scenario_info in parallel_scenarios:
+                order = scenario_info.get("scenario_order", 9999)
+                if order not in scenarios_by_order:
+                    scenarios_by_order[order] = []
+                scenarios_by_order[order].append(scenario_info)
         elif order_tests_enabled:
             # Sort scenarios by order but allow parallel execution
             parallel_scenarios.sort(key=lambda s: s.get("scenario_order", 9999))
@@ -1395,18 +1398,59 @@ def _set_behave_arguments(features_path, multiprocess, execution_id=None, featur
     arguments.append('--no-junit')
     run_wip_tests = False
     env_tags = get_env('tags')
-    if env_tags:
+
+    # Check if we're using v2 tag expressions
+    tag_version = global_vars.tag_expression_version
+
+    if env_tags and tag_version == 'v2':
+        # For v2 expressions, combine user expression with default exclusions
+        user_expression = env_tags.replace(';', ' and ')  # Convert semicolons to AND
+
+        # Normalize case for v2 keywords (Behave parser expects lowercase)
+        user_expression = re.sub(r'\bAND\b', 'and', user_expression, flags=re.IGNORECASE)
+        user_expression = re.sub(r'\bOR\b', 'or', user_expression, flags=re.IGNORECASE)
+        user_expression = re.sub(r'\bNOT\b', 'not', user_expression, flags=re.IGNORECASE)
+
+        # Check if WIP tests should be run
+        if 'WIP' in env_tags.upper() or '@WIP' in env_tags.upper():
+            run_wip_tests = True
+
+        # Build combined v2 expression with default exclusions
+        exclusions = []
+        if not run_wip_tests:
+            exclusions.append('not @WIP')
+        exclusions.append('not @MANUAL')
+
+        if exclusions:
+            combined_expression = f"({user_expression}) and {' and '.join(exclusions)}"
+        else:
+            combined_expression = user_expression
+
+        # Add the combined expression as a single tag argument
+        arguments.append('--tags')
+        arguments.append(combined_expression)
+
+    elif env_tags:
+        # For v1 expressions, use the original logic
         tags = env_tags.split(';')
         for tag in tags:
             arguments.append('--tags')
             arguments.append(tag)
             if tag.upper() in ['WIP', '@WIP']:
                 run_wip_tests = True
-    if not run_wip_tests:
+
+        # Add default exclusions in v1 format
+        if not run_wip_tests:
+            arguments.append('--tags')
+            arguments.append('~@WIP')
+        arguments.append('--tags')
+        arguments.append('~@MANUAL')
+    else:
+        # No user tags, just add default exclusions in v1 format
         arguments.append('--tags')
         arguments.append('~@WIP')
-    arguments.append('--tags')
-    arguments.append('~@MANUAL')
+        arguments.append('--tags')
+        arguments.append('~@MANUAL')
 
     # Handle output suppression based on execution mode
     if multiprocess:

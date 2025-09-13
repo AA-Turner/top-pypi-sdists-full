@@ -149,7 +149,6 @@ from aiohomematic.exceptions import (
 from aiohomematic.model import create_data_points_and_events
 from aiohomematic.model.custom import CustomDataPoint, create_custom_data_points
 from aiohomematic.model.data_point import BaseParameterDataPoint, CallbackDataPoint
-from aiohomematic.model.decorators import info_property
 from aiohomematic.model.device import Channel, Device
 from aiohomematic.model.event import GenericEvent
 from aiohomematic.model.generic import GenericDataPoint
@@ -160,8 +159,16 @@ from aiohomematic.model.hub import (
     Hub,
     ProgramDpType,
 )
-from aiohomematic.model.support import PayloadMixin
-from aiohomematic.support import check_config, extract_exc_args, get_channel_no, get_device_address, get_ip_addr
+from aiohomematic.property_decorators import info_property
+from aiohomematic.support import (
+    LogContextMixin,
+    PayloadMixin,
+    check_config,
+    extract_exc_args,
+    get_channel_no,
+    get_device_address,
+    get_ip_addr,
+)
 
 __all__ = ["CentralConfig", "CentralUnit", "INTERFACE_EVENT_SCHEMA"]
 
@@ -183,7 +190,7 @@ INTERFACE_EVENT_SCHEMA = vol.Schema(
 )
 
 
-class CentralUnit(PayloadMixin):
+class CentralUnit(LogContextMixin, PayloadMixin):
     """Central unit that collects everything to handle communication from/to CCU/Homegear."""
 
     def __init__(self, central_config: CentralConfig) -> None:
@@ -212,7 +219,7 @@ class CentralUnit(PayloadMixin):
         # {interface_id, client}
         self._clients: Final[dict[str, hmcl.Client]] = {}
         self._data_point_key_event_subscriptions: Final[
-            dict[DataPointKey, list[Callable[[Any], Coroutine[Any, Any, None]]]]
+            dict[DataPointKey, list[Callable[[Any, datetime], Coroutine[Any, Any, None]]]]
         ] = {}
         self._data_point_path_event_subscriptions: Final[dict[str, DataPointKey]] = {}
         self._sysvar_data_point_event_subscriptions: Final[dict[str, Callable]] = {}
@@ -237,7 +244,7 @@ class CentralUnit(PayloadMixin):
         self._hub: Hub = Hub(central=self)
         self._version: str | None = None
         # store last event received datetime by interface_id
-        self._last_events: Final[dict[str, datetime]] = {}
+        self._last_event_seen_for_interface: Final[dict[str, datetime]] = {}
         self._xml_rpc_callback_ip: str = IP_ANY_V4
         self._listen_ip_addr: str = IP_ANY_V4
         self._listen_port: int = PORT_ANY
@@ -252,7 +259,7 @@ class CentralUnit(PayloadMixin):
         """Return the xml rpc server callback ip address."""
         return self._xml_rpc_callback_ip
 
-    @info_property
+    @info_property(log_context=True)
     def url(self) -> str:
         """Return the central url."""
         return self._url
@@ -362,14 +369,14 @@ class CentralUnit(PayloadMixin):
         """Return the loop support."""
         return self._looper
 
-    @info_property
+    @info_property(log_context=True)
     def model(self) -> str | None:
         """Return the model of the backend."""
         if not self._model and (client := self.primary_client):
             self._model = client.model
         return self._model
 
-    @info_property
+    @info_property(log_context=True)
     def name(self) -> str:
         """Return the name of the backend."""
         return self._config.name
@@ -1109,7 +1116,7 @@ class CentralUnit(PayloadMixin):
         if not self.has_client(interface_id=interface_id):
             return
 
-        self.set_last_event_dt(interface_id=interface_id)
+        self.set_last_event_seen_for_interface(interface_id=interface_id)
         # No need to check the response of a XmlRPC-PING
         if parameter == Parameter.PONG:
             if "#" in value:
@@ -1133,9 +1140,10 @@ class CentralUnit(PayloadMixin):
 
         if dpk in self._data_point_key_event_subscriptions:
             try:
+                received_at = datetime.now()
                 for callback_handler in self._data_point_key_event_subscriptions[dpk]:
                     if callable(callback_handler):
-                        await callback_handler(value)
+                        await callback_handler(value, received_at)
             except RuntimeError as rterr:  # pragma: no cover
                 _LOGGER_EVENT.debug(
                     "EVENT: RuntimeError [%s]. Failed to call callback for: %s, %s, %s",
@@ -1184,7 +1192,10 @@ class CentralUnit(PayloadMixin):
             try:
                 callback_handler = self._sysvar_data_point_event_subscriptions[state_path]
                 if callable(callback_handler):
-                    self._looper.create_task(callback_handler(value), name=f"sysvar-data-point-event-{state_path}")
+                    received_at = datetime.now()
+                    self._looper.create_task(
+                        callback_handler(value, received_at), name=f"sysvar-data-point-event-{state_path}"
+                    )
             except RuntimeError as rterr:  # pragma: no cover
                 _LOGGER_EVENT.debug(
                     "EVENT: RuntimeError [%s]. Failed to call callback for: %s",
@@ -1207,7 +1218,7 @@ class CentralUnit(PayloadMixin):
 
     def add_event_subscription(self, data_point: BaseParameterDataPoint) -> None:
         """Add data_point to central event subscription."""
-        if isinstance(data_point, (GenericDataPoint, GenericEvent)) and (
+        if isinstance(data_point, GenericDataPoint | GenericEvent) and (
             data_point.is_readable or data_point.supports_events
         ):
             if data_point.dpk not in self._data_point_key_event_subscriptions:
@@ -1219,13 +1230,13 @@ class CentralUnit(PayloadMixin):
             ):
                 self._data_point_path_event_subscriptions[data_point.state_path] = data_point.dpk
 
-    @inspector()
+    @inspector
     async def create_central_links(self) -> None:
         """Create a central links to support press events on all channels with click events."""
         for device in self.devices:
             await device.create_central_links()
 
-    @inspector()
+    @inspector
     async def remove_central_links(self) -> None:
         """Remove central links."""
         for device in self.devices:
@@ -1248,19 +1259,19 @@ class CentralUnit(PayloadMixin):
 
     def remove_event_subscription(self, data_point: BaseParameterDataPoint) -> None:
         """Remove event subscription from central collections."""
-        if isinstance(data_point, (GenericDataPoint, GenericEvent)) and data_point.supports_events:
+        if isinstance(data_point, GenericDataPoint | GenericEvent) and data_point.supports_events:
             if data_point.dpk in self._data_point_key_event_subscriptions:
                 del self._data_point_key_event_subscriptions[data_point.dpk]
             if data_point.state_path in self._data_point_path_event_subscriptions:
                 del self._data_point_path_event_subscriptions[data_point.state_path]
 
-    def get_last_event_dt(self, interface_id: str) -> datetime | None:
-        """Return the last event dt."""
-        return self._last_events.get(interface_id)
+    def get_last_event_seen_for_interface(self, interface_id: str) -> datetime | None:
+        """Return the last event seen for an interface."""
+        return self._last_event_seen_for_interface.get(interface_id)
 
-    def set_last_event_dt(self, interface_id: str) -> None:
-        """Set the last event dt."""
-        self._last_events[interface_id] = datetime.now()
+    def set_last_event_seen_for_interface(self, interface_id: str) -> None:
+        """Set the last event seen for an interface."""
+        self._last_event_seen_for_interface[interface_id] = datetime.now()
 
     async def execute_program(self, pid: str) -> bool:
         """Execute a program on CCU / Homegear."""
@@ -1703,7 +1714,7 @@ class _Scheduler(threading.Thread):
             _LOGGER.debug("REFRESH_CLIENT_DATA: Loading data for %s", self._central.name)
             for client in poll_clients:
                 await self._central.load_and_refresh_data_point_data(interface=client.interface)
-                self._central.set_last_event_dt(interface_id=client.interface_id)
+                self._central.set_last_event_seen_for_interface(interface_id=client.interface_id)
 
     @inspector(re_raise=False)
     async def _refresh_sysvar_data(self) -> None:

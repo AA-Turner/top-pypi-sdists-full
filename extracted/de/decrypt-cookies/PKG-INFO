@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: decrypt_cookies
-Version: 0.1.5
+Version: 0.1.6
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Programming Language :: Rust

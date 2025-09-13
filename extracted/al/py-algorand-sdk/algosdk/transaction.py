@@ -2,11 +2,15 @@ import base64
 import binascii
 import msgpack
 from enum import IntEnum
-from typing import List, Union, Optional, cast
+from typing import cast, List, Optional, Tuple, Union
 from collections import OrderedDict
 
 from algosdk import account, constants, encoding, error, logic
 from algosdk.box_reference import BoxReference
+from algosdk.app_access import (
+    translate_to_resource_references,
+    ResourceReference,
+)
 from algosdk.v2client import algod, models
 from nacl.exceptions import BadSignatureError
 from nacl.signing import SigningKey, VerifyKey
@@ -1555,6 +1559,11 @@ class ApplicationCallTxn(Transaction):
         foreign_assets (list[int], optional): list of assets involved in call
         extra_pages (int, optional): additional program space for supporting larger programs.  A page is 1024 bytes.
         boxes(list[(int, bytes)], optional): list of tuples specifying app id and key for boxes the app may access
+        use_access (bool, optional): whether to use access lists for the application
+        holdings (list[int, str], optional): lists of tuples specifying the asset holdings to be accessed during evaluation of the application;
+            zero (empty) address means sender
+        locals (list[int, str], optional): lists of tuples specifying the local states to be accessed during evaluation of the application;
+            zero (empty) address means sender
 
     Attributes:
         sender (str)
@@ -1574,6 +1583,7 @@ class ApplicationCallTxn(Transaction):
         foreign_assets (list[int])
         extra_pages (int)
         boxes (list[(int, bytes)])
+        resources (list[ResourceReference])
     """
 
     def __init__(
@@ -1595,6 +1605,10 @@ class ApplicationCallTxn(Transaction):
         rekey_to=None,
         extra_pages=0,
         boxes=None,
+        use_access=None,
+        holdings=None,
+        locals=None,
+        resources=None,
     ):
         Transaction.__init__(
             self, sender, sp, note, lease, constants.appcall_txn, rekey_to
@@ -1606,13 +1620,44 @@ class ApplicationCallTxn(Transaction):
         self.approval_program = self.teal_bytes(approval_program)
         self.clear_program = self.teal_bytes(clear_program)
         self.app_args = self.bytes_list(app_args)
-        self.accounts = accounts if accounts else None
-        self.foreign_apps = self.int_list(foreign_apps)
-        self.foreign_assets = self.int_list(foreign_assets)
         self.extra_pages = extra_pages
-        self.boxes = BoxReference.translate_box_references(
-            boxes, self.foreign_apps, self.index
-        )
+        self.accounts: Optional[List[str]] = None
+        self.foreign_apps: Optional[List[int]] = None
+        self.foreign_assets: Optional[List[int]] = None
+        self.boxes: Optional[List[Tuple[int, bytes]]] = None
+        self.resources: Optional[List[ResourceReference]] = None
+
+        if resources and (
+            accounts
+            or foreign_apps
+            or foreign_assets
+            or boxes
+            or holdings
+            or locals
+        ):
+            raise ValueError(
+                "cannot specify both resources and other access fields"
+            )
+
+        if resources:
+            self.resources = resources
+        elif use_access:
+            self.resources = translate_to_resource_references(
+                app_id=self.index,
+                accounts=accounts,
+                foreign_assets=foreign_assets,
+                foreign_apps=foreign_apps,
+                boxes=boxes,
+                holdings=holdings,
+                locals=locals,
+            )
+        else:
+            self.accounts = accounts if accounts else None
+            self.foreign_apps = self.int_list(foreign_apps)
+            self.foreign_assets = self.int_list(foreign_assets)
+            self.boxes = BoxReference.translate_box_references(
+                boxes, self.foreign_apps, self.index
+            )
         if not sp.flat_fee:
             mf = constants.min_txn_fee if sp.min_fee is None else sp.min_fee
             self.fee = max(self.estimate_size() * self.fee, mf)
@@ -1664,6 +1709,8 @@ class ApplicationCallTxn(Transaction):
             d["apsu"] = self.clear_program
         if self.app_args:
             d["apaa"] = self.app_args
+        if self.extra_pages:
+            d["apep"] = self.extra_pages
         if self.accounts:
             d["apat"] = [
                 encoding.decode_address(account_pubkey)
@@ -1673,10 +1720,10 @@ class ApplicationCallTxn(Transaction):
             d["apfa"] = self.foreign_apps
         if self.foreign_assets:
             d["apas"] = self.foreign_assets
-        if self.extra_pages:
-            d["apep"] = self.extra_pages
         if self.boxes:
             d["apbx"] = [box.dictify() for box in self.boxes]
+        if self.resources:
+            d["al"] = [ap.dictify() for ap in self.resources]
 
         d.update(super(ApplicationCallTxn, self).dictify())
         od = OrderedDict(sorted(d.items()))
@@ -1697,7 +1744,14 @@ class ApplicationCallTxn(Transaction):
             "approval_program": d["apap"] if "apap" in d else None,
             "clear_program": d["apsu"] if "apsu" in d else None,
             "app_args": d["apaa"] if "apaa" in d else None,
-            "accounts": d["apat"] if "apat" in d else None,
+            "accounts": (
+                [
+                    encoding.encode_address(account_bytes)
+                    for account_bytes in d["apat"]
+                ]
+                if "apat" in d
+                else None
+            ),
             "foreign_apps": d["apfa"] if "apfa" in d else None,
             "foreign_assets": d["apas"] if "apas" in d else None,
             "extra_pages": d["apep"] if "apep" in d else 0,
@@ -1706,12 +1760,12 @@ class ApplicationCallTxn(Transaction):
                 if "apbx" in d
                 else None
             ),
+            "resources": (
+                [ResourceReference.undictify(ref) for ref in d["al"]]
+                if "al" in d
+                else None
+            ),
         }
-        if args["accounts"]:
-            args["accounts"] = [
-                encoding.encode_address(account_bytes)
-                for account_bytes in args["accounts"]
-            ]
         return args
 
     def __eq__(self, other):
@@ -2364,8 +2418,8 @@ class Multisig:
         if len(self.subsigs) > constants.multisig_account_limit:
             raise error.MultisigAccountSizeError
 
-    def address(self):
-        """Return the multisig account address."""
+    def address_bytes(self):
+        """Return the raw bytes of the multisig account address."""
         msig_bytes = (
             bytes(constants.msig_addr_prefix, "utf-8")
             + bytes([self.version])
@@ -2373,8 +2427,11 @@ class Multisig:
         )
         for s in self.subsigs:
             msig_bytes += s.public_key
-        addr = encoding.checksum(msig_bytes)
-        return encoding.encode_address(addr)
+        return encoding.checksum(msig_bytes)
+
+    def address(self):
+        """Return the multisig account address."""
+        return encoding.encode_address(self.address_bytes())
 
     def verify(self, message):
         """Verify that the multisig is valid for the message."""
@@ -2509,6 +2566,7 @@ class LogicSig:
         self.args = args
         self.sig = None
         self.msig = None
+        self.lmsig = None
 
     @staticmethod
     def _sanity_check_program(program):
@@ -2561,6 +2619,8 @@ class LogicSig:
             od["sig"] = base64.b64decode(self.sig)
         elif self.msig:
             od["msig"] = self.msig.dictify()
+        elif self.lmsig:
+            od["lmsig"] = self.lmsig.dictify()
         return od
 
     @staticmethod
@@ -2570,7 +2630,16 @@ class LogicSig:
             lsig.sig = base64.b64encode(d["sig"]).decode()
         elif "msig" in d:
             lsig.msig = Multisig.undictify(d["msig"])
+        elif "lmsig" in d:
+            lsig.lmsig = Multisig.undictify(d["lmsig"])
         return lsig
+
+    def sig_count(self):
+        return (
+            int(self.sig is not None)
+            + int(self.msig is not None)
+            + int(self.lmsig is not None)
+        )
 
     def verify(self, public_key):
         """
@@ -2584,29 +2653,38 @@ class LogicSig:
                 the logic hash or the signature is valid against the sender\
                 address), false otherwise
         """
-        if self.sig and self.msig:
-            return False
-
         try:
             self._sanity_check_program(self.logic)
         except error.InvalidProgram:
             return False
 
-        to_sign = constants.logic_prefix + self.logic
-
-        if not self.sig and not self.msig:
-            checksum = encoding.checksum(to_sign)
-            return checksum == public_key
+        if self.sig_count() > 1:
+            return False
 
         if self.sig:
             verify_key = VerifyKey(public_key)
             try:
+                to_sign = constants.logic_prefix + self.logic
                 verify_key.verify(to_sign, base64.b64decode(self.sig))
                 return True
             except (BadSignatureError, ValueError, TypeError):
                 return False
 
-        return self.msig.verify(to_sign)
+        if self.msig:
+            to_sign = constants.logic_prefix + self.logic
+            return self.msig.verify(to_sign)
+
+        if self.lmsig:
+            to_sign = (
+                constants.multisig_logic_prefix
+                + self.lmsig.address_bytes()
+                + self.logic
+            )
+            return self.lmsig.verify(to_sign)
+
+        # Non-delegated
+        to_sign = constants.logic_prefix + self.logic
+        return public_key == encoding.checksum(to_sign)
 
     def address(self):
         """
@@ -2627,6 +2705,18 @@ class LogicSig:
         return base64.b64encode(signed.signature).decode()
 
     @staticmethod
+    def multisig_sign_program(program, private_key, multisig):
+        private_key = base64.b64decode(private_key)
+        signing_key = SigningKey(private_key[: constants.key_len_bytes])
+        to_sign = (
+            constants.multisig_logic_prefix
+            + multisig.address_bytes()
+            + program
+        )
+        signed = signing_key.sign(to_sign)
+        return base64.b64encode(signed.signature).decode()
+
+    @staticmethod
     def single_sig_multisig(program, private_key, multisig):
         index = -1
         public_key = base64.b64decode(bytes(private_key, "utf-8"))
@@ -2637,7 +2727,7 @@ class LogicSig:
                 break
         if index == -1:
             raise error.InvalidSecretKeyError
-        sig = LogicSig.sign_program(program, private_key)
+        sig = LogicSig.multisig_sign_program(program, private_key, multisig)
 
         return sig, index
 
@@ -2657,7 +2747,7 @@ class LogicSig:
                 already been provided
         """
         if not multisig:
-            if self.msig:
+            if self.msig or self.lmsig:
                 raise error.LogicSigOverspecifiedSignature
             self.sig = LogicSig.sign_program(self.logic, private_key)
         else:
@@ -2667,7 +2757,7 @@ class LogicSig:
                 self.logic, private_key, multisig
             )
             multisig.subsigs[index].signature = base64.b64decode(sig)
-            self.msig = multisig
+            self.lmsig = multisig
 
     def append_to_multisig(self, private_key):
         """
@@ -2680,12 +2770,12 @@ class LogicSig:
             InvalidSecretKeyError: if no matching private key in multisig\
                 object
         """
-        if self.msig is None:
+        if self.lmsig is None:
             raise error.InvalidSecretKeyError
         sig, index = LogicSig.single_sig_multisig(
-            self.logic, private_key, self.msig
+            self.logic, private_key, self.lmsig
         )
-        self.msig.subsigs[index].signature = base64.b64decode(sig)
+        self.lmsig.subsigs[index].signature = base64.b64decode(sig)
 
     def __eq__(self, other):
         if not isinstance(other, LogicSig):
@@ -2695,6 +2785,7 @@ class LogicSig:
             and self.args == other.args
             and self.sig == other.sig
             and self.msig == other.msig
+            and self.lmsig == other.lmsig
         )
 
 
@@ -2744,7 +2835,7 @@ class LogicSigAccount:
         Returns:
             bool: True if and only if this is a delegated LogicSigAccount.
         """
-        return bool(self.lsig.sig or self.lsig.msig)
+        return bool(self.lsig.sig or self.lsig.msig or self.lsig.lmsig)
 
     def verify(self) -> bool:
         """
@@ -2757,6 +2848,15 @@ class LogicSigAccount:
         addr = self.address()
         return self.lsig.verify(encoding.decode_address(addr))
 
+    def sig_count(self) -> int:
+        """
+        Returns the number of cryptographic signatures on the LogicSig
+
+        Returns:
+            int: The number of signatures. Should never exceed 1.
+        """
+        return self.lsig.sig_count()
+
     def address(self) -> str:
         """
         Get the address of this LogicSigAccount.
@@ -2767,7 +2867,7 @@ class LogicSigAccount:
         If the LogicSig is not delegated to another account, this will return an
         escrow address that is the hash of the LogicSig's program code.
         """
-        if self.lsig.sig and self.lsig.msig:
+        if self.sig_count() > 1:
             raise error.LogicSigOverspecifiedSignature
 
         if self.lsig.sig:
@@ -2777,6 +2877,9 @@ class LogicSigAccount:
 
         if self.lsig.msig:
             return self.lsig.msig.address()
+
+        if self.lsig.lmsig:
+            return self.lsig.lmsig.address()
 
         return self.lsig.address()
 
@@ -2874,6 +2977,8 @@ class LogicSigTransaction:
                 lsigAddr = transaction.sender
             elif lsig.msig:
                 lsigAddr = lsig.msig.address()
+            elif lsig.lmsig:
+                lsigAddr = lsig.lmsig.address()
             else:
                 lsigAddr = lsig.address()
             self.lsig = lsig

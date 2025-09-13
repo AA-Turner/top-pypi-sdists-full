@@ -8,8 +8,8 @@ use jiff::Timestamp;
 use jiff::tz::{Offset, TimeZone};
 use pyo3::IntoPyObjectExt;
 use pyo3::prelude::*;
-use pyo3::types::{PyString, PyTuple};
-use ryo3_macro_rules::err_py_not_impl;
+use pyo3::types::{PyDict, PyString, PyTuple};
+use ryo3_macro_rules::pytodo;
 use std::fmt::Debug;
 use std::hash::{DefaultHasher, Hash, Hasher};
 
@@ -53,7 +53,7 @@ impl RyTimeZone {
         }
         TimeZone::get(time_zone_name)
             .map(Self::from)
-            .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("{e}")))
+            .map_err(map_py_value_err)
     }
 
     // =====================================================================
@@ -137,6 +137,13 @@ impl RyTimeZone {
     #[staticmethod]
     fn from_pytzinfo(d: JiffTimeZone) -> Self {
         Self::from(d.0)
+    }
+
+    fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+        use crate::interns;
+        let dict = PyDict::new(py);
+        dict.set_item(interns::tz(py), self.iana_name().unwrap_or("unknown"))?;
+        Ok(dict)
     }
 
     // =====================================================================
@@ -249,11 +256,11 @@ impl RyTimeZone {
     // ===============
     #[expect(clippy::unused_self)]
     fn to_ambiguous_timestamp(&self) -> PyResult<()> {
-        err_py_not_impl!()
+        pytodo!()
     }
 
     #[expect(clippy::unused_self)]
     fn to_ambiguous_zoned(&self) -> PyResult<()> {
-        err_py_not_impl!()
+        pytodo!()
     }
 }

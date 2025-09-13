@@ -27,13 +27,14 @@ def curl(url: str, request, data, json, json_output):
     print(response)
 
 
-def sync_request(cloud, url, method, data, json: bool = False, json_output: bool = False):
+def sync_request(cloud, url, method, data=None, json: bool = False, json_output: bool = False):
     kwargs = {"method": method, "url": url}
 
     if json:
         kwargs["json"] = json_loads(data) if isinstance(data, str) else data
     else:
         kwargs["data"] = data
+
     response = cloud._sync(cloud._do_request, **kwargs)
     if response.status >= 400:
         print(f"{url} returned {response.status}")

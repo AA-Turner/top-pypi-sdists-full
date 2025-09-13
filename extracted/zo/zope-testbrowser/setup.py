@@ -13,7 +13,6 @@
 ##############################################################################
 """Setup for zope.testbrowser package
 """
-from setuptools import find_packages
 from setuptools import setup
 
 
@@ -25,18 +24,18 @@ with open('CHANGES.rst') as f:
 
 long_description = (README + '\n\n' + CHANGES)
 
-tests_require = ['zope.testing', 'mock', 'zope.testrunner']
+tests_require = ['zope.testing', 'mock', 'zope.testrunner >= 6.4']
 
 setup(
     name='zope.testbrowser',
-    version='7.0.1',
+    version='8.0',
     url='https://github.com/zopefoundation/zope.testbrowser',
-    license='ZPL 2.1',
+    license='ZPL-2.1',
     project_urls={
         'Documentation': 'https://zopetestbrowser.readthedocs.io/',
     },
     description='Programmable browser for functional black-box tests',
-    author='Zope Corporation and Contributors',
+    author='Zope Foundation and Contributors',
     author_email='zope-dev@zope.dev',
     long_description=long_description,
     classifiers=[
@@ -44,7 +43,6 @@ setup(
         'Intended Audience :: Developers',
         'License :: OSI Approved :: Zope Public License',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10',
         'Programming Language :: Python :: 3.11',
@@ -56,10 +54,7 @@ setup(
         'Topic :: Internet :: WWW/HTTP',
     ],
     keywords='headless browser functional tests WSGI HTTP HTML form',
-    packages=find_packages('src'),
-    package_dir={'': 'src'},
-    namespace_packages=['zope'],
-    python_requires='>=3.8',
+    python_requires='>=3.9',
     install_requires=[
         'setuptools',
         'zope.interface',

@@ -1,4 +1,4 @@
-# Generated from grammar/DynamoDbGrammar.g4 by ANTLR 4.7.2
+# Generated from grammar/DynamoDbGrammar.g4 by ANTLR 4.9.3
 # pylint: skip-file
 from antlr4 import *
 if __name__ is not None and "." in __name__:
@@ -360,3 +360,5 @@ class DynamoDbGrammarListener(ParseTreeListener):
         pass
 
 
+
+del DynamoDbGrammarParser

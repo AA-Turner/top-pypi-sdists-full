@@ -1,6 +1,5 @@
 import os.path
 
-from setuptools import find_packages
 from setuptools import setup
 
 
@@ -8,12 +7,9 @@ tests_require = ['zope.testing']
 
 setup(
     name='zope.sqlalchemy',
-    version='3.1',
-    packages=find_packages('src'),
-    package_dir={'': 'src'},
+    version='4.0',
     include_package_data=True,
     zip_safe=False,
-    namespace_packages=['zope'],
     test_suite='zope.sqlalchemy.tests.test_suite',
     author='Laurence Rowe',
 
@@ -48,7 +44,7 @@ setup(
     install_requires=[
         'packaging',
         'setuptools',
-        'SQLAlchemy>=1.1,!=1.4.0,!=1.4.1,!=1.4.2,!=1.4.3,!=1.4.4,!=1.4.5,!=1.4.6',  # noqa: E501 line too long
+        'SQLAlchemy>=1.1,!=1.4.0,!=1.4.1,!=1.4.2,!=1.4.3,!=1.4.4,!=1.4.5,!=1.4.6,!=2.0.32,!=2.0.33,!=2.0.34,!=2.0.35',  # noqa: E501 line too long
         'transaction>=1.6.0',
         'zope.interface>=3.6.0',
     ],

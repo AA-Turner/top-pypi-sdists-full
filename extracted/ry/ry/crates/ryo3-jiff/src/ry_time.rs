@@ -1,18 +1,21 @@
-use crate::RySignedDuration;
 use crate::RySpan;
+use crate::RyTimeRound;
+use crate::difference::{RyTimeDifference, TimeDifferenceArg};
 use crate::errors::{map_py_overflow_err, map_py_value_err};
 use crate::isoformat::{ISOFORMAT_PRINTER, ISOFORMAT_PRINTER_NO_MICROS};
-use crate::ry_time_difference::{RyTimeDifference, TimeDifferenceArg};
 use crate::series::RyTimeSeries;
 use crate::spanish::Spanish;
 use crate::{JiffRoundMode, JiffTime, JiffUnit};
 use crate::{RyDate, RyDateTime};
+use crate::{RySignedDuration, RyTimestamp, RyZoned};
 use jiff::Zoned;
 use jiff::civil::{Time, TimeRound};
+use pyo3::IntoPyObjectExt;
 use pyo3::basic::CompareOp;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyTuple};
-use pyo3::{IntoPyObjectExt, intern};
+use ryo3_macro_rules::any_repr;
+use ryo3_macro_rules::py_type_err;
 use std::fmt::Display;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::ops::Sub;
@@ -41,7 +44,7 @@ impl RyTime {
             nanosecond.unwrap_or(0),
         )
         .map(Self::from)
-        .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("{e}")))
+        .map_err(map_py_value_err)
     }
 
     fn __getnewargs__<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
@@ -86,9 +89,7 @@ impl RyTime {
 
     #[staticmethod]
     fn from_str(s: &str) -> PyResult<Self> {
-        Time::from_str(s)
-            .map(Self::from)
-            .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("{e}")))
+        Time::from_str(s).map(Self::from).map_err(map_py_value_err)
     }
 
     #[staticmethod]
@@ -236,7 +237,6 @@ impl RyTime {
         self.0
     }
 
-    #[expect(clippy::needless_pass_by_value)]
     #[staticmethod]
     fn from_pytime(py_time: JiffTime) -> Self {
         Self::from(py_time.0)
@@ -273,6 +273,25 @@ impl RyTime {
         nanosecond: Option<i16>,
         subsec_nanosecond: Option<i32>,
     ) -> PyResult<Self> {
+        if hour.is_none()
+            && minute.is_none()
+            && second.is_none()
+            && millisecond.is_none()
+            && microsecond.is_none()
+            && nanosecond.is_none()
+            && subsec_nanosecond.is_none()
+        {
+            // nothing to replace, return self
+            return Ok(*self);
+        }
+        if subsec_nanosecond.is_some()
+            && (millisecond.is_some() || microsecond.is_some() || nanosecond.is_some())
+        {
+            return py_type_err!(
+                "Cannot specify both subsec_nanosecond and millisecond/microsecond/nanosecond",
+            );
+        }
+
         // start the builder
         let mut builder = self.0.with();
         if let Some(h) = hour {
@@ -312,12 +331,14 @@ impl RyTime {
         )
     }
 
-    fn asdict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+    #[expect(clippy::wrong_self_convention)]
+    fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+        use crate::interns;
         let dict = PyDict::new(py);
-        dict.set_item(intern!(py, "hour"), self.0.hour())?;
-        dict.set_item(intern!(py, "minute"), self.0.minute())?;
-        dict.set_item(intern!(py, "second"), self.0.second())?;
-        dict.set_item(intern!(py, "nanosecond"), self.0.subsec_nanosecond())?;
+        dict.set_item(interns::hour(py), self.0.hour())?;
+        dict.set_item(interns::minute(py), self.0.minute())?;
+        dict.set_item(interns::second(py), self.0.second())?;
+        dict.set_item(interns::nanosecond(py), self.0.subsec_nanosecond())?;
         Ok(dict)
     }
 
@@ -383,6 +404,9 @@ impl RyTime {
             .map_err(map_py_value_err)
     }
 
+    fn _round(&self, dt_round: &RyTimeRound) -> PyResult<Self> {
+        dt_round.round(self)
+    }
     // ------------------------------------------------------------------------
     // SINCE/UNTIL
     // ------------------------------------------------------------------------
@@ -424,16 +448,67 @@ impl RyTime {
 
     fn _since(&self, other: &RyTimeDifference) -> PyResult<RySpan> {
         self.0
-            .since(other.0)
+            .since(other.diff)
             .map(RySpan::from)
             .map_err(map_py_value_err)
     }
 
     fn _until(&self, other: &RyTimeDifference) -> PyResult<RySpan> {
         self.0
-            .until(other.0)
+            .until(other.diff)
             .map(RySpan::from)
             .map_err(map_py_value_err)
+    }
+
+    #[staticmethod]
+    fn from_any<'py>(value: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
+        let py = value.py();
+        if let Ok(pystr) = value.downcast::<pyo3::types::PyString>() {
+            let s = pystr.extract::<&str>()?;
+            Self::from_str(s).map(|dt| dt.into_bound_py_any(py).map(Bound::into_any))?
+        } else if let Ok(pybytes) = value.downcast::<pyo3::types::PyBytes>() {
+            let s = String::from_utf8_lossy(pybytes.as_bytes());
+            Self::from_str(&s).map(|dt| dt.into_bound_py_any(py).map(Bound::into_any))?
+        } else if value.is_exact_instance_of::<Self>() {
+            value.into_bound_py_any(py)
+        } else if let Ok(d) = value.downcast_exact::<RyDateTime>() {
+            let dt = d.get().time();
+            dt.into_bound_py_any(py)
+        } else if let Ok(d) = value.downcast_exact::<RyZoned>() {
+            let dt = d.get().time();
+            dt.into_bound_py_any(py)
+        } else if let Ok(d) = value.downcast_exact::<RyTimestamp>() {
+            let dt = d.get().time();
+            dt.into_bound_py_any(py)
+        } else if let Ok(d) = value.extract::<JiffTime>() {
+            Self::from_pytime(d).into_bound_py_any(py)
+        } else {
+            let valtype = any_repr!(value);
+            py_type_err!("Time conversion error: {valtype}")
+        }
+    }
+    // ========================================================================
+    // PYDANTIC
+    // ========================================================================
+
+    #[cfg(feature = "pydantic")]
+    #[staticmethod]
+    fn _pydantic_validate<'py>(
+        value: &Bound<'py, PyAny>,
+        _handler: &Bound<'py, PyAny>,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        Self::from_any(value).map_err(map_py_value_err)
+    }
+
+    #[cfg(feature = "pydantic")]
+    #[classmethod]
+    fn __get_pydantic_core_schema__<'py>(
+        cls: &Bound<'py, ::pyo3::types::PyType>,
+        source: &Bound<'py, PyAny>,
+        handler: &Bound<'py, PyAny>,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        use ryo3_pydantic::GetPydanticCoreSchemaCls;
+        Self::get_pydantic_core_schema(cls, source, handler)
     }
 }
 
@@ -445,10 +520,11 @@ impl Display for RyTime {
             self.0.hour(),
             self.0.minute(),
             self.0.second(),
-            self.0.nanosecond()
+            self.0.subsec_nanosecond()
         )
     }
 }
+
 impl From<Time> for RyTime {
     fn from(value: Time) -> Self {
         Self(value)

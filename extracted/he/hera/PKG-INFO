@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: hera
-Version: 5.24.0
+Version: 5.25.1
 Summary: Hera makes Python code easy to orchestrate on Argo Workflows through native Python integrations. It lets you construct and submit your Workflows entirely in Python.
 License: Apache-2.0
 Author: Flaviu Vadan
@@ -19,11 +19,13 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Scientific/Engineering
+Provides-Extra: async-client
 Provides-Extra: cli
 Provides-Extra: experimental
 Provides-Extra: yaml
 Requires-Dist: black (>=24.1.0) ; extra == "cli"
 Requires-Dist: cappa (>=0.22.1,<0.31.0) ; extra == "cli"
+Requires-Dist: httpx (>=0.28.1,<0.29.0) ; extra == "async-client"
 Requires-Dist: pydantic[email] (>=1.10.15,<3.0)
 Requires-Dist: pyyaml (>=6.0) ; extra == "yaml" or extra == "cli"
 Requires-Dist: requests
@@ -142,16 +144,23 @@ w.create()
 
 #### `cli`
 
-- Install via `hera[cli]`. The `[cli]` option installs the extra dependency [Cappa](https://github.com/DanCardin/cappa)
-  required for the CLI
-- The CLI aims to enable GitOps practices,
-  easier debugging, and a more seamless experience with Argo Workflows.
-- **_The CLI is an experimental feature and subject to change!_** At the moment it only supports generating YAML files
-  from workflows via `hera generate yaml`. See `hera generate yaml --help` for more information.
+- Install via `hera[cli]`. The `[cli]` option installs the extra dependencies including
+  [Cappa](https://github.com/DanCardin/cappa) which is required for the CLI
+- The CLI aims to enable GitOps practices, easier onboarding to Hera, and a more seamless experience with Argo
+  Workflows.
+- It currently supports converting workflows between YAML and Python source codes. See `hera generate yaml --help`,
+  and `hera generate python --help` for more information.
+- **_The CLI is an experimental feature and subject to change!_**
 
 #### `experimental`
- - Install via `hera[experimental]`. The `[experimental]` option adds dependencies required for experimental features
-   that have not yet graduated into stable features.
+
+- Install via `hera[experimental]`. The `[experimental]` option adds dependencies required for experimental features
+  that have not yet graduated into stable features.
+
+#### `async-client`
+
+- Install via `hera[async-client]`. The `[async-client]` option installs `httpx` to allow the use of the `async_*`
+  Workflow functions through the `AsyncWorkflowsService`.
 
 ## Presentations
 

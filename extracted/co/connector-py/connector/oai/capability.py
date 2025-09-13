@@ -15,6 +15,8 @@ from connector_sdk_types.generated import (
     ActivateAccountResponse,
     AppInfoRequest,
     AppInfoResponse,
+    AssignApplicationEntitlementRequest,
+    AssignApplicationEntitlementResponse,
     AssignApplicationRequest,
     AssignApplicationResponse,
     AssignEntitlementRequest,
@@ -60,6 +62,8 @@ from connector_sdk_types.generated import (
     ListApplicationsAccountsResponse,
     ListApplicationsActivityRecordsRequest,
     ListApplicationsActivityRecordsResponse,
+    ListApplicationsEntitlementAssociationsRequest,
+    ListApplicationsEntitlementAssociationsResponse,
     ListApplicationsEntitlementsRequest,
     ListApplicationsEntitlementsResponse,
     ListApplicationsRequest,
@@ -89,6 +93,8 @@ from connector_sdk_types.generated import (
     TokenCredential,
     TransferDataRequest,
     TransferDataResponse,
+    UnassignApplicationEntitlementRequest,
+    UnassignApplicationEntitlementResponse,
     UnassignApplicationRequest,
     UnassignApplicationResponse,
     UnassignEntitlementRequest,
@@ -774,5 +780,29 @@ _STANDARD_CAPABILITY_SIGNATURES: dict[StandardCapabilityName, CapabilitySignatur
     StandardCapabilityName.GET_DATA_RECENCY: CapabilitySignature(
         input_payload=_payload_type_data(envelope_type=GetDataRecencyRequest, is_request=True),
         output_payload=_payload_type_data(envelope_type=GetDataRecencyResponse, is_request=False),
+    ),
+    StandardCapabilityName.LIST_APPLICATIONS_ENTITLEMENT_ASSOCIATIONS: CapabilitySignature(
+        input_payload=_payload_type_data(
+            envelope_type=ListApplicationsEntitlementAssociationsRequest, is_request=True
+        ),
+        output_payload=_payload_type_data(
+            envelope_type=ListApplicationsEntitlementAssociationsResponse, is_request=False
+        ),
+    ),
+    StandardCapabilityName.ASSIGN_APPLICATION_ENTITLEMENT: CapabilitySignature(
+        input_payload=_payload_type_data(
+            envelope_type=AssignApplicationEntitlementRequest, is_request=True
+        ),
+        output_payload=_payload_type_data(
+            envelope_type=AssignApplicationEntitlementResponse, is_request=False
+        ),
+    ),
+    StandardCapabilityName.UNASSIGN_APPLICATION_ENTITLEMENT: CapabilitySignature(
+        input_payload=_payload_type_data(
+            envelope_type=UnassignApplicationEntitlementRequest, is_request=True
+        ),
+        output_payload=_payload_type_data(
+            envelope_type=UnassignApplicationEntitlementResponse, is_request=False
+        ),
     ),
 }

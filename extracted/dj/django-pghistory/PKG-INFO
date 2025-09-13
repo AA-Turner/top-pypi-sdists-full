@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: django-pghistory
-Version: 3.8.1
+Version: 3.8.2
 Summary: History tracking for Django and Postgres
 Home-page: https://github.com/AmbitionEng/django-pghistory
 License: BSD-3-Clause

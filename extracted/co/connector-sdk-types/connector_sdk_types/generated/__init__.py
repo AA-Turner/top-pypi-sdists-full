@@ -27,11 +27,16 @@ from .models.app_info_response import AppInfoResponse
 from .models.application import Application
 from .models.application_account import ApplicationAccount
 from .models.application_activity_record import ApplicationActivityRecord
+from .models.application_entitlement_association import ApplicationEntitlementAssociation
 from .models.application_entitlement_data import ApplicationEntitlementData
 from .models.application_resource_data import ApplicationResourceData
 from .models.application_status import ApplicationStatus
 from .models.assign_application import AssignApplication
 from .models.assign_application200_response import AssignApplication200Response
+from .models.assign_application_entitlement import AssignApplicationEntitlement
+from .models.assign_application_entitlement200_response import AssignApplicationEntitlement200Response
+from .models.assign_application_entitlement_request import AssignApplicationEntitlementRequest
+from .models.assign_application_entitlement_response import AssignApplicationEntitlementResponse
 from .models.assign_application_request import AssignApplicationRequest
 from .models.assign_application_response import AssignApplicationResponse
 from .models.assign_entitlement import AssignEntitlement
@@ -39,6 +44,7 @@ from .models.assign_entitlement200_response import AssignEntitlement200Response
 from .models.assign_entitlement_request import AssignEntitlementRequest
 from .models.assign_entitlement_response import AssignEntitlementResponse
 from .models.assigned_application import AssignedApplication
+from .models.assigned_application_entitlement import AssignedApplicationEntitlement
 from .models.assigned_entitlement import AssignedEntitlement
 from .models.assignment_mode import AssignmentMode
 from .models.auth_credential import AuthCredential
@@ -158,6 +164,10 @@ from .models.list_applications_activity_records import ListApplicationsActivityR
 from .models.list_applications_activity_records200_response import ListApplicationsActivityRecords200Response
 from .models.list_applications_activity_records_request import ListApplicationsActivityRecordsRequest
 from .models.list_applications_activity_records_response import ListApplicationsActivityRecordsResponse
+from .models.list_applications_entitlement_associations import ListApplicationsEntitlementAssociations
+from .models.list_applications_entitlement_associations200_response import ListApplicationsEntitlementAssociations200Response
+from .models.list_applications_entitlement_associations_request import ListApplicationsEntitlementAssociationsRequest
+from .models.list_applications_entitlement_associations_response import ListApplicationsEntitlementAssociationsResponse
 from .models.list_applications_entitlements import ListApplicationsEntitlements
 from .models.list_applications_entitlements200_response import ListApplicationsEntitlements200Response
 from .models.list_applications_entitlements_request import ListApplicationsEntitlementsRequest
@@ -227,6 +237,10 @@ from .models.transfer_data_response import TransferDataResponse
 from .models.transfer_data_status import TransferDataStatus
 from .models.unassign_application import UnassignApplication
 from .models.unassign_application200_response import UnassignApplication200Response
+from .models.unassign_application_entitlement import UnassignApplicationEntitlement
+from .models.unassign_application_entitlement200_response import UnassignApplicationEntitlement200Response
+from .models.unassign_application_entitlement_request import UnassignApplicationEntitlementRequest
+from .models.unassign_application_entitlement_response import UnassignApplicationEntitlementResponse
 from .models.unassign_application_request import UnassignApplicationRequest
 from .models.unassign_application_response import UnassignApplicationResponse
 from .models.unassign_entitlement import UnassignEntitlement
@@ -234,6 +248,7 @@ from .models.unassign_entitlement200_response import UnassignEntitlement200Respo
 from .models.unassign_entitlement_request import UnassignEntitlementRequest
 from .models.unassign_entitlement_response import UnassignEntitlementResponse
 from .models.unassigned_application import UnassignedApplication
+from .models.unassigned_application_entitlement import UnassignedApplicationEntitlement
 from .models.unassigned_entitlement import UnassignedEntitlement
 from .models.update_account200_response import UpdateAccount200Response
 from .models.update_account_request import UpdateAccountRequest
@@ -272,11 +287,16 @@ __all__ = [
     "Application",
     "ApplicationAccount",
     "ApplicationActivityRecord",
+    "ApplicationEntitlementAssociation",
     "ApplicationEntitlementData",
     "ApplicationResourceData",
     "ApplicationStatus",
     "AssignApplication",
     "AssignApplication200Response",
+    "AssignApplicationEntitlement",
+    "AssignApplicationEntitlement200Response",
+    "AssignApplicationEntitlementRequest",
+    "AssignApplicationEntitlementResponse",
     "AssignApplicationRequest",
     "AssignApplicationResponse",
     "AssignEntitlement",
@@ -284,6 +304,7 @@ __all__ = [
     "AssignEntitlementRequest",
     "AssignEntitlementResponse",
     "AssignedApplication",
+    "AssignedApplicationEntitlement",
     "AssignedEntitlement",
     "AssignmentMode",
     "AuthCredential",
@@ -403,6 +424,10 @@ __all__ = [
     "ListApplicationsActivityRecords200Response",
     "ListApplicationsActivityRecordsRequest",
     "ListApplicationsActivityRecordsResponse",
+    "ListApplicationsEntitlementAssociations",
+    "ListApplicationsEntitlementAssociations200Response",
+    "ListApplicationsEntitlementAssociationsRequest",
+    "ListApplicationsEntitlementAssociationsResponse",
     "ListApplicationsEntitlements",
     "ListApplicationsEntitlements200Response",
     "ListApplicationsEntitlementsRequest",
@@ -472,6 +497,10 @@ __all__ = [
     "TransferDataStatus",
     "UnassignApplication",
     "UnassignApplication200Response",
+    "UnassignApplicationEntitlement",
+    "UnassignApplicationEntitlement200Response",
+    "UnassignApplicationEntitlementRequest",
+    "UnassignApplicationEntitlementResponse",
     "UnassignApplicationRequest",
     "UnassignApplicationResponse",
     "UnassignEntitlement",
@@ -479,6 +508,7 @@ __all__ = [
     "UnassignEntitlementRequest",
     "UnassignEntitlementResponse",
     "UnassignedApplication",
+    "UnassignedApplicationEntitlement",
     "UnassignedEntitlement",
     "UpdateAccount200Response",
     "UpdateAccountRequest",

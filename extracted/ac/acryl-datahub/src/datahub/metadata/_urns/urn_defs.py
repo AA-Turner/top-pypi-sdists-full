@@ -2904,6 +2904,10 @@ class DataJobUrn(_SpecificUrn):
     def get_data_flow_urn(self) -> "DataFlowUrn":
         return DataFlowUrn.from_string(self.flow)
 
+    @property
+    def orchestrator(self) -> str:
+        return self.get_data_flow_urn().orchestrator
+
     @deprecated(reason="Use .job_id instead")
     def get_job_id(self) -> str:
         return self.job_id

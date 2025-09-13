@@ -10315,7 +10315,7 @@ class DataProductKeyClass(_Aspect):
 
 
     ASPECT_NAME = 'dataProductKey'
-    ASPECT_INFO = {'keyForEntity': 'dataProduct', 'entityCategory': 'core', 'entityAspects': ['ownership', 'glossaryTerms', 'globalTags', 'domains', 'applications', 'dataProductProperties', 'institutionalMemory', 'status', 'structuredProperties', 'forms', 'testResults', 'subTypes']}
+    ASPECT_INFO = {'keyForEntity': 'dataProduct', 'entityCategory': 'core', 'entityAspects': ['ownership', 'glossaryTerms', 'globalTags', 'domains', 'applications', 'dataProductProperties', 'institutionalMemory', 'status', 'structuredProperties', 'forms', 'testResults', 'subTypes', 'assetSettings']}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.dataproduct.DataProductKey")
 
     def __init__(self,
@@ -14700,7 +14700,7 @@ class IncidentInfoClass(_Aspect):
         customType: Union[None, str]=None,
         title: Union[None, str]=None,
         description: Union[None, str]=None,
-        priority: Optional[Union[int, None]]=None,
+        priority: Union[None, int]=None,
         assignees: Union[None, List["IncidentAssigneeClass"]]=None,
         source: Union[None, "IncidentSourceClass"]=None,
         startedAt: Union[None, int]=None,
@@ -14712,11 +14712,7 @@ class IncidentInfoClass(_Aspect):
         self.title = title
         self.description = description
         self.entities = entities
-        if priority is None:
-            # default: 0
-            self.priority = self.RECORD_SCHEMA.fields_dict["priority"].default
-        else:
-            self.priority = priority
+        self.priority = priority
         self.assignees = assignees
         self.status = status
         self.source = source
@@ -14788,14 +14784,14 @@ class IncidentInfoClass(_Aspect):
     
     
     @property
-    def priority(self) -> Union[int, None]:
+    def priority(self) -> Union[None, int]:
         """A numeric severity or priority for the incident. On the UI we will translate this into something easy to understand.
     Currently supported: 0 - CRITICAL, 1 - HIGH, 2 - MED, 3 - LOW
     (We probably should have modeled as an enum)"""
         return self._inner_dict.get('priority')  # type: ignore
     
     @priority.setter
-    def priority(self, value: Union[int, None]) -> None:
+    def priority(self, value: Union[None, int]) -> None:
         self._inner_dict['priority'] = value
     
     
@@ -16293,7 +16289,7 @@ class DomainKeyClass(_Aspect):
 
 
     ASPECT_NAME = 'domainKey'
-    ASPECT_INFO = {'keyForEntity': 'domain', 'entityCategory': 'core', 'entityAspects': ['domainProperties', 'institutionalMemory', 'ownership', 'structuredProperties', 'forms', 'testResults', 'displayProperties'], 'entityDoc': 'A data domain within an organization.'}
+    ASPECT_INFO = {'keyForEntity': 'domain', 'entityCategory': 'core', 'entityAspects': ['domainProperties', 'institutionalMemory', 'ownership', 'structuredProperties', 'forms', 'testResults', 'displayProperties', 'assetSettings'], 'entityDoc': 'A data domain within an organization.'}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.key.DomainKey")
 
     def __init__(self,
@@ -16438,7 +16434,7 @@ class GlossaryNodeKeyClass(_Aspect):
 
 
     ASPECT_NAME = 'glossaryNodeKey'
-    ASPECT_INFO = {'keyForEntity': 'glossaryNode', 'entityCategory': 'core', 'entityAspects': ['glossaryNodeInfo', 'institutionalMemory', 'ownership', 'status', 'structuredProperties', 'forms', 'testResults', 'subTypes', 'displayProperties']}
+    ASPECT_INFO = {'keyForEntity': 'glossaryNode', 'entityCategory': 'core', 'entityAspects': ['glossaryNodeInfo', 'institutionalMemory', 'ownership', 'status', 'structuredProperties', 'forms', 'testResults', 'subTypes', 'displayProperties', 'assetSettings']}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.key.GlossaryNodeKey")
 
     def __init__(self,
@@ -16467,7 +16463,7 @@ class GlossaryTermKeyClass(_Aspect):
 
 
     ASPECT_NAME = 'glossaryTermKey'
-    ASPECT_INFO = {'keyForEntity': 'glossaryTerm', 'entityCategory': 'core', 'entityAspects': ['glossaryTermInfo', 'glossaryRelatedTerms', 'institutionalMemory', 'schemaMetadata', 'ownership', 'deprecation', 'domains', 'applications', 'status', 'browsePaths', 'structuredProperties', 'forms', 'testResults', 'subTypes']}
+    ASPECT_INFO = {'keyForEntity': 'glossaryTerm', 'entityCategory': 'core', 'entityAspects': ['glossaryTermInfo', 'glossaryRelatedTerms', 'institutionalMemory', 'schemaMetadata', 'ownership', 'deprecation', 'domains', 'applications', 'status', 'browsePaths', 'structuredProperties', 'forms', 'testResults', 'subTypes', 'assetSettings']}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.key.GlossaryTermKey")
 
     def __init__(self,
@@ -20177,6 +20173,18 @@ class DataHubPageModuleTypeClass(object):
     
     DOMAINS = "DOMAINS"
     """Module displaying the top domains"""
+    
+    ASSETS = "ASSETS"
+    """Module displaying the assets of parent entity"""
+    
+    CHILD_HIERARCHY = "CHILD_HIERARCHY"
+    """Module displaying the hierarchy of the children of a given entity. Glossary or Domains."""
+    
+    DATA_PRODUCTS = "DATA_PRODUCTS"
+    """Module displaying child data products of a given domain"""
+    
+    RELATED_TERMS = "RELATED_TERMS"
+    """Module displaying the related terms of a given glossary term"""
     
     
     
@@ -24634,6 +24642,89 @@ class DataHubSecretValueClass(_Aspect):
         self._inner_dict['created'] = value
     
     
+class AssetSettingsClass(_Aspect):
+    """Settings associated with this asset"""
+
+
+    ASPECT_NAME = 'assetSettings'
+    ASPECT_INFO = {}
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.settings.asset.AssetSettings")
+
+    def __init__(self,
+        assetSummary: Union[None, "AssetSummarySettingsClass"]=None,
+    ):
+        super().__init__()
+        
+        self.assetSummary = assetSummary
+    
+    def _restore_defaults(self) -> None:
+        self.assetSummary = self.RECORD_SCHEMA.fields_dict["assetSummary"].default
+    
+    
+    @property
+    def assetSummary(self) -> Union[None, "AssetSummarySettingsClass"]:
+        """Information related to the asset summary for this asset"""
+        return self._inner_dict.get('assetSummary')  # type: ignore
+    
+    @assetSummary.setter
+    def assetSummary(self, value: Union[None, "AssetSummarySettingsClass"]) -> None:
+        self._inner_dict['assetSummary'] = value
+    
+    
+class AssetSummarySettingsClass(DictWrapper):
+    """Information related to the asset summary for this asset"""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.settings.asset.AssetSummarySettings")
+    def __init__(self,
+        templates: Optional[Union[List["AssetSummarySettingsTemplateClass"], None]]=None,
+    ):
+        super().__init__()
+        
+        if templates is None:
+            # default: []
+            self.templates = list()
+        else:
+            self.templates = templates
+    
+    def _restore_defaults(self) -> None:
+        self.templates = list()
+    
+    
+    @property
+    def templates(self) -> Union[List["AssetSummarySettingsTemplateClass"], None]:
+        """The list of templates applied to this asset in order. Right now we only expect one."""
+        return self._inner_dict.get('templates')  # type: ignore
+    
+    @templates.setter
+    def templates(self, value: Union[List["AssetSummarySettingsTemplateClass"], None]) -> None:
+        self._inner_dict['templates'] = value
+    
+    
+class AssetSummarySettingsTemplateClass(DictWrapper):
+    """Object containing the template and any additional info for asset summary settings"""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.settings.asset.AssetSummarySettingsTemplate")
+    def __init__(self,
+        template: str,
+    ):
+        super().__init__()
+        
+        self.template = template
+    
+    def _restore_defaults(self) -> None:
+        self.template = str()
+    
+    
+    @property
+    def template(self) -> str:
+        """The urn of the template"""
+        return self._inner_dict.get('template')  # type: ignore
+    
+    @template.setter
+    def template(self, value: str) -> None:
+        self._inner_dict['template'] = value
+    
+    
 class ApplicationsSettingsClass(DictWrapper):
     # No docs available.
     
@@ -25817,6 +25908,31 @@ class TelemetryClientIdClass(_Aspect):
         self._inner_dict['clientId'] = value
     
     
+class DataHubPageTemplateAssetSummaryClass(DictWrapper):
+    """The page template info for asset summaries"""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.template.DataHubPageTemplateAssetSummary")
+    def __init__(self,
+        summaryElements: Union[None, List["SummaryElementClass"]]=None,
+    ):
+        super().__init__()
+        
+        self.summaryElements = summaryElements
+    
+    def _restore_defaults(self) -> None:
+        self.summaryElements = self.RECORD_SCHEMA.fields_dict["summaryElements"].default
+    
+    
+    @property
+    def summaryElements(self) -> Union[None, List["SummaryElementClass"]]:
+        """The optional list of properties shown on an asset summary page header."""
+        return self._inner_dict.get('summaryElements')  # type: ignore
+    
+    @summaryElements.setter
+    def summaryElements(self, value: Union[None, List["SummaryElementClass"]]) -> None:
+        self._inner_dict['summaryElements'] = value
+    
+    
 class DataHubPageTemplatePropertiesClass(_Aspect):
     """The main properties of a DataHub page template"""
 
@@ -25831,10 +25947,12 @@ class DataHubPageTemplatePropertiesClass(_Aspect):
         visibility: "DataHubPageTemplateVisibilityClass",
         created: "AuditStampClass",
         lastModified: "AuditStampClass",
+        assetSummary: Union[None, "DataHubPageTemplateAssetSummaryClass"]=None,
     ):
         super().__init__()
         
         self.rows = rows
+        self.assetSummary = assetSummary
         self.surface = surface
         self.visibility = visibility
         self.created = created
@@ -25842,6 +25960,7 @@ class DataHubPageTemplatePropertiesClass(_Aspect):
     
     def _restore_defaults(self) -> None:
         self.rows = list()
+        self.assetSummary = self.RECORD_SCHEMA.fields_dict["assetSummary"].default
         self.surface = DataHubPageTemplateSurfaceClass._construct_with_defaults()
         self.visibility = DataHubPageTemplateVisibilityClass._construct_with_defaults()
         self.created = AuditStampClass._construct_with_defaults()
@@ -25856,6 +25975,16 @@ class DataHubPageTemplatePropertiesClass(_Aspect):
     @rows.setter
     def rows(self, value: List["DataHubPageTemplateRowClass"]) -> None:
         self._inner_dict['rows'] = value
+    
+    
+    @property
+    def assetSummary(self) -> Union[None, "DataHubPageTemplateAssetSummaryClass"]:
+        """The optional info for asset summaries. Should be populated if surfaceType is ASSET_SUMMARY"""
+        return self._inner_dict.get('assetSummary')  # type: ignore
+    
+    @assetSummary.setter
+    def assetSummary(self, value: Union[None, "DataHubPageTemplateAssetSummaryClass"]) -> None:
+        self._inner_dict['assetSummary'] = value
     
     
     @property
@@ -25990,6 +26119,58 @@ class PageTemplateSurfaceTypeClass(object):
     HOME_PAGE = "HOME_PAGE"
     """This template applies to what to display on the home page for users."""
     
+    ASSET_SUMMARY = "ASSET_SUMMARY"
+    """This template applies to what to display on asset summary pages"""
+    
+    
+    
+class SummaryElementClass(DictWrapper):
+    """Info for a given asset summary element"""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.template.SummaryElement")
+    def __init__(self,
+        elementType: Union[str, "SummaryElementTypeClass"],
+        structuredPropertyUrn: Union[None, str]=None,
+    ):
+        super().__init__()
+        
+        self.elementType = elementType
+        self.structuredPropertyUrn = structuredPropertyUrn
+    
+    def _restore_defaults(self) -> None:
+        self.elementType = SummaryElementTypeClass.CREATED
+        self.structuredPropertyUrn = self.RECORD_SCHEMA.fields_dict["structuredPropertyUrn"].default
+    
+    
+    @property
+    def elementType(self) -> Union[str, "SummaryElementTypeClass"]:
+        """The type of element/property"""
+        return self._inner_dict.get('elementType')  # type: ignore
+    
+    @elementType.setter
+    def elementType(self, value: Union[str, "SummaryElementTypeClass"]) -> None:
+        self._inner_dict['elementType'] = value
+    
+    
+    @property
+    def structuredPropertyUrn(self) -> Union[None, str]:
+        """The urn of the structured property shown. Required if propertyType is STRUCTURED_PROPERTY"""
+        return self._inner_dict.get('structuredPropertyUrn')  # type: ignore
+    
+    @structuredPropertyUrn.setter
+    def structuredPropertyUrn(self, value: Union[None, str]) -> None:
+        self._inner_dict['structuredPropertyUrn'] = value
+    
+    
+class SummaryElementTypeClass(object):
+    # No docs available.
+    
+    CREATED = "CREATED"
+    TAGS = "TAGS"
+    GLOSSARY_TERMS = "GLOSSARY_TERMS"
+    OWNERS = "OWNERS"
+    DOMAIN = "DOMAIN"
+    STRUCTURED_PROPERTY = "STRUCTURED_PROPERTY"
     
     
 class TestDefinitionClass(DictWrapper):
@@ -27408,6 +27589,9 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.schemafield.SchemaFieldAliases': SchemaFieldAliasesClass,
     'com.linkedin.pegasus2avro.schemafield.SchemaFieldInfo': SchemaFieldInfoClass,
     'com.linkedin.pegasus2avro.secret.DataHubSecretValue': DataHubSecretValueClass,
+    'com.linkedin.pegasus2avro.settings.asset.AssetSettings': AssetSettingsClass,
+    'com.linkedin.pegasus2avro.settings.asset.AssetSummarySettings': AssetSummarySettingsClass,
+    'com.linkedin.pegasus2avro.settings.asset.AssetSummarySettingsTemplate': AssetSummarySettingsTemplateClass,
     'com.linkedin.pegasus2avro.settings.global.ApplicationsSettings': ApplicationsSettingsClass,
     'com.linkedin.pegasus2avro.settings.global.DocPropagationFeatureSettings': DocPropagationFeatureSettingsClass,
     'com.linkedin.pegasus2avro.settings.global.GlobalHomePageSettings': GlobalHomePageSettingsClass,
@@ -27425,12 +27609,15 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.structured.StructuredPropertyValueAssignment': StructuredPropertyValueAssignmentClass,
     'com.linkedin.pegasus2avro.tag.TagProperties': TagPropertiesClass,
     'com.linkedin.pegasus2avro.telemetry.TelemetryClientId': TelemetryClientIdClass,
+    'com.linkedin.pegasus2avro.template.DataHubPageTemplateAssetSummary': DataHubPageTemplateAssetSummaryClass,
     'com.linkedin.pegasus2avro.template.DataHubPageTemplateProperties': DataHubPageTemplatePropertiesClass,
     'com.linkedin.pegasus2avro.template.DataHubPageTemplateRow': DataHubPageTemplateRowClass,
     'com.linkedin.pegasus2avro.template.DataHubPageTemplateSurface': DataHubPageTemplateSurfaceClass,
     'com.linkedin.pegasus2avro.template.DataHubPageTemplateVisibility': DataHubPageTemplateVisibilityClass,
     'com.linkedin.pegasus2avro.template.PageTemplateScope': PageTemplateScopeClass,
     'com.linkedin.pegasus2avro.template.PageTemplateSurfaceType': PageTemplateSurfaceTypeClass,
+    'com.linkedin.pegasus2avro.template.SummaryElement': SummaryElementClass,
+    'com.linkedin.pegasus2avro.template.SummaryElementType': SummaryElementTypeClass,
     'com.linkedin.pegasus2avro.test.TestDefinition': TestDefinitionClass,
     'com.linkedin.pegasus2avro.test.TestDefinitionType': TestDefinitionTypeClass,
     'com.linkedin.pegasus2avro.test.TestInfo': TestInfoClass,
@@ -27918,6 +28105,9 @@ __SCHEMA_TYPES = {
     'SchemaFieldAliases': SchemaFieldAliasesClass,
     'SchemaFieldInfo': SchemaFieldInfoClass,
     'DataHubSecretValue': DataHubSecretValueClass,
+    'AssetSettings': AssetSettingsClass,
+    'AssetSummarySettings': AssetSummarySettingsClass,
+    'AssetSummarySettingsTemplate': AssetSummarySettingsTemplateClass,
     'ApplicationsSettings': ApplicationsSettingsClass,
     'DocPropagationFeatureSettings': DocPropagationFeatureSettingsClass,
     'GlobalHomePageSettings': GlobalHomePageSettingsClass,
@@ -27935,12 +28125,15 @@ __SCHEMA_TYPES = {
     'StructuredPropertyValueAssignment': StructuredPropertyValueAssignmentClass,
     'TagProperties': TagPropertiesClass,
     'TelemetryClientId': TelemetryClientIdClass,
+    'DataHubPageTemplateAssetSummary': DataHubPageTemplateAssetSummaryClass,
     'DataHubPageTemplateProperties': DataHubPageTemplatePropertiesClass,
     'DataHubPageTemplateRow': DataHubPageTemplateRowClass,
     'DataHubPageTemplateSurface': DataHubPageTemplateSurfaceClass,
     'DataHubPageTemplateVisibility': DataHubPageTemplateVisibilityClass,
     'PageTemplateScope': PageTemplateScopeClass,
     'PageTemplateSurfaceType': PageTemplateSurfaceTypeClass,
+    'SummaryElement': SummaryElementClass,
+    'SummaryElementType': SummaryElementTypeClass,
     'TestDefinition': TestDefinitionClass,
     'TestDefinitionType': TestDefinitionTypeClass,
     'TestInfo': TestInfoClass,
@@ -28110,6 +28303,7 @@ ASPECT_CLASSES: List[Type[_Aspect]] = [
     NotebookInfoClass,
     NotebookContentClass,
     GlobalSettingsInfoClass,
+    AssetSettingsClass,
     DataHubViewInfoClass,
     DataJobInfoClass,
     EditableDataFlowPropertiesClass,
@@ -28343,6 +28537,7 @@ class AspectBag(TypedDict, total=False):
     notebookInfo: NotebookInfoClass
     notebookContent: NotebookContentClass
     globalSettingsInfo: GlobalSettingsInfoClass
+    assetSettings: AssetSettingsClass
     dataHubViewInfo: DataHubViewInfoClass
     dataJobInfo: DataJobInfoClass
     editableDataFlowProperties: EditableDataFlowPropertiesClass

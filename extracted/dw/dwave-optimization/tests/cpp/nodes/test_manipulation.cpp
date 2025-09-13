@@ -17,17 +17,176 @@
 
 #include "catch2/catch_test_macros.hpp"
 #include "catch2/matchers/catch_matchers_all.hpp"
+#include "dwave-optimization/nodes/binaryop.hpp"
 #include "dwave-optimization/nodes/collections.hpp"
 #include "dwave-optimization/nodes/constants.hpp"
 #include "dwave-optimization/nodes/indexing.hpp"
+#include "dwave-optimization/nodes/inputs.hpp"
 #include "dwave-optimization/nodes/manipulation.hpp"
-#include "dwave-optimization/nodes/mathematical.hpp"
 #include "dwave-optimization/nodes/numbers.hpp"
+#include "dwave-optimization/nodes/reduce.hpp"
 #include "dwave-optimization/nodes/testing.hpp"
 
 using Catch::Matchers::RangeEquals;
 
 namespace dwave::optimization {
+
+TEST_CASE("BroadcastToNode") {
+    auto graph = Graph();
+
+    SECTION("broadcast [0, 1, 2] to a (2,3) array") {
+        auto c = graph.emplace_node<ConstantNode>(std::vector{0, 1, 2});
+        auto b = graph.emplace_node<BroadcastToNode>(c, std::vector<ssize_t>{2, 3});
+        graph.emplace_node<ArrayValidationNode>(b);
+        CHECK_THAT(b->shape(), RangeEquals({2, 3}));
+        CHECK_THAT(b->strides(), RangeEquals({0, 8}));
+
+        auto state = graph.initialize_state();
+        CHECK_THAT(b->view(state), RangeEquals({0, 1, 2, 0, 1, 2}));
+    }
+
+    SECTION("broadcast (3,) array to a (2,3) array") {
+        auto i = graph.emplace_node<InputNode>(std::vector<ssize_t>{3});
+        auto b = graph.emplace_node<BroadcastToNode>(i, std::vector<ssize_t>{2, 3});
+        graph.emplace_node<ArrayValidationNode>(b);
+
+        CHECK_THAT(b->shape(), RangeEquals({2, 3}));
+        CHECK_THAT(b->strides(), RangeEquals({0, 8}));
+
+        auto state = graph.empty_state();
+        i->initialize_state(state, {0, 1, 2});
+        graph.initialize_state(state);
+        CHECK_THAT(b->view(state), RangeEquals({0, 1, 2, 0, 1, 2}));
+
+        // Do an update followed by a propagation
+        i->assign(state, {1, 0, 2});
+        graph.propagate(state);
+
+        CHECK_THAT(b->view(state), RangeEquals({1, 0, 2, 1, 0, 2}));
+
+        AND_WHEN("We commit") {
+            graph.commit(state);
+            CHECK_THAT(b->view(state), RangeEquals({1, 0, 2, 1, 0, 2}));
+        }
+        AND_WHEN("We revert") {
+            graph.revert(state);
+            CHECK_THAT(b->view(state), RangeEquals({0, 1, 2, 0, 1, 2}));
+        }
+    }
+
+    SECTION("broadcast (-1,1) array to a (-1,2) array") {
+        auto s = graph.emplace_node<SetNode>(100);
+        auto rs = graph.emplace_node<ReshapeNode>(s, std::vector<ssize_t>{-1, 1});
+        CHECK(rs->ndim() == 2);
+        auto b = graph.emplace_node<BroadcastToNode>(rs, std::vector<ssize_t>{-1, 2});
+        graph.emplace_node<ArrayValidationNode>(b);
+
+        CHECK_THAT(b->shape(), RangeEquals({-1, 2}));
+
+        auto state = graph.empty_state();
+        s->initialize_state(state, {0, 1, 2});
+        graph.initialize_state(state);
+
+        CHECK_THAT(b->shape(state), RangeEquals({3, 2}));
+        CHECK_THAT(b->view(state), RangeEquals({0, 0, 1, 1, 2, 2}));
+
+        WHEN("We grow the set") {
+            s->assign(state, {0, 2, 1, 3, 5});
+            graph.propagate(state);
+
+            CHECK_THAT(b->shape(state), RangeEquals({5, 2}));
+            CHECK_THAT(b->view(state), RangeEquals({0, 0, 2, 2, 1, 1, 3, 3, 5, 5}));
+
+            AND_WHEN("We commit") {
+                graph.commit(state);
+
+                CHECK_THAT(b->shape(state), RangeEquals({5, 2}));
+                CHECK_THAT(b->view(state), RangeEquals({0, 0, 2, 2, 1, 1, 3, 3, 5, 5}));
+            }
+
+            AND_WHEN("We revert") {
+                graph.revert(state);
+
+                CHECK_THAT(b->shape(state), RangeEquals({3, 2}));
+                CHECK_THAT(b->view(state), RangeEquals({0, 0, 1, 1, 2, 2}));
+            }
+        }
+
+        WHEN("We shrink the set") {
+            s->assign(state, {0, 5});
+            graph.propagate(state);
+
+            CHECK_THAT(b->shape(state), RangeEquals({2, 2}));
+            CHECK_THAT(b->view(state), RangeEquals({0, 0, 5, 5}));
+
+            AND_WHEN("We commit") {
+                graph.commit(state);
+
+                CHECK_THAT(b->shape(state), RangeEquals({2, 2}));
+                CHECK_THAT(b->view(state), RangeEquals({0, 0, 5, 5}));
+            }
+
+            AND_WHEN("We revert") {
+                graph.revert(state);
+
+                CHECK_THAT(b->shape(state), RangeEquals({3, 2}));
+                CHECK_THAT(b->view(state), RangeEquals({0, 0, 1, 1, 2, 2}));
+            }
+        }
+    }
+
+    SECTION("broadcast [[0], [1], [2]] to a (3,2) array") {
+        auto c = graph.emplace_node<ConstantNode>(std::vector{0, 1, 2}, std::vector<ssize_t>{3, 1});
+        auto b = graph.emplace_node<BroadcastToNode>(c, std::vector<ssize_t>{3, 2});
+        graph.emplace_node<ArrayValidationNode>(b);
+        CHECK_THAT(b->shape(), RangeEquals({3, 2}));
+        CHECK_THAT(b->strides(), RangeEquals({8, 0}));
+
+        auto state = graph.initialize_state();
+        CHECK_THAT(b->view(state), RangeEquals({0, 0, 1, 1, 2, 2}));
+    }
+
+    SECTION("broadcast [[0], [1], [2]] to a (2,3,2) array") {
+        auto c = graph.emplace_node<ConstantNode>(std::vector{0, 1, 2}, std::vector<ssize_t>{3, 1});
+        auto b = graph.emplace_node<BroadcastToNode>(c, std::vector<ssize_t>{2, 3, 2});
+        graph.emplace_node<ArrayValidationNode>(b);
+        CHECK_THAT(b->shape(), RangeEquals({2, 3, 2}));
+        CHECK_THAT(b->strides(), RangeEquals({0, 8, 0}));
+
+        auto state = graph.initialize_state();
+        CHECK_THAT(b->view(state), RangeEquals({0, 0, 1, 1, 2, 2, 0, 0, 1, 1, 2, 2}));
+    }
+
+    SECTION("broadcast [[0, 1], [2, 3], [4, 5]] to a (2,3,2) array") {
+        auto c = graph.emplace_node<ConstantNode>(std::vector{0, 1, 2, 3, 4, 5},
+                                                  std::vector<ssize_t>{3, 2});
+        auto b = graph.emplace_node<BroadcastToNode>(c, std::vector<ssize_t>{2, 3, 2});
+        graph.emplace_node<ArrayValidationNode>(b);
+        CHECK_THAT(b->shape(), RangeEquals({2, 3, 2}));
+        CHECK_THAT(b->strides(), RangeEquals({0, 16, 8}));
+
+        auto state = graph.initialize_state();
+        CHECK_THAT(b->view(state), RangeEquals({0, 1, 2, 3, 4, 5, 0, 1, 2, 3, 4, 5}));
+    }
+
+    SECTION("broadcast (3,2) array to a (2,3,2) array") {
+        auto a = graph.emplace_node<InputNode>(std::vector<ssize_t>{3, 2});
+        auto b = graph.emplace_node<BroadcastToNode>(a, std::vector<ssize_t>{2, 3, 2});
+        graph.emplace_node<ArrayValidationNode>(b);
+        CHECK_THAT(b->shape(), RangeEquals({2, 3, 2}));
+        CHECK_THAT(b->strides(), RangeEquals({0, 16, 8}));
+
+        auto state = graph.empty_state();
+        a->initialize_state(state, {0, 1, 2, 3, 4, 5});
+        graph.initialize_state(state);
+        CHECK_THAT(b->view(state), RangeEquals({0, 1, 2, 3, 4, 5, 0, 1, 2, 3, 4, 5}));
+
+        // Do an update followed by a propagation
+        a->assign(state, {1, 0, 2, 3, 6, 5});
+        graph.propagate(state);
+        CHECK_THAT(b->view(state), RangeEquals({1, 0, 2, 3, 6, 5, 1, 0, 2, 3, 6, 5}));
+    }
+}
 
 TEST_CASE("ConcatenateNode") {
     GIVEN("Two constant nodes with 8 elements each") {
@@ -140,22 +299,13 @@ TEST_CASE("ConcatenateNode") {
         auto a_ptr = graph.emplace_node<IntegerNode>(std::vector<ssize_t>{3}, 0, 50);
         auto b_ptr = graph.emplace_node<IntegerNode>(std::vector<ssize_t>{3}, -10, 100);
         auto a_copy_ptr = graph.emplace_node<CopyNode>(a_ptr);
-        auto c_ptr = graph.emplace_node<ConcatenateNode>(std::vector<ArrayNode*>{a_copy_ptr, b_ptr}, 0);
+        auto c_ptr =
+                graph.emplace_node<ConcatenateNode>(std::vector<ArrayNode*>{a_copy_ptr, b_ptr}, 0);
 
-        THEN("We can get the minmax() and integral() as expected") {
+        THEN("We can get the min(), max() and integral() as expected") {
             CHECK(c_ptr->integral());
-            CHECK(c_ptr->minmax() == std::pair<double, double>{-10, 100});
-
-            auto cache = Array::cache_type<std::pair<double, double>>();
-            CHECK(c_ptr->minmax(cache) == std::pair<double, double>{-10, 100});
-
-            CHECK(cache.contains(c_ptr));
-            // mutating the cache should also mutate the output
-            cache[c_ptr].first = -1000;
-            CHECK(c_ptr->minmax(cache).first == -1000);
-            CHECK(c_ptr->minmax().first == -10);  // ignores the cache
-
-            CHECK(cache.contains(a_copy_ptr));
+            CHECK(c_ptr->min() == -10);
+            CHECK(c_ptr->max() == 100);
         }
     }
 
@@ -360,9 +510,7 @@ TEST_CASE("ConcatenateNode") {
         WHEN("Concatenated") {
             auto c = ConcatenateNode(std::vector<ArrayNode*>{&a, &b}, 0);
 
-            THEN("The concatenated node is not integral") {
-                CHECK(c.integral() == false);
-            }
+            THEN("The concatenated node is not integral") { CHECK(c.integral() == false); }
         }
     }
 }
@@ -856,6 +1004,51 @@ TEST_CASE("ReshapeNode") {
                 CHECK(std::ranges::equal(lhs_ptr->view(state), rhs_ptr->view(state)));
             }
         }
+    }
+
+    GIVEN("A set(10) reshaped to shape (-1,1)") {
+        auto graph = Graph();
+
+        auto set_ptr = graph.emplace_node<SetNode>(10);
+        auto reshape_ptr = graph.emplace_node<ReshapeNode>(set_ptr, std::array{-1, 1});
+        graph.emplace_node<ArrayValidationNode>(reshape_ptr);
+
+        CHECK_THAT(reshape_ptr->shape(), RangeEquals({-1, 1}));
+
+        CHECK(reshape_ptr->sizeinfo() == SizeInfo(set_ptr));
+
+        auto state = graph.empty_state();
+        set_ptr->initialize_state(state, {0, 1, 2, 3});  // size 4
+        graph.initialize_state(state);
+        CHECK_THAT(reshape_ptr->shape(state), RangeEquals({4, 1}));
+
+        set_ptr->grow(state);
+        graph.propagate(state);
+        CHECK_THAT(reshape_ptr->shape(state), RangeEquals({5, 1}));
+
+        AND_WHEN("We commit") {
+            graph.commit(state);
+            CHECK_THAT(reshape_ptr->shape(state), RangeEquals({5, 1}));
+        }
+        AND_WHEN("We revert") {
+            graph.revert(state);
+            CHECK_THAT(reshape_ptr->shape(state), RangeEquals({4, 1}));
+        }
+    }
+
+    // todo: once we support BroadcastToNode we can test some other more interesting reshapes
+
+    GIVEN("A set(10) that we try to do several invalid reshapes on") {
+        auto graph = Graph();
+        auto set_ptr = graph.emplace_node<SetNode>(10);
+
+        CHECK_THROWS_AS(graph.emplace_node<ReshapeNode>(set_ptr, std::array{-1, 2}),
+                        std::invalid_argument);
+
+        CHECK_THROWS_AS(graph.emplace_node<ReshapeNode>(set_ptr, std::array{-1, 1, -1, 1}),
+                        std::invalid_argument);
+
+        CHECK(graph.num_nodes() == 1);  // no side effects
     }
 }
 

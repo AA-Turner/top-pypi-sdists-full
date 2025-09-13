@@ -3,7 +3,7 @@ from typing import Any
 import fastapi
 from arpakitlib.raise_own_exception_if_exception import raise_own_exception_if_exception
 
-from project.api.exception import APIException
+from project.api.api_exception import APIException
 from project.api.schema.out.common.error import ErrorCommonSO
 
 
@@ -22,12 +22,13 @@ def raise_own_exception_if_exception_in_api_router(
         return raise_own_exception_if_exception(
             catching_exceptions=Exception,
             own_exception=APIException,
+            kwargs_in_own_exception={raise_own_exception_if_exception_in_api_router.__name__: True},
             forward_kwargs_in_own_exception={
                 "status_code": status_code,
                 "error_common_so": error_common_so,
                 "kwargs_": kwargs_,
                 "kwargs_create_story_log": kwargs_create_story_log,
-                "kwargs_logging_full_error": kwargs_logging_full_error
+                "kwargs_logging_full_error": kwargs_logging_full_error,
             }
         )(func)
 

@@ -20,7 +20,6 @@
 """
 import os
 
-from setuptools import find_packages
 from setuptools import setup
 
 
@@ -31,7 +30,7 @@ def read(*rnames):
 
 setup(
     name='zope.location',
-    version='5.1',
+    version='6.0',
     author='Zope Foundation and Contributors',
     author_email='zope-dev@zope.dev',
     description='Zope Location',
@@ -60,12 +59,6 @@ setup(
             'Framework :: Zope :: 5',
     ],
     url='http://github.com/zopefoundation/zope.location/',
-    packages=find_packages('src'),
-    package_dir={
-        '': 'src'},
-    namespace_packages=[
-        'zope',
-    ],
     python_requires='>=3.9',
     install_requires=[
         'setuptools',
@@ -77,14 +70,14 @@ setup(
         'zcml': ['zope.configuration'],
         'component': ['zope.component >= 4.0.1'],
         'copy': ['zope.copy >= 4.0'],
-        'test-minimal': ['zope.testrunner'],
+        'test-minimal': ['zope.testrunner >= 6.4'],
         'test-component': [
-            'zope.testrunner',
+            'zope.testrunner >= 6.4',
             'zope.component >= 4.0.1',
             'zope.configuration',
         ],
         'test': [
-            'zope.testrunner',
+            'zope.testrunner >= 6.4',
             'zope.configuration',
             'zope.component >= 4.0.1',
             'zope.copy >= 4.0',

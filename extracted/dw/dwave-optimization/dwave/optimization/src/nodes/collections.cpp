@@ -18,8 +18,6 @@
 #include <unordered_set>
 #include <utility>
 
-#include "dwave-optimization/utils.hpp"
-
 namespace dwave::optimization {
 
 // Given a collection, check that it is a valid sub-permutation of range(n),
@@ -48,8 +46,8 @@ std::vector<double> augment_collection(std::vector<double> values, const ssize_t
         const size_t i = static_cast<std::size_t>(val);  // should be safe due to previous checks
 
         if (count[i]) {
-            throw std::invalid_argument("values must be a subset of range(" +
-                                        std::to_string(n) + ")");
+            throw std::invalid_argument("values must be a subset of range(" + std::to_string(n) +
+                                        ")");
         }
 
         ++count[i];
@@ -90,9 +88,12 @@ struct CollectionStateData : NodeStateData {
         // this should have been checked already by the CollectionNode
         assert(values.size() == elements.size());
 
-        // First, let's note the public changes to the visible part of the buffer
-        const ssize_t overlap_length = std::min(this->size, size);
-        for (ssize_t i = 0; i < overlap_length; ++i) {
+        // First shrink the visible part down so that we're correctly tracking
+        // our visible/invisible changes.
+        while (this->size > size) shrink();
+
+        // Then, let's note the public changes to the visible part of the buffer
+        for (ssize_t i = 0, stop = std::min(this->size, size); i < stop; ++i) {
             updates.emplace_back(i, elements[i], values[i]);
         }
 
@@ -103,9 +104,8 @@ struct CollectionStateData : NodeStateData {
         }
         std::swap(elements, values);
 
-        // Finally do the resize until we're at the correct size
+        // Finally do any growing we need to do.
         while (this->size < size) grow();
-        while (this->size > size) shrink();
 
         assert(this->size == size);
     }
@@ -254,10 +254,11 @@ void CollectionNode::initialize_state(State& state, std::vector<double> values) 
     emplace_data_ptr<CollectionStateData>(state, std::move(augemented), size);
 }
 
-std::pair<double, double> CollectionNode::minmax(
-        optional_cache_type<std::pair<double, double>> cache) const {
-    return {0, max_value_ - 1};
-}
+bool CollectionNode::integral() const { return true; }
+
+double CollectionNode::min() const { return 0; }
+
+double CollectionNode::max() const { return max_size_ - 1; }
 
 void CollectionNode::revert(State& state) const { data_ptr<CollectionStateData>(state)->revert(); }
 
@@ -435,10 +436,11 @@ std::span<const Update> DisjointBitSetNode::diff(const State& state) const {
     return pred_data->diffs[set_index_];
 }
 
-std::pair<double, double> DisjointBitSetNode::minmax(
-        optional_cache_type<std::pair<double, double>> cache) const {
-    return {0, 1};
-}
+bool DisjointBitSetNode::integral() const { return true; }
+
+double DisjointBitSetNode::min() const { return 0; }
+
+double DisjointBitSetNode::max() const { return 1; }
 
 struct DisjointListStateData : NodeStateData {
     DisjointListStateData(ssize_t primary_set_size, ssize_t num_disjoint_lists)
@@ -751,10 +753,11 @@ std::span<const Update> DisjointListNode::diff(const State& state) const {
     return data->all_list_updates[list_index_];
 }
 
-std::pair<double, double> DisjointListNode::minmax(
-        optional_cache_type<std::pair<double, double>> cache) const {
-    return {0, primary_set_size_ - 1};
-}
+bool DisjointListNode::integral() const { return true; }
+
+double DisjointListNode::min() const { return 0; }
+
+double DisjointListNode::max() const { return primary_set_size_ - 1; }
 
 ssize_t DisjointListNode::size(const State& state) const {
     int index = disjoint_list_node_ptr->topological_index();

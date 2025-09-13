@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: dazl
-Version: 8.4.2
+Version: 8.4.3
 Summary: high-level Ledger API client for Daml ledgers
 License: Apache-2.0
 Keywords: daml,blockchain,dlt,distributed ledger,digital asset
@@ -38,7 +38,7 @@ Copyright (c) 2017-2025 Digital Asset (Switzerland) GmbH and/or its affiliates. 
 SPDX-License-Identifier: Apache-2.0
 
 
-Rich Python bindings for accessing Ledger API-based applications.
+Rich Python bindings for accessing Canton 2.x Ledger API-based applications. It is not intended for use with Canton 3.x.
 
 Documentation
 -------------

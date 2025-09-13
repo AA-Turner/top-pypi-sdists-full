@@ -89126,15 +89126,17 @@ class storage_deletion_api_DeleteDataRequest(ConjureBeanType):
         return {
             'data_source_rid': ConjureFieldDefinition('dataSourceRid', api_rids_NominalDataSourceOrDatasetRid),
             'time_range': ConjureFieldDefinition('timeRange', OptionalTypeWrapper[storage_deletion_api_TimeRange]),
-            'tags': ConjureFieldDefinition('tags', OptionalTypeWrapper[Dict[api_TagName, api_TagValue]])
+            'tags': ConjureFieldDefinition('tags', OptionalTypeWrapper[Dict[api_TagName, api_TagValue]]),
+            'channel_names': ConjureFieldDefinition('channelNames', OptionalTypeWrapper[List[str]])
         }
 
-    __slots__: List[str] = ['_data_source_rid', '_time_range', '_tags']
+    __slots__: List[str] = ['_data_source_rid', '_time_range', '_tags', '_channel_names']
 
-    def __init__(self, data_source_rid: str, tags: Optional[Dict[str, str]] = None, time_range: Optional["storage_deletion_api_TimeRange"] = None) -> None:
+    def __init__(self, data_source_rid: str, channel_names: Optional[List[str]] = None, tags: Optional[Dict[str, str]] = None, time_range: Optional["storage_deletion_api_TimeRange"] = None) -> None:
         self._data_source_rid = data_source_rid
         self._time_range = time_range
         self._tags = tags
+        self._channel_names = channel_names
 
     @builtins.property
     def data_source_rid(self) -> str:
@@ -89154,6 +89156,13 @@ If not specified, will delete data across all tags.
         """
         return self._tags
 
+    @builtins.property
+    def channel_names(self) -> Optional[List[str]]:
+        """If specified, will only delete data that has an exact channel name match with the given names.
+If not specified, will delete data across all channels.
+        """
+        return self._channel_names
+
 
 storage_deletion_api_DeleteDataRequest.__name__ = "DeleteDataRequest"
 storage_deletion_api_DeleteDataRequest.__qualname__ = "DeleteDataRequest"
@@ -89166,7 +89175,7 @@ class storage_deletion_api_InternalNominalStorageDataDeletionService(Service):
 
     def delete(self, auth_header: str, request: "storage_deletion_api_DeleteDataRequest") -> None:
         """Deletes stored data. This is an irreversible operation so be careful about specified
-time range and tag scope.
+time range, channel names, and tag scope.
         """
         _conjure_encoder = ConjureEncoder()
 

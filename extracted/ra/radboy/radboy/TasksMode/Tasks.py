@@ -46,6 +46,8 @@ from radboy.preloader import preloader
 from radboy.Comm2Common import *
 import radboy.DB.OrderedAndRxd as OAR
 import radboy.DB.LetterWriter as LW
+from scipy.io.wavfile import write
+
 
 def today():
     dt=datetime.now()
@@ -1067,7 +1069,103 @@ SALES TAX ON APPLICABLE TANGIBLE ITEMS = (PRICE + CRV) * TTL TAX RATE
             except Exception as e:
                 print(e,str(e),repr(e))
 
+def generate_static_video():
+    try:
+        print(f"{Fore.orange_red_1}Please ensure you are on a Linux System with ffmpeg installed!")
+        formData={
+            'resolution_width':{
+            'default':1280,
+            'type':'int',
+            },
+            'resolution_height':{
+            'default':720,
+            'type':'int'
+            },
+            'bchannel':{
+            'default':random.randint(0,129),
+            'type':'int',
+            },
+            'gchannel':{
+            'default':random.randint(0,129),
+            'type':'int'
+            },
+            'duration in seconds':{
+            'default':3*60*60,
+            'type':'float'
+            },
+            'rate in fps':{
+            'default':30,
+            'type':'float'
+            },
+            'output filename':{
+            'default':'output.mkv',
+            'type':'str'
+            }
+        }
+        fd=FormBuilder(data=formData)
+        if fd is None:
+            return
+    
+
+        resolution_width=fd['resolution_width']
+        resolution_height=fd['resolution_height']
+        duration=fd['duration in seconds']
+        output_filename=fd['output filename']
+        bchannel=fd['bchannel']
+        gchannel=fd['gchannel']
+        rate=fd['rate in fps']
+
+        cmd=f'''ffmpeg -f lavfi -i nullsrc=s={resolution_height}x{resolution_width}:r={rate} -filter_complex "geq=random(1)*255:{bchannel}:{gchannel};aevalsrc=c=mono:n=64:exprs=-2+random(0)" -c:a pcm_s16le -t {duration} {output_filename}'''
+        print(cmd)
+        rvalue=os.system(cmd)
+        print(rvalue)
+    except Exception as e:
+        print(e)
+
+def generateWhiteNoise():
+    try:
+        formData={
+            'sample rate':{
+            'default':44100,
+            'type':'int',
+            },
+            'duration in seconds':{
+            'default':5,
+            'type':'float'
+            },
+            'amplitude':{
+            'default':0.5,
+            'type':'float'
+            },
+            'output filename':{
+            'default':'output.wav',
+            'type':'str'
+            }
+        }
+        fd=FormBuilder(data=formData)
+        if fd is None:
+            return
+        sample_rate=fd['sample rate']
+        duration=fd['duration in seconds']
+        amplitude=fd['amplitude']
+        output_filename=fd['output filename']
+
+        white_noise= amplitude* np.random.uniform(-1,1,int(sample_rate*duration))
+        white_noise_int16=(white_noise*32767).astype(np.int16)
+        
+        write(output_filename,sample_rate,white_noise_int16)
+        print(f"{Fore.orange_red_1}white noise saved to {Fore.light_sea_green}{output_filename}{Style.reset}")
+    except Exception as e:
+        print(e)
+
+
 class TasksMode:
+    def white_noise(self):
+        generateWhiteNoise()
+
+    def white_noise_video(self):
+        generate_static_video()
+
     def WriteLetter(self):
         return LW.WriteLetter()
     def setPrec(self):
@@ -5551,6 +5649,18 @@ where:
                     'cmds':["#"+str(count),*[i for i in generate_cmds(startcmd=["sw2669-oar","safeway-2669 ordered and rxd"],endCmd=[" ",''])]],
                     'desc':f"ordered and recieved dates tracking for Safeway 2669, and utils specific for this store",
                     'exec':lambda self=self: OAR.OrderAndRxdUi(),
+                    }
+        count+=1
+        self.options[str(uuid1())]={
+                    'cmds':["#"+str(count),*[i for i in generate_cmds(startcmd=["generate"],endCmd=['wna','white noise audo','whitenoise-audio'])]],
+                    'desc':f"generate a white noise sound audio and save to file",
+                    'exec':lambda self=self: self.white_noise(),
+                    }
+        count+=1
+        self.options[str(uuid1())]={
+                    'cmds':["#"+str(count),*[i for i in generate_cmds(startcmd=["generate"],endCmd=['wnv','white noise video','whitenoise-video'])]],
+                    'desc':f"generate a white noise sound video and save to file",
+                    'exec':lambda self=self: self.white_noise_video(),
                     }
         count+=1
         self.options[str(uuid1())]={

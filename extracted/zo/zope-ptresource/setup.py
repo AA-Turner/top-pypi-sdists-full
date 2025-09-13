@@ -15,7 +15,6 @@
 """
 import os
 
-from setuptools import find_packages
 from setuptools import setup
 
 
@@ -28,12 +27,12 @@ long_description = (read('README.rst') + '\n\n' + read('CHANGES.rst'))
 
 TESTS_REQUIRE = [
     'zope.testing',
-    'zope.testrunner',
+    'zope.testrunner >= 6.4',
 ]
 
 setup(
     name='zope.ptresource',
-    version='5.1',
+    version='6.0',
     url='https://github.com/zopefoundation/zope.ptresource/',
     project_urls={
         'Issue Tracker': ('https://github.com/zopefoundation/'
@@ -62,9 +61,6 @@ setup(
     description='Page template resource plugin for zope.browserresource',
     long_description=long_description,
     license='ZPL-2.1',
-    packages=find_packages('src'),
-    package_dir={'': 'src'},
-    namespace_packages=['zope'],
     python_requires='>=3.9',
     install_requires=[
         'setuptools',

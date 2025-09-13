@@ -84,14 +84,14 @@ if os.path.exists(".eggs"):
 
 setup(
     name='DracoPy',
-    version='1.5.0',
+    version='1.7.0',
     description = 'Python wrapper for Google\'s Draco Mesh Compression Library',
-    author = 'Manuel Castro, William Silversmith :: Contributors :: Fatih Erol, Faru Nuri Sonmez, Zeyu Zhao, Denis Riviere',
+    author = 'Manuel Castro, William Silversmith :: Contributors :: Fatih Erol, Faru Nuri Sonmez,  Forrest Collman, Zeyu Zhao, Denis Riviere, Brett Tully, Hanseul Jun,  Afshawn Lotfi, Pan Xinmiao, Kenneth Bongort',
     author_email = 'macastro@princeton.edu, ws9@princeton.edu',
     url = 'https://github.com/seung-lab/DracoPy',
     long_description=read('README.md'),
     long_description_content_type="text/markdown",
-    license = "License :: OSI Approved :: Apache Software License",
+    license = "Apache-2.0",
     cmake_source_dir='./draco',
     cmake_args=cmake_args,
     build_args=['--verbose'],
@@ -113,7 +113,6 @@ setup(
     classifiers=[
         "Intended Audience :: Developers",
         "Development Status :: 5 - Production/Stable",
-        "License :: OSI Approved :: Apache Software License",
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.8",

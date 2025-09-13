@@ -95,7 +95,6 @@ def test_add(component: str, expected: str):
     assert component == expected
 
 
-
 @pytest.mark.parametrize(
     "component,expected",
     [
@@ -106,7 +105,6 @@ def test_add(component: str, expected: str):
         pytest.param(AddOp(False, False), "0", id="add false-false"),
         pytest.param(AddOp(True, True), "2", id="add true-true"),
         pytest.param(AddOp("1", "2"), "12", id="concat str"),
-
     ],
 )
 def test_add_attr(component: str, expected: str):
@@ -164,8 +162,18 @@ def test_div(component: str, expected: str):
 @pytest.mark.parametrize(
     "component,args,expected",
     [
-        pytest.param(AddOp, (4, "2"), "Invalid types for addition", id="add int-str"),
-        pytest.param(SubOp, ("1", "2"), "Invalid types for subtraction", id="sub str"),
+        pytest.param(
+            AddOp,
+            (4, "2"),
+            'Cannot add Int(4) + Str("2"), type mismatch',
+            id="add int-str",
+        ),
+        pytest.param(
+            SubOp,
+            ("1", "2"),
+            'Cannot substract Str("1") - Str("2"), type mismatch',
+            id="sub str",
+        ),
     ],
 )
 def test_type_error(component: Component, args: Any, expected: str):

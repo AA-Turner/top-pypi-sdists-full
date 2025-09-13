@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "flwr-nightly"
-version = "1.22.0.dev20250911"
+version = "1.22.0.dev20250912"
 description = "Flower: A Friendly Federated AI Framework"
 license = "Apache-2.0"
 authors = ["The Flower Authors <hello@flower.ai>"]

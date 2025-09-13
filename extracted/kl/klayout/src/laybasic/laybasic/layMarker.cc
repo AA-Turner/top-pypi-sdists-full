@@ -53,7 +53,7 @@ void render_cell_inst (const db::Layout &layout, const db::CellInstArray &inst, 
 
   const db::Cell &cell = layout.cell (inst.object ().cell_index ());
   std::string cell_name = layout.display_name (inst.object ().cell_index ());
-  db::Box cell_box = cell.bbox ();
+  db::Box cell_box = cell.bbox_with_empty ();
 
   db::Vector a, b;
   unsigned long amax = 0, bmax = 0;
@@ -134,7 +134,7 @@ void render_cell_inst (const db::Layout &layout, const db::CellInstArray &inst, 
                   db::HAlignCenter,
                   db::VAlignCenter,
                   //  TODO: apply "real" transformation?
-                  db::DFTrans (cell_name_text_transform ? tbox.fp_trans ().rot () : db::DFTrans::r0), 0, 0, 0, text);
+                  db::DFTrans (cell_name_text_transform ? tbox.fp_trans ().rot () : db::DFTrans::r0), 0, 0, 0, contour);
 
         }
 
@@ -166,21 +166,6 @@ void render_cell_inst (const db::Layout &layout, const db::CellInstArray &inst, 
 
     }
 
-  }
-
-  {
-    //  render error layer
-
-    db::RecursiveShapeIterator shapes (layout, cell, layout.error_layer ());
-    while (! shapes.at_end ()) {
-
-      for (db::CellInstArray::iterator arr = inst.begin (); ! arr.at_end (); ++arr) {
-        r.draw (*shapes, trans * inst.complex_trans (*arr) * shapes.trans (), fill, contour, 0 /*use vertex for origin*/, text);
-      }
-
-      ++shapes;
-
-    }
   }
 
   // render the origins
@@ -589,7 +574,12 @@ InstanceMarker::set_max_shapes (size_t s)
 db::DBox
 InstanceMarker::item_bbox () const 
 {
-  return db::DBox (m_inst.bbox ());
+  const db::Layout *ly = layout ();
+  if (! ly) {
+    return db::DBox ();
+  }
+
+  return db::DBox (m_inst.bbox_with_empty ());
 }
 
 // ------------------------------------------------------------------------
@@ -1059,7 +1049,7 @@ Marker::item_bbox () const
   } else if (m_type == Instance) {
     const db::Layout *ly = layout ();
     if (ly) {
-      return db::DBox (m_object.inst->bbox (db::box_convert <db::CellInst> (*ly)));
+      return db::DBox (m_object.inst->bbox (db::box_convert <db::CellInst, false> (*ly)));
     }
   }
   return db::DBox ();

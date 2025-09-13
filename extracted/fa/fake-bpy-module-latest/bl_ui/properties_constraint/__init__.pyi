@@ -1028,37 +1028,6 @@ class BONE_PT_bTransformCacheConstraint_layers(
         :param context:
         """
 
-class BONE_PT_bTransformCacheConstraint_procedural(
-    ConstraintButtonsSubPanel, BoneConstraintPanel, _bpy_types.Panel
-):
-    bl_context: typing.Any
-    bl_label: typing.Any
-    bl_parent_id: typing.Any
-    bl_region_type: typing.Any
-    bl_rna: typing.Any
-    bl_space_type: typing.Any
-    id_data: typing.Any
-
-    def bl_rna_get_subclass(self) -> bpy.types.Struct:
-        """
-
-        :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
-        """
-
-    def bl_rna_get_subclass_py(self) -> typing.Any:
-        """
-
-        :return: The class or default when not found.
-        :rtype: typing.Any
-        """
-
-    def draw(self, context) -> None:
-        """
-
-        :param context:
-        """
-
 class BONE_PT_bTransformCacheConstraint_time(
     ConstraintButtonsSubPanel, BoneConstraintPanel, _bpy_types.Panel
 ):
@@ -1503,12 +1472,6 @@ class ConstraintButtonsSubPanel:
         """
 
     def draw_transform_cache_layers(self, context) -> None:
-        """
-
-        :param context:
-        """
-
-    def draw_transform_cache_procedural(self, context) -> None:
         """
 
         :param context:
@@ -2451,37 +2414,6 @@ class OBJECT_PT_bTransformCacheConstraint(
         """
 
 class OBJECT_PT_bTransformCacheConstraint_layers(
-    ConstraintButtonsSubPanel, ObjectConstraintPanel, _bpy_types.Panel
-):
-    bl_context: typing.Any
-    bl_label: typing.Any
-    bl_parent_id: typing.Any
-    bl_region_type: typing.Any
-    bl_rna: typing.Any
-    bl_space_type: typing.Any
-    id_data: typing.Any
-
-    def bl_rna_get_subclass(self) -> bpy.types.Struct:
-        """
-
-        :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
-        """
-
-    def bl_rna_get_subclass_py(self) -> typing.Any:
-        """
-
-        :return: The class or default when not found.
-        :rtype: typing.Any
-        """
-
-    def draw(self, context) -> None:
-        """
-
-        :param context:
-        """
-
-class OBJECT_PT_bTransformCacheConstraint_procedural(
     ConstraintButtonsSubPanel, ObjectConstraintPanel, _bpy_types.Panel
 ):
     bl_context: typing.Any

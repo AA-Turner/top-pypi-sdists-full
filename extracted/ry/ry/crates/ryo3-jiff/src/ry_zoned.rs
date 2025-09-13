@@ -1,5 +1,6 @@
 use crate::errors::{map_py_overflow_err, map_py_value_err};
 use crate::isoformat::{ISOFORMAT_PRINTER, ISOFORMAT_PRINTER_NO_MICROS};
+use crate::round::RyZonedDateTimeRound;
 use crate::ry_datetime::RyDateTime;
 use crate::ry_iso_week_date::RyISOWeekDate;
 use crate::ry_offset::{RyOffset, print_isoformat_offset};
@@ -8,7 +9,6 @@ use crate::ry_span::RySpan;
 use crate::ry_time::RyTime;
 use crate::ry_timestamp::RyTimestamp;
 use crate::ry_timezone::RyTimeZone;
-use crate::ry_zoned_round::RyZonedDateTimeRound;
 use crate::spanish::Spanish;
 use crate::{
     JiffEra, JiffEraYear, JiffRoundMode, JiffTzDisambiguation, JiffTzOffsetConflict, JiffUnit,
@@ -18,9 +18,11 @@ use jiff::civil::{Date, Time, Weekday};
 use jiff::tz::{Offset, TimeZone};
 use jiff::{Zoned, ZonedDifference, ZonedRound};
 use pyo3::IntoPyObjectExt;
+use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
 use pyo3::pyclass::CompareOp;
-use pyo3::types::PyTuple;
+use pyo3::types::{PyDict, PyTuple};
+use ryo3_macro_rules::{any_repr, py_type_err};
 use std::fmt::Display;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::str::FromStr;
@@ -133,24 +135,22 @@ impl RyZoned {
     fn parse_rfc2822(input: &str) -> PyResult<Self> {
         ::jiff::fmt::rfc2822::parse(input)
             .map(Self::from)
-            .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("{e}")))
+            .map_err(map_py_value_err)
     }
 
     #[staticmethod]
     fn from_rfc2822(s: &str) -> PyResult<Self> {
         jiff::fmt::rfc2822::parse(s)
             .map(Self::from)
-            .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("{e}")))
+            .map_err(map_py_value_err)
     }
 
     fn format_rfc2822(&self) -> PyResult<String> {
-        jiff::fmt::rfc2822::to_string(&self.0)
-            .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("{e}")))
+        jiff::fmt::rfc2822::to_string(&self.0).map_err(map_py_value_err)
     }
 
     fn to_rfc2822(&self) -> PyResult<String> {
-        jiff::fmt::rfc2822::to_string(&self.0)
-            .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("{e}")))
+        jiff::fmt::rfc2822::to_string(&self.0).map_err(map_py_value_err)
     }
     // ISO format mismatch:
     // input datetime: 7639-01-01 00:00:00.395000+00:00 (repr: datetime.datetime(7639, 1, 1, 0, 0, 0, 395000, tzinfo=zoneinfo.ZoneInfo(key='UTC')))
@@ -208,20 +208,37 @@ impl RyZoned {
         hasher.finish()
     }
 
-    fn timestamp(&self) -> RyTimestamp {
+    pub(crate) fn timestamp(&self) -> RyTimestamp {
         RyTimestamp::from(self.0.timestamp())
     }
 
-    fn date(&self) -> RyDate {
+    pub(crate) fn date(&self) -> RyDate {
         RyDate::from(self.0.date())
     }
 
-    fn time(&self) -> RyTime {
+    pub(crate) fn time(&self) -> RyTime {
         RyTime::from(self.0.time())
     }
 
     fn datetime(&self) -> RyDateTime {
         RyDateTime::from(self.0.datetime())
+    }
+
+    fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+        use crate::interns;
+        let dict = PyDict::new(py);
+        dict.set_item(interns::year(py), self.0.year())?;
+        dict.set_item(interns::month(py), self.0.month())?;
+        dict.set_item(interns::day(py), self.0.day())?;
+        dict.set_item(interns::hour(py), self.0.hour())?;
+        dict.set_item(interns::minute(py), self.0.minute())?;
+        dict.set_item(interns::second(py), self.0.second())?;
+        dict.set_item(interns::nanosecond(py), self.0.subsec_nanosecond())?;
+        dict.set_item(
+            interns::tz(py),
+            self.0.time_zone().iana_name().unwrap_or("unknown"),
+        )?;
+        Ok(dict)
     }
 
     fn to_py(&self) -> &Zoned {
@@ -250,10 +267,7 @@ impl RyZoned {
     }
 
     fn in_tz(&self, tz: &str) -> PyResult<Self> {
-        self.0
-            .in_tz(tz)
-            .map(Self::from)
-            .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("{e}")))
+        self.0.in_tz(tz).map(Self::from).map_err(map_py_value_err)
     }
 
     #[pyo3(
@@ -581,7 +595,7 @@ impl RyZoned {
                 let offset = date.extract::<RyOffset>()?;
                 builder = builder.offset(offset.0);
             } else {
-                return Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(format!(
+                return Err(PyErr::new::<PyTypeError, _>(format!(
                     "obj must be a Date, Time or Offset; given: {obj}",
                 )));
             }
@@ -720,6 +734,51 @@ impl RyZoned {
     #[getter]
     fn subsec_nanosecond(&self) -> i32 {
         self.0.subsec_nanosecond()
+    }
+
+    #[staticmethod]
+    fn from_any<'py>(value: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
+        let py = value.py();
+        if let Ok(pystr) = value.downcast::<pyo3::types::PyString>() {
+            let s = pystr.extract::<&str>()?;
+            Self::from_str(s).map(|dt| dt.into_bound_py_any(py).map(Bound::into_any))?
+        } else if let Ok(pybytes) = value.downcast::<pyo3::types::PyBytes>() {
+            let s = String::from_utf8_lossy(pybytes.as_bytes());
+            Self::from_str(&s).map(|dt| dt.into_bound_py_any(py).map(Bound::into_any))?
+        } else if value.is_exact_instance_of::<Self>() {
+            value.into_bound_py_any(py)
+        } else if let Ok(d) = value.downcast_exact::<RyTimestamp>() {
+            let dt = d.get().0.to_zoned(TimeZone::UTC);
+            dt.into_bound_py_any(py)
+        } else if let Ok(d) = value.extract::<JiffZoned>() {
+            Self::from(d.0).into_bound_py_any(py)
+        } else {
+            let valtype = any_repr!(value);
+            py_type_err!("ZonedDateTime conversion error: {valtype}",)
+        }
+    }
+    // ========================================================================
+    // PYDANTIC
+    // ========================================================================
+
+    #[cfg(feature = "pydantic")]
+    #[staticmethod]
+    fn _pydantic_validate<'py>(
+        value: &Bound<'py, PyAny>,
+        _handler: &Bound<'py, PyAny>,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        Self::from_any(value).map_err(map_py_value_err)
+    }
+
+    #[cfg(feature = "pydantic")]
+    #[classmethod]
+    fn __get_pydantic_core_schema__<'py>(
+        cls: &Bound<'py, ::pyo3::types::PyType>,
+        source: &Bound<'py, PyAny>,
+        handler: &Bound<'py, PyAny>,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        use ryo3_pydantic::GetPydanticCoreSchemaCls;
+        Self::get_pydantic_core_schema(cls, source, handler)
     }
 }
 

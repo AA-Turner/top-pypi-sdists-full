@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: zope.sqlalchemy
-Version: 3.1
+Version: 4.0
 Summary: Minimal Zope/SQLAlchemy transaction integration
 Home-page: https://github.com/zopefoundation/zope.sqlalchemy
 Author: Laurence Rowe
@@ -24,8 +24,26 @@ Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Database
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.7
-Provides-Extra: test
 License-File: LICENSE.txt
+Requires-Dist: packaging
+Requires-Dist: setuptools
+Requires-Dist: SQLAlchemy!=1.4.0,!=1.4.1,!=1.4.2,!=1.4.3,!=1.4.4,!=1.4.5,!=1.4.6,!=2.0.32,!=2.0.33,!=2.0.34,!=2.0.35,>=1.1
+Requires-Dist: transaction>=1.6.0
+Requires-Dist: zope.interface>=3.6.0
+Provides-Extra: test
+Requires-Dist: zope.testing; extra == "test"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 ***************
 zope.sqlalchemy
@@ -299,6 +317,16 @@ Development version
 
 Changes
 =======
+
+4.0 (2025-09-12)
+----------------
+
+- Replace ``pkg_resources`` namespace with PEP 420 native namespace.
+
+- SQLAlchemy's versions 2.0.32 up to 2.0.35 run into dead locks when running
+  the tests on Python 3.11+, so excluding them from the list of supported
+  versions.
+  (`#84 <https://github.com/zopefoundation/zope.sqlalchemy/issues/84>`_)
 
 3.1 (2023-09-12)
 ----------------

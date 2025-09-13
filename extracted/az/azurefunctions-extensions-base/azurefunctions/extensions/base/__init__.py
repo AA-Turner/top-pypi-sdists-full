@@ -1,6 +1,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 
+from .grpcClientType import GrpcClientType
 from .meta import (
     Datum,
     InConverter,
@@ -31,6 +32,7 @@ __all__ = [
     "get_binding_registry",
     "ModuleTrackerMeta",
     "RequestTrackerMeta",
+    "GrpcClientType",
     "ResponseTrackerMeta",
     "HttpV2FeatureChecker",
     "ResponseLabels",
@@ -39,4 +41,4 @@ __all__ = [
     "RequestSynchronizer",
 ]
 
-__version__ = '1.0.0'
+__version__ = '1.1.0'

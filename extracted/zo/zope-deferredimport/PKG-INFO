@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zope.deferredimport
-Version: 5.1
+Version: 6.0
 Summary: zope.deferredimport allows you to perform imports names that will only be resolved when used in the code.
 Home-page: http://github.com/zopefoundation/zope.deferredimport
 Author: Zope Foundation and Contributors
@@ -29,7 +29,7 @@ License-File: LICENSE.txt
 Requires-Dist: setuptools
 Requires-Dist: zope.proxy
 Provides-Extra: test
-Requires-Dist: zope.testrunner; extra == "test"
+Requires-Dist: zope.testrunner>=6.4; extra == "test"
 Provides-Extra: docs
 Requires-Dist: Sphinx; extra == "docs"
 Requires-Dist: repoze.sphinx.autointerface; extra == "docs"
@@ -81,6 +81,12 @@ Documentation is hosted at https://zopedeferredimport.readthedocs.io/
 =========
  Changes
 =========
+
+6.0 (2025-09-12)
+================
+
+- Replace ``pkg_resources`` namespace with PEP 420 native namespace.
+
 
 5.1 (2025-08-11)
 ================

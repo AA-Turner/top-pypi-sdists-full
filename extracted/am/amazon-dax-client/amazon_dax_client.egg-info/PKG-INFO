@@ -1,18 +1,20 @@
 Metadata-Version: 2.1
 Name: amazon-dax-client
-Version: 2.0.3
+Version: 2.0.4
 Summary: Amazon DAX Client for Python
 Home-page: https://aws.amazon.com/dynamodb/dax/
 Author: Amazon Web Services
 License: Apache License 2.0
+Platform: UNKNOWN
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
-Requires-Python: >=3.6
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.9
 License-File: LICENSE.txt
 License-File: NOTICE.txt
 
@@ -119,6 +121,11 @@ Please use these community resources for getting help.
 
 Changes
 -------
+**v2.0.4**
+
+ * Add support for Python 3.9, 3.10, 3.11, 3.12, 3.13
+ * Drop support for python versions below 3.8
+
 **v2.0.3**
 
  * Fixes strict antlr4-python3-runtime dependency
@@ -209,3 +216,5 @@ Changes
 **v1.0.1**
 
 * Initial release
+
+

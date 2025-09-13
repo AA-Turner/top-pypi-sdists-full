@@ -45,7 +45,7 @@ from typing import (
 
 import ml_dtypes
 import numpy as np
-from typing_extensions import TypeIs
+from typing_extensions import TypeIs, deprecated
 
 import onnx_ir
 from onnx_ir import (
@@ -2275,6 +2275,7 @@ class Value(_protocols.ValueProtocol, _display.PrettyPrintable):
         return self._is_initializer
 
 
+@deprecated("Input is deprecated since 0.1.9. Use ir.val(...) instead.")
 def Input(
     name: str | None = None,
     shape: Shape | None = None,
@@ -3397,6 +3398,31 @@ class Attr(
         *,
         doc_string: str | None = None,
     ) -> None:
+        # Quick checks to ensure that INT and FLOAT attributes are stored as int and float,
+        # not np.int32, np.float32, bool, etc.
+        # This also allows errors to be raised at the time of construction instead of later
+        # during serialization.
+        # TODO(justinchuby): Use case matching when we drop support for Python 3.9
+        if value is None:
+            # Value can be None for reference attributes or when it is used as a
+            # placeholder for schemas
+            pass
+        elif type == _enums.AttributeType.INT:
+            value = int(value)
+        elif type == _enums.AttributeType.FLOAT:
+            value = float(value)
+        elif type == _enums.AttributeType.INTS:
+            value = tuple(int(v) for v in value)
+        elif type == _enums.AttributeType.FLOATS:
+            value = tuple(float(v) for v in value)
+        elif type in {
+            _enums.AttributeType.STRINGS,
+            _enums.AttributeType.TENSORS,
+            _enums.AttributeType.GRAPHS,
+            _enums.AttributeType.TYPE_PROTOS,
+        }:
+            value = tuple(value)
+
         self._name = name
         self._type = type
         self._value = value
@@ -3458,7 +3484,7 @@ class Attr(
             return f"@{self.ref_attr_name}"
         if self.type == _enums.AttributeType.GRAPH:
             return textwrap.indent("\n" + str(self.value), " " * 4)
-        return str(self.value)
+        return repr(self.value)
 
     def __repr__(self) -> str:
         if self.is_ref():
@@ -3472,8 +3498,8 @@ class Attr(
             raise TypeError(
                 f"Attribute '{self.name}' is not of type FLOAT. Actual type: {self.type}"
             )
-        # Do not use isinstance check because it may prevent np.float32 etc. from being used
-        return float(self.value)
+        # value is guaranteed to be a float in the constructor
+        return self.value
 
     def as_int(self) -> int:
         """Get the attribute value as an int."""
@@ -3481,8 +3507,8 @@ class Attr(
             raise TypeError(
                 f"Attribute '{self.name}' is not of type INT. Actual type: {self.type}"
             )
-        # Do not use isinstance check because it may prevent np.int32 etc. from being used
-        return int(self.value)
+        # value is guaranteed to be an int in the constructor
+        return self.value
 
     def as_string(self) -> str:
         """Get the attribute value as a string."""
@@ -3490,9 +3516,10 @@ class Attr(
             raise TypeError(
                 f"Attribute '{self.name}' is not of type STRING. Actual type: {self.type}"
             )
-        if not isinstance(self.value, str):
+        value = self.value
+        if not isinstance(value, str):
             raise TypeError(f"Value of attribute '{self!r}' is not a string.")
-        return self.value
+        return value
 
     def as_tensor(self) -> _protocols.TensorProtocol:
         """Get the attribute value as a tensor."""
@@ -3500,9 +3527,10 @@ class Attr(
             raise TypeError(
                 f"Attribute '{self.name}' is not of type TENSOR. Actual type: {self.type}"
             )
-        if not isinstance(self.value, _protocols.TensorProtocol):
+        value = self.value
+        if not isinstance(value, _protocols.TensorProtocol):
             raise TypeError(f"Value of attribute '{self!r}' is not a tensor.")
-        return self.value
+        return value
 
     def as_graph(self) -> Graph:
         """Get the attribute value as a graph."""
@@ -3510,75 +3538,64 @@ class Attr(
             raise TypeError(
                 f"Attribute '{self.name}' is not of type GRAPH. Actual type: {self.type}"
             )
-        if not isinstance(self.value, Graph):
+        value = self.value
+        if not isinstance(value, Graph):
             raise TypeError(f"Value of attribute '{self!r}' is not a graph.")
-        return self.value
+        return value
 
-    def as_floats(self) -> Sequence[float]:
+    def as_floats(self) -> tuple[float, ...]:
         """Get the attribute value as a sequence of floats."""
         if self.type != _enums.AttributeType.FLOATS:
             raise TypeError(
                 f"Attribute '{self.name}' is not of type FLOATS. Actual type: {self.type}"
             )
-        if not isinstance(self.value, Sequence):
-            raise TypeError(f"Value of attribute '{self!r}' is not a Sequence.")
-        # Do not use isinstance check on elements because it may prevent np.int32 etc. from being used
-        # Create a copy of the list to prevent mutation
-        return [float(v) for v in self.value]
+        # value is guaranteed to be a sequence of float in the constructor
+        return self.value
 
-    def as_ints(self) -> Sequence[int]:
+    def as_ints(self) -> tuple[int, ...]:
         """Get the attribute value as a sequence of ints."""
         if self.type != _enums.AttributeType.INTS:
             raise TypeError(
                 f"Attribute '{self.name}' is not of type INTS. Actual type: {self.type}"
             )
-        if not isinstance(self.value, Sequence):
-            raise TypeError(f"Value of attribute '{self!r}' is not a Sequence.")
-        # Do not use isinstance check on elements because it may prevent np.int32 etc. from being used
-        # Create a copy of the list to prevent mutation
-        return list(self.value)
+        # value is guaranteed to be a sequence of int in the constructor
+        return self.value
 
-    def as_strings(self) -> Sequence[str]:
+    def as_strings(self) -> tuple[str, ...]:
         """Get the attribute value as a sequence of strings."""
         if self.type != _enums.AttributeType.STRINGS:
             raise TypeError(
                 f"Attribute '{self.name}' is not of type STRINGS. Actual type: {self.type}"
             )
-        if not isinstance(self.value, Sequence):
-            raise TypeError(f"Value of attribute '{self!r}' is not a Sequence.")
         if onnx_ir.DEBUG:
             if not all(isinstance(x, str) for x in self.value):
                 raise TypeError(f"Value of attribute '{self!r}' is not a Sequence of strings.")
-        # Create a copy of the list to prevent mutation
-        return list(self.value)
+        # value is guaranteed to be a sequence in the constructor
+        return self.value
 
-    def as_tensors(self) -> Sequence[_protocols.TensorProtocol]:
+    def as_tensors(self) -> tuple[_protocols.TensorProtocol, ...]:
         """Get the attribute value as a sequence of tensors."""
         if self.type != _enums.AttributeType.TENSORS:
             raise TypeError(
                 f"Attribute '{self.name}' is not of type TENSORS. Actual type: {self.type}"
             )
-        if not isinstance(self.value, Sequence):
-            raise TypeError(f"Value of attribute '{self!r}' is not a Sequence.")
         if onnx_ir.DEBUG:
             if not all(isinstance(x, _protocols.TensorProtocol) for x in self.value):
                 raise TypeError(f"Value of attribute '{self!r}' is not a Sequence of tensors.")
-        # Create a copy of the list to prevent mutation
-        return list(self.value)
+        # value is guaranteed to be a sequence in the constructor
+        return tuple(self.value)
 
-    def as_graphs(self) -> Sequence[Graph]:
+    def as_graphs(self) -> tuple[Graph, ...]:
         """Get the attribute value as a sequence of graphs."""
         if self.type != _enums.AttributeType.GRAPHS:
             raise TypeError(
                 f"Attribute '{self.name}' is not of type GRAPHS. Actual type: {self.type}"
             )
-        if not isinstance(self.value, Sequence):
-            raise TypeError(f"Value of attribute '{self!r}' is not a Sequence.")
         if onnx_ir.DEBUG:
             if not all(isinstance(x, Graph) for x in self.value):
                 raise TypeError(f"Value of attribute '{self!r}' is not a Sequence of graphs.")
-        # Create a copy of the list to prevent mutation
-        return list(self.value)
+        # value is guaranteed to be a sequence in the constructor
+        return tuple(self.value)
 
 
 # NOTE: The following functions are just for convenience
@@ -3605,7 +3622,7 @@ def RefAttr(
     return Attr(name, type, None, ref_attr_name=ref_attr_name, doc_string=doc_string)
 
 
-def AttrFloat32(name: str, value: float, doc_string: str | None = None) -> Attr:
+def AttrFloat32(name: str, value: float | np.floating, doc_string: str | None = None) -> Attr:
     """Create a float attribute."""
     # NOTE: The function name is capitalized to maintain API backward compatibility.
     return Attr(
@@ -3616,7 +3633,7 @@ def AttrFloat32(name: str, value: float, doc_string: str | None = None) -> Attr:
     )
 
 
-def AttrInt64(name: str, value: int, doc_string: str | None = None) -> Attr:
+def AttrInt64(name: str, value: int | np.integer, doc_string: str | None = None) -> Attr:
     """Create an int attribute."""
     # NOTE: The function name is capitalized to maintain API backward compatibility.
     return Attr(

@@ -1,11 +1,11 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: zope.configuration
-Version: 6.0
+Version: 7.0
 Summary: Zope Configuration Markup Language (ZCML)
 Home-page: https://github.com/zopefoundation/zope.configuration
 Author: Zope Foundation and Contributors
 Author-email: zope-dev@zope.dev
-License: ZPL 2.1
+License: ZPL-2.1
 Keywords: zope configuration zcml
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
@@ -13,7 +13,6 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Zope Public License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -25,7 +24,7 @@ Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Framework :: Zope :: 3
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 License-File: LICENSE.txt
 Requires-Dist: setuptools
 Requires-Dist: zope.i18nmessageid
@@ -36,7 +35,19 @@ Requires-Dist: Sphinx; extra == "docs"
 Requires-Dist: repoze.sphinx.autointerface; extra == "docs"
 Provides-Extra: test
 Requires-Dist: zope.testing; extra == "test"
-Requires-Dist: zope.testrunner; extra == "test"
+Requires-Dist: zope.testrunner>=6.4; extra == "test"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 ``zope.configuration``
 ======================
@@ -67,6 +78,12 @@ Please see http://zopeconfiguration.readthedocs.io/en/latest/ for the documentat
 
 Changes
 =======
+
+7.0 (2025-09-12)
+----------------
+
+- Replace ``pkg_resources`` namespace with PEP 420 native namespace.
+
 
 6.0 (2024-12-06)
 ----------------

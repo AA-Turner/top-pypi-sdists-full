@@ -16,7 +16,6 @@ from asn1crypto import algos, cms, crl, keys, ocsp
 from asn1crypto import pdf as asn1_pdf
 from asn1crypto.core import VOID
 from cryptography.hazmat.primitives import hashes
-
 from pyhanko.pdf_utils import generic, misc
 from pyhanko.pdf_utils.crypt import pdfmac
 from pyhanko.pdf_utils.generic import pdf_name
@@ -68,18 +67,18 @@ from .pdf_byterange import (
 from .pdf_cms import PdfCMSSignedAttributes, Signer, select_suitable_signing_md
 
 __all__ = [
-    'PdfSignatureMetadata',
     'DSSContentSettings',
-    'TimestampDSSContentSettings',
     'GeneralDSSContentSettings',
-    'SigDSSPlacementPreference',
-    'PdfTimeStamper',
+    'PdfPostSignatureDocument',
+    'PdfSignatureMetadata',
     'PdfSigner',
     'PdfSigningSession',
     'PdfTBSDocument',
-    'PdfPostSignatureDocument',
-    'PreSignValidationStatus',
+    'PdfTimeStamper',
     'PostSignInstructions',
+    'PreSignValidationStatus',
+    'SigDSSPlacementPreference',
+    'TimestampDSSContentSettings',
 ]
 
 from ...pdf_utils.crypt import SerialisedCredential
@@ -1036,7 +1035,8 @@ class PdfSigner:
     :param signature_meta:
         The specification of the signature to add.
     :param signer:
-        :class:`.Signer` object to use to produce the signature object.
+        :class:`~pyhanko.sign.signers.pdf_cms.Signer`
+        object to use to produce the signature object.
     :param timestamper:
         :class:`.TimeStamper` object to use to produce any time stamp tokens
         that might be required.
@@ -1197,7 +1197,7 @@ class PdfSigner:
             sig_algo = sig_mech.signature_algo
         except (SigningError, ValueError) as e:
             logger.debug(
-                f"Failed to introspect signature mechanism: {str(e)}. "
+                f"Failed to introspect signature mechanism: {e!s}. "
                 f"Will forgo algorithm-based automatic extension registration.",
             )
             return
@@ -2414,7 +2414,8 @@ class PostSignInstructions:
     .. note::
         This setting is not part of :class:`.DSSContentSettings` because
         its value is taken from the corresponding property on the
-        :class:`.Signer` involved, not from the initial configuration.
+        :class:`~pyhanko.sign.signers.pdf_cms.Signer`
+        involved, not from the initial configuration.
     """
 
     file_credential: Optional[SerialisedCredential] = None

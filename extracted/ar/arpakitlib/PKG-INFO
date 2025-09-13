@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: arpakitlib
-Version: 1.8.234
+Version: 1.8.243
 Summary: arpakitlib
 License: Apache-2.0
 Keywords: arpakitlib,arpakit,arpakit-company,arpakitcompany,arpakit_company
@@ -70,6 +70,8 @@ Project-URL: telegram_channel, https://t.me/arpakitlib
 Description-Content-Type: text/markdown
 
 # arpakitlib
+
+## Текущая версия шаблона arpakit_project_template_v_5 находится в разработке. В скором времени будет stable version.
 
 ## 🚀 Simplify Your Development Workflow
 

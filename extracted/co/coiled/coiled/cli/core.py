@@ -7,6 +7,7 @@ from .config import config
 from .curl import curl
 from .diagnostics import diagnostics
 from .env import env
+from .file import file_group
 from .hello import hello
 from .login import login
 from .notebook import notebook_group
@@ -40,3 +41,4 @@ cli.add_command(batch_group)
 cli.add_command(better_logs, "logs")
 cli.add_command(hello)
 cli.add_command(hello, "quickstart")
+cli.add_command(file_group)

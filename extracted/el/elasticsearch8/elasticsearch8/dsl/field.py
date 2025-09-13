@@ -119,8 +119,15 @@ class Field(DslBase):
     def __getitem__(self, subfield: str) -> "Field":
         return cast(Field, self._params.get("fields", {})[subfield])
 
-    def _serialize(self, data: Any) -> Any:
+    def _serialize(self, data: Any, skip_empty: bool) -> Any:
         return data
+
+    def _safe_serialize(self, data: Any, skip_empty: bool) -> Any:
+        try:
+            return self._serialize(data, skip_empty)
+        except TypeError:
+            # older method signature, without skip_empty
+            return self._serialize(data)  # type: ignore[call-arg]
 
     def _deserialize(self, data: Any) -> Any:
         return data
@@ -133,10 +140,16 @@ class Field(DslBase):
             return AttrList([])
         return self._empty()
 
-    def serialize(self, data: Any) -> Any:
+    def serialize(self, data: Any, skip_empty: bool = True) -> Any:
         if isinstance(data, (list, AttrList, tuple)):
-            return list(map(self._serialize, cast(Iterable[Any], data)))
-        return self._serialize(data)
+            return list(
+                map(
+                    self._safe_serialize,
+                    cast(Iterable[Any], data),
+                    [skip_empty] * len(data),
+                )
+            )
+        return self._safe_serialize(data, skip_empty)
 
     def deserialize(self, data: Any) -> Any:
         if isinstance(data, (list, AttrList, tuple)):
@@ -186,7 +199,7 @@ class RangeField(Field):
         data = {k: self._core_field.deserialize(v) for k, v in data.items()}  # type: ignore[union-attr]
         return Range(data)
 
-    def _serialize(self, data: Any) -> Optional[Dict[str, Any]]:
+    def _serialize(self, data: Any, skip_empty: bool) -> Optional[Dict[str, Any]]:
         if data is None:
             return None
         if not isinstance(data, collections.abc.Mapping):
@@ -550,7 +563,7 @@ class Object(Field):
         return self._wrap(data)
 
     def _serialize(
-        self, data: Optional[Union[Dict[str, Any], "InnerDoc"]]
+        self, data: Optional[Union[Dict[str, Any], "InnerDoc"]], skip_empty: bool
     ) -> Optional[Dict[str, Any]]:
         if data is None:
             return None
@@ -559,7 +572,7 @@ class Object(Field):
         if isinstance(data, collections.abc.Mapping):
             return data
 
-        return data.to_dict()
+        return data.to_dict(skip_empty=skip_empty)
 
     def clean(self, data: Any) -> Any:
         data = super().clean(data)
@@ -768,7 +781,7 @@ class Binary(Field):
     def _deserialize(self, data: Any) -> bytes:
         return base64.b64decode(data)
 
-    def _serialize(self, data: Any) -> Optional[str]:
+    def _serialize(self, data: Any, skip_empty: bool) -> Optional[str]:
         if data is None:
             return None
         return base64.b64encode(data).decode()
@@ -2619,7 +2632,7 @@ class Ip(Field):
         # the ipaddress library for pypy only accepts unicode.
         return ipaddress.ip_address(unicode(data))
 
-    def _serialize(self, data: Any) -> Optional[str]:
+    def _serialize(self, data: Any, skip_empty: bool) -> Optional[str]:
         if data is None:
             return None
         return str(data)
@@ -3367,7 +3380,7 @@ class Percolator(Field):
     def _deserialize(self, data: Any) -> "Query":
         return Q(data)  # type: ignore[no-any-return]
 
-    def _serialize(self, data: Any) -> Optional[Dict[str, Any]]:
+    def _serialize(self, data: Any, skip_empty: bool) -> Optional[Dict[str, Any]]:
         if data is None:
             return None
         return data.to_dict()  # type: ignore[no-any-return]
@@ -3849,6 +3862,14 @@ class SemanticText(Field):
         by using the Update mapping API. Use the Create inference API to
         create the endpoint. If not specified, the inference endpoint
         defined by inference_id will be used at both index and query time.
+    :arg index_options: Settings for index_options that override any
+        defaults used by semantic_text, for example specific quantization
+        settings.
+    :arg chunking_settings: Settings for chunking text into smaller
+        passages. If specified, these will override the chunking settings
+        sent in the inference endpoint associated with inference_id. If
+        chunking settings are updated, they will not be applied to
+        existing documents until they are reindexed.
     """
 
     name = "semantic_text"
@@ -3859,6 +3880,12 @@ class SemanticText(Field):
         meta: Union[Mapping[str, str], "DefaultType"] = DEFAULT,
         inference_id: Union[str, "DefaultType"] = DEFAULT,
         search_inference_id: Union[str, "DefaultType"] = DEFAULT,
+        index_options: Union[
+            "types.SemanticTextIndexOptions", Dict[str, Any], "DefaultType"
+        ] = DEFAULT,
+        chunking_settings: Union[
+            "types.ChunkingSettings", Dict[str, Any], "DefaultType"
+        ] = DEFAULT,
         **kwargs: Any,
     ):
         if meta is not DEFAULT:
@@ -3867,6 +3894,10 @@ class SemanticText(Field):
             kwargs["inference_id"] = inference_id
         if search_inference_id is not DEFAULT:
             kwargs["search_inference_id"] = search_inference_id
+        if index_options is not DEFAULT:
+            kwargs["index_options"] = index_options
+        if chunking_settings is not DEFAULT:
+            kwargs["chunking_settings"] = chunking_settings
         super().__init__(*args, **kwargs)
 
 
@@ -4063,6 +4094,9 @@ class Short(Integer):
 class SparseVector(Field):
     """
     :arg store:
+    :arg index_options: Additional index options for the sparse vector
+        field that controls the token pruning behavior of the sparse
+        vector field.
     :arg meta: Metadata about the field.
     :arg properties:
     :arg ignore_above:
@@ -4081,6 +4115,9 @@ class SparseVector(Field):
         self,
         *args: Any,
         store: Union[bool, "DefaultType"] = DEFAULT,
+        index_options: Union[
+            "types.SparseVectorIndexOptions", Dict[str, Any], "DefaultType"
+        ] = DEFAULT,
         meta: Union[Mapping[str, str], "DefaultType"] = DEFAULT,
         properties: Union[Mapping[str, Field], "DefaultType"] = DEFAULT,
         ignore_above: Union[int, "DefaultType"] = DEFAULT,
@@ -4095,6 +4132,8 @@ class SparseVector(Field):
     ):
         if store is not DEFAULT:
             kwargs["store"] = store
+        if index_options is not DEFAULT:
+            kwargs["index_options"] = index_options
         if meta is not DEFAULT:
             kwargs["meta"] = meta
         if properties is not DEFAULT:

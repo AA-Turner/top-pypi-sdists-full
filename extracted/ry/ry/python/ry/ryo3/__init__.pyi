@@ -46,10 +46,12 @@ from ry.ryo3._jiff import ISOWeekDate as ISOWeekDate
 from ry.ryo3._jiff import JiffRoundMode as JiffRoundMode
 from ry.ryo3._jiff import JiffUnit as JiffUnit
 from ry.ryo3._jiff import Offset as Offset
+from ry.ryo3._jiff import OffsetRound as OffsetRound
 from ry.ryo3._jiff import SignedDuration as SignedDuration
 from ry.ryo3._jiff import SignedDurationRound as SignedDurationRound
 from ry.ryo3._jiff import Time as Time
 from ry.ryo3._jiff import TimeDifference as TimeDifference
+from ry.ryo3._jiff import TimeRound as TimeRound
 from ry.ryo3._jiff import TimeSpan as TimeSpan
 from ry.ryo3._jiff import Timestamp as Timestamp
 from ry.ryo3._jiff import TimestampDifference as TimestampDifference

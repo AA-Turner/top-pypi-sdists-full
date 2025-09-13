@@ -21,17 +21,16 @@ from aiohomematic.const import (
 )
 from aiohomematic.decorators import inspector
 from aiohomematic.model.data_point import CallbackDataPoint
-from aiohomematic.model.decorators import config_property, state_property
 from aiohomematic.model.device import Channel
 from aiohomematic.model.support import (
     PathData,
-    PayloadMixin,
     ProgramPathData,
     SysvarPathData,
     generate_unique_id,
     get_hub_data_point_name_data,
 )
-from aiohomematic.support import parse_sys_var
+from aiohomematic.property_decorators import config_property, state_property
+from aiohomematic.support import PayloadMixin, parse_sys_var
 
 
 class GenericHubDataPoint(CallbackDataPoint, PayloadMixin):
@@ -207,10 +206,8 @@ class GenericSysvarDataPoint(GenericHubDataPoint):
         """Return the path data of the data_point."""
         return SysvarPathData(vid=self._vid)
 
-    async def event(self, value: Any, received_at: datetime | None = None) -> None:
+    async def event(self, value: Any, received_at: datetime) -> None:
         """Handle event for which this data_point has subscribed."""
-        if received_at is None:
-            received_at = datetime.now()
         self.write_value(value=value, write_at=received_at)
 
     def _reset_temporary_value(self) -> None:
@@ -263,7 +260,7 @@ class GenericSysvarDataPoint(GenericHubDataPoint):
             value = float(new_value)
         return value
 
-    @inspector()
+    @inspector
     async def send_variable(self, value: Any) -> None:
         """Set variable value on CCU/Homegear."""
         if client := self.central.primary_client:

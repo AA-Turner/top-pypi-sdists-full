@@ -32,7 +32,7 @@ def test_invalid_storage_string():
 
 def test_constructor_arguments_over_config(redis_connection):
     app = Flask(__name__)
-    app.config.setdefault(ConfigVars.STRATEGY, "fixed-window-elastic-expiry")
+    app.config.setdefault(ConfigVars.STRATEGY, "sliding-window-counter")
     limiter = Limiter(get_remote_address, strategy="moving-window")
     limiter.init_app(app)
     app.config.setdefault(ConfigVars.STORAGE_URI, "redis://localhost:46379")
@@ -60,9 +60,7 @@ def test_header_names_config():
     app.config.setdefault(ConfigVars.HEADER_LIMIT, "XX-Limit")
     app.config.setdefault(ConfigVars.HEADER_REMAINING, "XX-Remaining")
     app.config.setdefault(ConfigVars.HEADER_RESET, "XX-Reset")
-    limiter = Limiter(
-        get_remote_address, headers_enabled=True, default_limits=["1/second"]
-    )
+    limiter = Limiter(get_remote_address, headers_enabled=True, default_limits=["1/second"])
     limiter.init_app(app)
 
     @app.route("/")

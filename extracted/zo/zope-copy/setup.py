@@ -15,7 +15,6 @@
 """
 import os
 
-from setuptools import find_packages
 from setuptools import setup
 
 
@@ -28,13 +27,13 @@ TESTS_REQUIRE = [
     'zope.component',
     'zope.location',
     'zope.testing',
-    'zope.testrunner',
+    'zope.testrunner >= 6.4',
 ]
 
 setup(name='zope.copy',
-      version='5.0',
+      version='6.0',
       author='Zope Foundation and Contributors',
-      author_email='zope-dev@zope.org',
+      author_email='zope-dev@zope.dev',
       description='Pluggable object copying mechanism',
       long_description=read('README.rst') + '\n\n' + read('CHANGES.rst'),
       keywords="zope3 copying cloning",
@@ -46,7 +45,6 @@ setup(name='zope.copy',
           'Operating System :: OS Independent',
           'Programming Language :: Python',
           'Programming Language :: Python :: 3',
-          'Programming Language :: Python :: 3.8',
           'Programming Language :: Python :: 3.9',
           'Programming Language :: Python :: 3.10',
           'Programming Language :: Python :: 3.11',
@@ -57,11 +55,8 @@ setup(name='zope.copy',
           'Topic :: Database',
       ],
       url='http://github.com/zopefoundation/zope.copy',
-      license='ZPL 2.1',
-      packages=find_packages('src'),
-      package_dir={'': 'src'},
-      namespace_packages=['zope'],
-      python_requires='>=3.8',
+      license='ZPL-2.1',
+      python_requires='>=3.9',
       install_requires=[
           'setuptools',
           'zodbpickle',

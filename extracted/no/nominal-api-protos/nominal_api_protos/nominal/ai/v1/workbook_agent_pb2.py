@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\"nominal/ai/v1/workbook_agent.proto\x12\rnominal.ai.v1\"\xd8\x01\n\x11StreamChatRequest\x12-\n\x08messages\x18\x01 \x03(\x0b\x32\x1b.nominal.ai.v1.ModelMessage\x12\x1d\n\x10notebook_as_json\x18\x02 \x01(\tH\x00\x88\x01\x01\x12\x1f\n\x12selected_tab_index\x18\x03 \x01(\x05H\x01\x88\x01\x01\x12(\n\x06images\x18\x04 \x03(\x0b\x32\x18.nominal.ai.v1.ImagePartB\x13\n\x11_notebook_as_jsonB\x15\n\x13_selected_tab_index\"\x82\x01\n\x0cModelMessage\x12/\n\x04user\x18\x01 \x01(\x0b\x32\x1f.nominal.ai.v1.UserModelMessageH\x00\x12\x39\n\tassistant\x18\x02 \x01(\x0b\x32$.nominal.ai.v1.AssistantModelMessageH\x00\x42\x06\n\x04kind\"@\n\x10UserModelMessage\x12,\n\x04text\x18\x01 \x03(\x0b\x32\x1e.nominal.ai.v1.UserContentPart\"S\n\x15\x41ssistantModelMessage\x12:\n\rcontent_parts\x18\x01 \x03(\x0b\x32#.nominal.ai.v1.AssistantContentPart\"B\n\x0fUserContentPart\x12\'\n\x04text\x18\x01 \x01(\x0b\x32\x17.nominal.ai.v1.TextPartH\x00\x42\x06\n\x04part\"z\n\x14\x41ssistantContentPart\x12\'\n\x04text\x18\x01 \x01(\x0b\x32\x17.nominal.ai.v1.TextPartH\x00\x12\x31\n\treasoning\x18\x02 \x01(\x0b\x32\x1c.nominal.ai.v1.ReasoningPartH\x00\x42\x06\n\x04part\"\x18\n\x08TextPart\x12\x0c\n\x04text\x18\x01 \x01(\t\"e\n\tImagePart\x12\x0c\n\x04\x64\x61ta\x18\x01 \x01(\x0c\x12\x17\n\nmedia_type\x18\x02 \x01(\tH\x00\x88\x01\x01\x12\x15\n\x08\x66ilename\x18\x03 \x01(\tH\x01\x88\x01\x01\x42\r\n\x0b_media_typeB\x0b\n\t_filename\"\"\n\rReasoningPart\x12\x11\n\treasoning\x18\x01 \x01(\t\"\xe4\x03\n\x12StreamChatResponse\x12\'\n\x06\x66inish\x18\x01 \x01(\x0b\x32\x15.nominal.ai.v1.FinishH\x00\x12%\n\x05\x65rror\x18\x02 \x01(\x0b\x32\x14.nominal.ai.v1.ErrorH\x00\x12.\n\ntext_start\x18\x03 \x01(\x0b\x32\x18.nominal.ai.v1.TextStartH\x00\x12.\n\ntext_delta\x18\x04 \x01(\x0b\x32\x18.nominal.ai.v1.TextDeltaH\x00\x12*\n\x08text_end\x18\x05 \x01(\x0b\x32\x16.nominal.ai.v1.TextEndH\x00\x12\x38\n\x0freasoning_start\x18\x06 \x01(\x0b\x32\x1d.nominal.ai.v1.ReasoningStartH\x00\x12\x38\n\x0freasoning_delta\x18\x07 \x01(\x0b\x32\x1d.nominal.ai.v1.ReasoningDeltaH\x00\x12\x34\n\rreasoning_end\x18\x08 \x01(\x0b\x32\x1b.nominal.ai.v1.ReasoningEndH\x00\x12<\n\x11workbook_mutation\x18\t \x01(\x0b\x32\x1f.nominal.ai.v1.WorkbookMutationH\x00\x42\n\n\x08response\"\x08\n\x06\x46inish\"\x18\n\x05\x45rror\x12\x0f\n\x07message\x18\x01 \x01(\t\"\x17\n\tTextStart\x12\n\n\x02id\x18\x01 \x01(\t\"&\n\tTextDelta\x12\n\n\x02id\x18\x01 \x01(\t\x12\r\n\x05\x64\x65lta\x18\x02 \x01(\t\"\x15\n\x07TextEnd\x12\n\n\x02id\x18\x01 \x01(\t\"\x1c\n\x0eReasoningStart\x12\n\n\x02id\x18\x01 \x01(\t\"+\n\x0eReasoningDelta\x12\n\n\x02id\x18\x01 \x01(\t\x12\r\n\x05\x64\x65lta\x18\x02 \x01(\t\"\x1a\n\x0cReasoningEnd\x12\n\n\x02id\x18\x01 \x01(\t\"4\n\x0e\x41\x64\x64TabMutation\x12\x15\n\x08tab_name\x18\x01 \x01(\tH\x00\x88\x01\x01\x42\x0b\n\t_tab_name\"V\n\x18\x41\x64\x64OrUpdatePanelMutation\x12\x15\n\rpanel_as_json\x18\x01 \x01(\t\x12\x10\n\x08panel_id\x18\x02 \x01(\t\x12\x11\n\ttab_index\x18\x03 \x01(\x05\")\n\x14RemovePanelsMutation\x12\x11\n\tpanel_ids\x18\x01 \x03(\t\"\x96\x01\n\x1c\x41\x64\x64OrReplaceVariableMutation\x12\x1c\n\x14\x63ompute_spec_as_json\x18\x01 \x01(\t\x12\x1a\n\rvariable_name\x18\x02 \x01(\tH\x00\x88\x01\x01\x12\x19\n\x0c\x64isplay_name\x18\x03 \x01(\tH\x01\x88\x01\x01\x42\x10\n\x0e_variable_nameB\x0f\n\r_display_name\"1\n\x17\x44\x65leteVariablesMutation\x12\x16\n\x0evariable_names\x18\x01 \x03(\t\"\xf6\x02\n\x10WorkbookMutation\x12\n\n\x02id\x18\x01 \x01(\t\x12\x30\n\x07\x61\x64\x64_tab\x18\x02 \x01(\x0b\x32\x1d.nominal.ai.v1.AddTabMutationH\x00\x12\x46\n\x13\x61\x64\x64_or_update_panel\x18\x03 \x01(\x0b\x32\'.nominal.ai.v1.AddOrUpdatePanelMutationH\x00\x12<\n\rremove_panels\x18\x04 \x01(\x0b\x32#.nominal.ai.v1.RemovePanelsMutationH\x00\x12N\n\x17\x61\x64\x64_or_replace_variable\x18\x05 \x01(\x0b\x32+.nominal.ai.v1.AddOrReplaceVariableMutationH\x00\x12\x42\n\x10\x64\x65lete_variables\x18\x06 \x01(\x0b\x32&.nominal.ai.v1.DeleteVariablesMutationH\x00\x42\n\n\x08mutation2k\n\x14WorkbookAgentService\x12S\n\nStreamChat\x12 .nominal.ai.v1.StreamChatRequest\x1a!.nominal.ai.v1.StreamChatResponse0\x01\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\"nominal/ai/v1/workbook_agent.proto\x12\rnominal.ai.v1\"\xd8\x01\n\x11StreamChatRequest\x12-\n\x08messages\x18\x01 \x03(\x0b\x32\x1b.nominal.ai.v1.ModelMessage\x12\x1d\n\x10notebook_as_json\x18\x02 \x01(\tH\x00\x88\x01\x01\x12\x1f\n\x12selected_tab_index\x18\x03 \x01(\x05H\x01\x88\x01\x01\x12(\n\x06images\x18\x04 \x03(\x0b\x32\x18.nominal.ai.v1.ImagePartB\x13\n\x11_notebook_as_jsonB\x15\n\x13_selected_tab_index\"\x82\x01\n\x0cModelMessage\x12/\n\x04user\x18\x01 \x01(\x0b\x32\x1f.nominal.ai.v1.UserModelMessageH\x00\x12\x39\n\tassistant\x18\x02 \x01(\x0b\x32$.nominal.ai.v1.AssistantModelMessageH\x00\x42\x06\n\x04kind\"@\n\x10UserModelMessage\x12,\n\x04text\x18\x01 \x03(\x0b\x32\x1e.nominal.ai.v1.UserContentPart\"S\n\x15\x41ssistantModelMessage\x12:\n\rcontent_parts\x18\x01 \x03(\x0b\x32#.nominal.ai.v1.AssistantContentPart\"B\n\x0fUserContentPart\x12\'\n\x04text\x18\x01 \x01(\x0b\x32\x17.nominal.ai.v1.TextPartH\x00\x42\x06\n\x04part\"z\n\x14\x41ssistantContentPart\x12\'\n\x04text\x18\x01 \x01(\x0b\x32\x17.nominal.ai.v1.TextPartH\x00\x12\x31\n\treasoning\x18\x02 \x01(\x0b\x32\x1c.nominal.ai.v1.ReasoningPartH\x00\x42\x06\n\x04part\"\x18\n\x08TextPart\x12\x0c\n\x04text\x18\x01 \x01(\t\"e\n\tImagePart\x12\x0c\n\x04\x64\x61ta\x18\x01 \x01(\x0c\x12\x17\n\nmedia_type\x18\x02 \x01(\tH\x00\x88\x01\x01\x12\x15\n\x08\x66ilename\x18\x03 \x01(\tH\x01\x88\x01\x01\x42\r\n\x0b_media_typeB\x0b\n\t_filename\"\"\n\rReasoningPart\x12\x11\n\treasoning\x18\x01 \x01(\t\"\x96\x04\n\x12StreamChatResponse\x12\'\n\x06\x66inish\x18\x01 \x01(\x0b\x32\x15.nominal.ai.v1.FinishH\x00\x12%\n\x05\x65rror\x18\x02 \x01(\x0b\x32\x14.nominal.ai.v1.ErrorH\x00\x12.\n\ntext_start\x18\x03 \x01(\x0b\x32\x18.nominal.ai.v1.TextStartH\x00\x12.\n\ntext_delta\x18\x04 \x01(\x0b\x32\x18.nominal.ai.v1.TextDeltaH\x00\x12*\n\x08text_end\x18\x05 \x01(\x0b\x32\x16.nominal.ai.v1.TextEndH\x00\x12\x38\n\x0freasoning_start\x18\x06 \x01(\x0b\x32\x1d.nominal.ai.v1.ReasoningStartH\x00\x12\x38\n\x0freasoning_delta\x18\x07 \x01(\x0b\x32\x1d.nominal.ai.v1.ReasoningDeltaH\x00\x12\x34\n\rreasoning_end\x18\x08 \x01(\x0b\x32\x1b.nominal.ai.v1.ReasoningEndH\x00\x12<\n\x11workbook_mutation\x18\t \x01(\x0b\x32\x1f.nominal.ai.v1.WorkbookMutationH\x00\x12\x30\n\x0btool_action\x18\n \x01(\x0b\x32\x19.nominal.ai.v1.ToolActionH\x00\x42\n\n\x08response\"\x08\n\x06\x46inish\"\x18\n\x05\x45rror\x12\x0f\n\x07message\x18\x01 \x01(\t\"\x17\n\tTextStart\x12\n\n\x02id\x18\x01 \x01(\t\"&\n\tTextDelta\x12\n\n\x02id\x18\x01 \x01(\t\x12\r\n\x05\x64\x65lta\x18\x02 \x01(\t\"\x15\n\x07TextEnd\x12\n\n\x02id\x18\x01 \x01(\t\"\x1c\n\x0eReasoningStart\x12\n\n\x02id\x18\x01 \x01(\t\"+\n\x0eReasoningDelta\x12\n\n\x02id\x18\x01 \x01(\t\x12\r\n\x05\x64\x65lta\x18\x02 \x01(\t\"\x1a\n\x0cReasoningEnd\x12\n\n\x02id\x18\x01 \x01(\t\"4\n\x0e\x41\x64\x64TabMutation\x12\x15\n\x08tab_name\x18\x01 \x01(\tH\x00\x88\x01\x01\x42\x0b\n\t_tab_name\"V\n\x18\x41\x64\x64OrUpdatePanelMutation\x12\x15\n\rpanel_as_json\x18\x01 \x01(\t\x12\x10\n\x08panel_id\x18\x02 \x01(\t\x12\x11\n\ttab_index\x18\x03 \x01(\x05\")\n\x14RemovePanelsMutation\x12\x11\n\tpanel_ids\x18\x01 \x03(\t\"\x96\x01\n\x1c\x41\x64\x64OrReplaceVariableMutation\x12\x1c\n\x14\x63ompute_spec_as_json\x18\x01 \x01(\t\x12\x1a\n\rvariable_name\x18\x02 \x01(\tH\x00\x88\x01\x01\x12\x19\n\x0c\x64isplay_name\x18\x03 \x01(\tH\x01\x88\x01\x01\x42\x10\n\x0e_variable_nameB\x0f\n\r_display_name\"1\n\x17\x44\x65leteVariablesMutation\x12\x16\n\x0evariable_names\x18\x01 \x03(\t\"\xf6\x02\n\x10WorkbookMutation\x12\n\n\x02id\x18\x01 \x01(\t\x12\x30\n\x07\x61\x64\x64_tab\x18\x02 \x01(\x0b\x32\x1d.nominal.ai.v1.AddTabMutationH\x00\x12\x46\n\x13\x61\x64\x64_or_update_panel\x18\x03 \x01(\x0b\x32\'.nominal.ai.v1.AddOrUpdatePanelMutationH\x00\x12<\n\rremove_panels\x18\x04 \x01(\x0b\x32#.nominal.ai.v1.RemovePanelsMutationH\x00\x12N\n\x17\x61\x64\x64_or_replace_variable\x18\x05 \x01(\x0b\x32+.nominal.ai.v1.AddOrReplaceVariableMutationH\x00\x12\x42\n\x10\x64\x65lete_variables\x18\x06 \x01(\x0b\x32&.nominal.ai.v1.DeleteVariablesMutationH\x00\x42\n\n\x08mutation\"\\\n\nToolAction\x12\n\n\x02id\x18\x01 \x01(\t\x12\x18\n\x10tool_action_verb\x18\x02 \x01(\t\x12\x18\n\x0btool_target\x18\x03 \x01(\tH\x00\x88\x01\x01\x42\x0e\n\x0c_tool_target2k\n\x14WorkbookAgentService\x12S\n\nStreamChat\x12 .nominal.ai.v1.StreamChatRequest\x1a!.nominal.ai.v1.StreamChatResponse0\x01\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -50,35 +50,37 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_REASONINGPART']._serialized_start=877
   _globals['_REASONINGPART']._serialized_end=911
   _globals['_STREAMCHATRESPONSE']._serialized_start=914
-  _globals['_STREAMCHATRESPONSE']._serialized_end=1398
-  _globals['_FINISH']._serialized_start=1400
-  _globals['_FINISH']._serialized_end=1408
-  _globals['_ERROR']._serialized_start=1410
-  _globals['_ERROR']._serialized_end=1434
-  _globals['_TEXTSTART']._serialized_start=1436
-  _globals['_TEXTSTART']._serialized_end=1459
-  _globals['_TEXTDELTA']._serialized_start=1461
-  _globals['_TEXTDELTA']._serialized_end=1499
-  _globals['_TEXTEND']._serialized_start=1501
-  _globals['_TEXTEND']._serialized_end=1522
-  _globals['_REASONINGSTART']._serialized_start=1524
-  _globals['_REASONINGSTART']._serialized_end=1552
-  _globals['_REASONINGDELTA']._serialized_start=1554
-  _globals['_REASONINGDELTA']._serialized_end=1597
-  _globals['_REASONINGEND']._serialized_start=1599
-  _globals['_REASONINGEND']._serialized_end=1625
-  _globals['_ADDTABMUTATION']._serialized_start=1627
-  _globals['_ADDTABMUTATION']._serialized_end=1679
-  _globals['_ADDORUPDATEPANELMUTATION']._serialized_start=1681
-  _globals['_ADDORUPDATEPANELMUTATION']._serialized_end=1767
-  _globals['_REMOVEPANELSMUTATION']._serialized_start=1769
-  _globals['_REMOVEPANELSMUTATION']._serialized_end=1810
-  _globals['_ADDORREPLACEVARIABLEMUTATION']._serialized_start=1813
-  _globals['_ADDORREPLACEVARIABLEMUTATION']._serialized_end=1963
-  _globals['_DELETEVARIABLESMUTATION']._serialized_start=1965
-  _globals['_DELETEVARIABLESMUTATION']._serialized_end=2014
-  _globals['_WORKBOOKMUTATION']._serialized_start=2017
-  _globals['_WORKBOOKMUTATION']._serialized_end=2391
-  _globals['_WORKBOOKAGENTSERVICE']._serialized_start=2393
-  _globals['_WORKBOOKAGENTSERVICE']._serialized_end=2500
+  _globals['_STREAMCHATRESPONSE']._serialized_end=1448
+  _globals['_FINISH']._serialized_start=1450
+  _globals['_FINISH']._serialized_end=1458
+  _globals['_ERROR']._serialized_start=1460
+  _globals['_ERROR']._serialized_end=1484
+  _globals['_TEXTSTART']._serialized_start=1486
+  _globals['_TEXTSTART']._serialized_end=1509
+  _globals['_TEXTDELTA']._serialized_start=1511
+  _globals['_TEXTDELTA']._serialized_end=1549
+  _globals['_TEXTEND']._serialized_start=1551
+  _globals['_TEXTEND']._serialized_end=1572
+  _globals['_REASONINGSTART']._serialized_start=1574
+  _globals['_REASONINGSTART']._serialized_end=1602
+  _globals['_REASONINGDELTA']._serialized_start=1604
+  _globals['_REASONINGDELTA']._serialized_end=1647
+  _globals['_REASONINGEND']._serialized_start=1649
+  _globals['_REASONINGEND']._serialized_end=1675
+  _globals['_ADDTABMUTATION']._serialized_start=1677
+  _globals['_ADDTABMUTATION']._serialized_end=1729
+  _globals['_ADDORUPDATEPANELMUTATION']._serialized_start=1731
+  _globals['_ADDORUPDATEPANELMUTATION']._serialized_end=1817
+  _globals['_REMOVEPANELSMUTATION']._serialized_start=1819
+  _globals['_REMOVEPANELSMUTATION']._serialized_end=1860
+  _globals['_ADDORREPLACEVARIABLEMUTATION']._serialized_start=1863
+  _globals['_ADDORREPLACEVARIABLEMUTATION']._serialized_end=2013
+  _globals['_DELETEVARIABLESMUTATION']._serialized_start=2015
+  _globals['_DELETEVARIABLESMUTATION']._serialized_end=2064
+  _globals['_WORKBOOKMUTATION']._serialized_start=2067
+  _globals['_WORKBOOKMUTATION']._serialized_end=2441
+  _globals['_TOOLACTION']._serialized_start=2443
+  _globals['_TOOLACTION']._serialized_end=2535
+  _globals['_WORKBOOKAGENTSERVICE']._serialized_start=2537
+  _globals['_WORKBOOKAGENTSERVICE']._serialized_end=2644
 # @@protoc_insertion_point(module_scope)

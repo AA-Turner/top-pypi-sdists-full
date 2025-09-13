@@ -23,10 +23,12 @@ import unittest
 import numpy as np
 
 import dwave.optimization
+from dwave.optimization.mathematical import softmax
 import dwave.optimization.symbols
 from dwave.optimization import (
     Model,
     arange,
+    broadcast_to,
     bspline,
     exp,
     expit,
@@ -692,6 +694,47 @@ class TestBinaryVariable(utils.SymbolTests):
                 x.set_state(0, [0, 1, 2])
 
 
+class TestBroadcastTo(utils.SymbolTests):
+    def generate_symbols(self):
+        model = Model()
+        x = model.constant(np.asarray([[0], [1], [2]]))
+        b0 = broadcast_to(x, (3, 4))
+        b1 = broadcast_to(x, (2, 3, 1))
+        y = model.constant(5)
+        b2 = broadcast_to(y, 10)
+        with model.lock():
+            yield from [b0, b1, b2]
+
+    def test_exceptions(self):
+        model = Model()
+        x = model.integer(5)
+        with self.assertRaisesRegex(
+            ValueError,
+            r"array of shape \(5,\) could not be broadcast to \(3,\)",
+        ):
+            broadcast_to(x, 3)
+        with self.assertRaisesRegex(
+            ValueError,
+            r"array of shape \(5,\) could not be broadcast to \(5, 1\)",
+        ):
+            broadcast_to(x, (5, 1))
+
+        with self.assertRaises(ValueError):
+            broadcast_to(x, "hello")
+
+        self.assertEqual(model.num_symbols(), 1)  # no side effects
+
+    def test_state_size(self):
+        for symbol in self.generate_symbols():
+            self.assertEqual(symbol.state_size(), 0)
+
+        model = Model()
+        x = model.constant(5)
+        dwave.optimization.broadcast_to(x, (10, 5))
+        self.assertEqual(model.num_symbols(), 2)
+        self.assertEqual(model.state_size(), x.state_size())
+
+
 class TestBSpline(utils.SymbolTests):
     def generate_symbols(self):
         model = Model()
@@ -1040,6 +1083,14 @@ class TestCopy(utils.SymbolTests):
         model.states.resize(1)
         with model.lock():
             np.testing.assert_array_equal(copy.state(), np.arange(25).reshape(5, 5)[::2, 1:4])
+
+
+class TestCos(utils.UnaryOpTests):
+    def op(self, x):
+        return np.cos(x)
+
+    def symbol_op(self, x):
+        return dwave.optimization.cos(x)
 
 
 class TestDisjointBitSetsVariable(utils.SymbolTests):
@@ -2374,6 +2425,7 @@ class TestNaryAdd(utils.NaryOpTests):
     def test_iadd(self):
         model = Model()
         x: dwave.optimization.model.ArraySymbol = model.binary()  # typing is for mypy
+        binary = x
         a = model.constant(5)
         b = model.constant(4)
 
@@ -2386,6 +2438,17 @@ class TestNaryAdd(utils.NaryOpTests):
 
         x += 5
         self.assertIs(x, y)  # subsequent should be in-place
+
+        # Now we test adding an indexing node that depends on the output range
+        i = model.constant(np.arange(20))[x]
+        x += 1000000000
+        self.assertIsNot(x, y)
+
+        with model.lock():
+            model.states.resize(1)
+            binary.set_state(0, 0)
+            self.assertEqual(x.state(), 1000000000 + 14)
+            self.assertEqual(i.state(), 14)
 
     def test_mismatched_shape(self):
         model = Model()
@@ -2439,6 +2502,7 @@ class TestNaryMultiply(utils.NaryOpTests):
     def test_imul(self):
         model = Model()
         x: dwave.optimization.model.ArraySymbol = model.binary()  # typing is for mypy
+        binary = x
         a = model.constant(5)
         b = model.constant(4)
 
@@ -2451,6 +2515,17 @@ class TestNaryMultiply(utils.NaryOpTests):
 
         x *= 5
         self.assertIs(x, y)  # subsequent should be in-place
+
+        # Now we test adding an indexing node that depends on the output range
+        i = model.constant(np.arange(101))[x]
+        x *= 10
+        self.assertIsNot(x, y)
+
+        with model.lock():
+            model.states.resize(1)
+            binary.set_state(0, 1)
+            self.assertEqual(x.state(), 1000)
+            self.assertEqual(i.state(), 100)
 
     def test_mismatched_shape(self):
         model = Model()
@@ -2852,8 +2927,28 @@ class TestReshape(utils.SymbolTests):
         model = Model()
         A = model.constant(np.arange(12))
         syms = [A.reshape(12), A.reshape((2, 6)), A.reshape(3, 4)]
+
+        B = model.constant(np.arange(12).reshape(3, 4))[model.set(3), :]
+        syms.extend([B.reshape(-1), B.reshape(-1, 2, 2)])
+
         model.lock()
         yield from syms
+
+    def test_dynamic(self):
+        model = Model()
+        s = model.set(10)
+        r = s.reshape(-1, 1)
+        self.assertEqual(r.shape(), (-1, 1))
+
+        model.states.resize(1)
+        with model.lock():
+            s.set_state(0, [0, 1, 2])
+            np.testing.assert_array_equal(r.state(), [[0], [1], [2]])
+
+    def test_identity(self):
+        model = Model()
+        x = model.constant(np.arange(15).reshape(3, 5))
+        self.assertEqual(x.id(), x.reshape(3, 5).id())
 
     def test_implicit_reshape(self):
         model = Model()
@@ -2989,6 +3084,42 @@ class TestSafeDivide(utils.BinaryOpTests):
         model.states.resize(1)
         with model.lock():
             np.testing.assert_array_equal(x.state(), [-.5, 0, 0, -2])
+
+
+class TestSin(utils.UnaryOpTests):
+    def op(self, x):
+        return np.sin(x)
+
+    def symbol_op(self, x):
+        return dwave.optimization.sin(x)
+
+
+class TestSoftMax(utils.SymbolTests):
+    def generate_symbols(self):
+        model = Model()
+        c = model.constant([-1.9, -2, 1.7, 1.6])
+        sm = dwave.optimization.symbols.SoftMax(c)
+
+        with model.lock():
+            yield sm
+
+    def test(self):
+        from dwave.optimization.symbols import SoftMax
+        model = Model()
+        c = model.constant([-1.9, -2, 1.7, 1.6])
+        sm = dwave.optimization.softmax(c)
+
+        self.assertIsInstance(sm, SoftMax)
+
+    def test_state(self):
+        model = Model()
+        c = model.constant([-1.9, -2, 1.7, 1.6])
+        sm = dwave.optimization.symbols.SoftMax(c)
+        model.states.resize(1)
+        with model.lock():
+            expected = np.array([0.0139628680773, 0.012634125499,  
+                                 0.5110163194015, 0.4623866870215])
+            np.testing.assert_array_almost_equal(sm.state(0), expected)
 
 
 class TestSquare(utils.UnaryOpTests):

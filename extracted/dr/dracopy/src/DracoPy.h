@@ -20,8 +20,6 @@ namespace DracoFunctions {
     successful,
     not_draco_encoded,
     no_position_attribute,
-    no_tex_coord_attribute,
-    no_normal_coord_attribute,
     failed_during_decoding
   };
   enum encoding_status {
@@ -29,8 +27,19 @@ namespace DracoFunctions {
     failed_during_encoding
   };
 
+  struct AttributeData {
+    int unique_id;
+    int num_components;
+    int data_type;  // draco::DataType as int
+    int attribute_type;  // draco::GeometryAttribute::Type as int
+    std::string name;  // Attribute name from metadata
+    std::vector<float> float_data;    // For float data
+    std::vector<uint32_t> uint_data;  // For integer data
+    std::vector<uint8_t> byte_data;   // For byte data
+  };
+
   struct PointCloudObject {
-    std::vector<float> points;
+    std::vector<AttributeData> attributes; 
 
     // Encoding options stored in metadata
     bool encoding_options_set;
@@ -40,13 +49,10 @@ namespace DracoFunctions {
     std::vector<double> quantization_origin;
 
     decoding_status decode_status;
-    std::vector<uint8_t> colors;
   };
 
   struct MeshObject : PointCloudObject {
-    std::vector<float> normals;
     std::vector<unsigned int> faces;
-    std::vector<float> tex_coord;
   };
 
   struct EncodedObject {
@@ -107,67 +113,110 @@ namespace DracoFunctions {
       throw std::runtime_error("Should never be reached.");
     }
 
-    const int pos_att_id = mesh->GetNamedAttributeId(draco::GeometryAttribute::POSITION);
-    if (pos_att_id < 0) {
-      meshObject.decode_status = no_position_attribute;
-      return meshObject;
-    }
 
-    meshObject.points.reserve(3 * mesh->num_points());
-    const auto *const pos_att = mesh->attribute(pos_att_id);
-    std::array<float, 3> pos_val;
-    for (draco::PointIndex v(0); v < mesh->num_points(); ++v) {
-      if (!pos_att->ConvertValue<float, 3>(pos_att->mapped_index(v), &pos_val[0])) {
-        meshObject.decode_status = no_position_attribute;
-        return meshObject;
+    // Get faces if it's a mesh
+    if (geotype == draco::EncodedGeometryType::TRIANGULAR_MESH) {
+      meshObject.faces.reserve(3 * mesh->num_faces());
+      for (draco::FaceIndex f(0); f < mesh->num_faces(); ++f) {
+        const auto& face = mesh->face(f);
+        meshObject.faces.push_back(face[0].value());
+        meshObject.faces.push_back(face[1].value());
+        meshObject.faces.push_back(face[2].value());
       }
-      meshObject.points.push_back(pos_val[0]);
-      meshObject.points.push_back(pos_val[1]);
-      meshObject.points.push_back(pos_val[2]);
-    }
-
-    const int color_att_id = mesh->GetNamedAttributeId(draco::GeometryAttribute::COLOR);
-    if (color_att_id >= 0) {
-      meshObject.colors_set = true;
-      const auto *const color_att = mesh->attribute(color_att_id);
-      const int colors_channel = color_att->num_components();
-      meshObject.colors.reserve(colors_channel * mesh->num_points());
-      uint8_t* color_val = new uint8_t[colors_channel];
-      for (draco::PointIndex v(0); v < mesh->num_points(); ++v) {
-        if (!color_att->ConvertValue<uint8_t>(color_att->mapped_index(v), colors_channel, color_val)) {
-          meshObject.colors_set = false; // color decoding failed!
-          break; // it already failed
-        } else {
-          for (int i = 0; i < colors_channel; ++i) {
-            meshObject.colors.push_back(color_val[i]);
-          }
-        }
-      }
-      delete [] color_val;
-    } else {
-      meshObject.colors_set = false;
-    }
-
-    const int tex_att_id = mesh->GetNamedAttributeId(draco::GeometryAttribute::TEX_COORD);
-    if (tex_att_id >= 0) {
-      const auto *const tex_att = mesh->attribute(tex_att_id);
-      const int tex_channel = tex_att->num_components();
-      meshObject.tex_coord.reserve(tex_channel * mesh->num_points());
-      float* tex_val = new float[tex_channel];
-      for (draco::PointIndex v(0); v < mesh->num_points(); ++v) {
-        if (!tex_att->ConvertValue<float>(tex_att->mapped_index(v), tex_channel, tex_val)) {
-          meshObject.decode_status = no_tex_coord_attribute;
-          break;
-        } else {
-          for (int i = 0; i < tex_channel; ++i) {
-            meshObject.tex_coord.push_back(tex_val[i]);
-          }
-        }
-      }
-      delete [] tex_val;
     }
 
     const draco::GeometryMetadata *metadata = mesh->GetMetadata();
+
+    // Collect all attributes in a unified way
+    // std::cout << "DEBUG: Collecting all attributes, total: " << mesh->num_attributes() << std::endl;
+    for (int att_id = 0; att_id < mesh->num_attributes(); ++att_id) {
+      const auto *const att = mesh->attribute(att_id);
+      
+      AttributeData attr;
+      attr.unique_id = att->unique_id();
+      attr.num_components = att->num_components();
+      attr.data_type = static_cast<int>(att->data_type());
+      attr.attribute_type = static_cast<int>(att->attribute_type());
+
+      if (metadata) {
+        auto att_metadata = metadata->GetAttributeMetadataByUniqueId(attr.unique_id);
+        if (att_metadata) {
+          att_metadata->GetEntryString("name", &(attr.name));
+        }
+      }
+
+      // Extract data based on data type
+      const int num_values = mesh->num_points() * att->num_components();
+
+      switch (att->data_type()) {
+        case draco::DT_FLOAT32: {
+          attr.float_data.reserve(num_values);
+          std::unique_ptr<float[]> values(new float[att->num_components()]);
+          for (draco::PointIndex v(0); v < mesh->num_points(); ++v) {
+            if (att->ConvertValue<float>(att->mapped_index(v), att->num_components(), values.get())) {
+              for (int c = 0; c < att->num_components(); ++c) {
+                attr.float_data.push_back(values[c]);
+              }
+            }
+          }
+          break;
+        }
+        case draco::DT_UINT8: {
+          attr.byte_data.reserve(num_values);
+          std::unique_ptr<uint8_t[]> values(new uint8_t[att->num_components()]);
+          for (draco::PointIndex v(0); v < mesh->num_points(); ++v) {
+            if (att->ConvertValue<uint8_t>(att->mapped_index(v), att->num_components(), values.get())) {
+              for (int c = 0; c < att->num_components(); ++c) {
+                attr.byte_data.push_back(values[c]);
+              }
+            }
+          }
+          break;
+        }
+        case draco::DT_UINT16: {
+          attr.uint_data.reserve(num_values);
+          std::unique_ptr<uint16_t[]> values(new uint16_t[att->num_components()]);
+          for (draco::PointIndex v(0); v < mesh->num_points(); ++v) {
+            if (att->ConvertValue<uint16_t>(att->mapped_index(v), att->num_components(), values.get())) {
+              for (int c = 0; c < att->num_components(); ++c) {
+                attr.uint_data.push_back(static_cast<uint32_t>(values[c]));
+              }
+            }
+          }
+          break;
+        }
+        case draco::DT_UINT32: {
+          attr.uint_data.reserve(num_values);
+          std::unique_ptr<uint32_t[]> values(new uint32_t[att->num_components()]);
+          for (draco::PointIndex v(0); v < mesh->num_points(); ++v) {
+            if (att->ConvertValue<uint32_t>(att->mapped_index(v), att->num_components(), values.get())) {
+              for (int c = 0; c < att->num_components(); ++c) {
+                attr.uint_data.push_back(values[c]);
+              }
+            }
+          }
+          break;
+        }
+        default: {
+          // For other data types, try to convert to float as fallback
+          attr.float_data.reserve(num_values);
+          std::unique_ptr<float[]> values(new float[att->num_components()]);
+          for (draco::PointIndex v(0); v < mesh->num_points(); ++v) {
+            if (att->ConvertValue<float>(att->mapped_index(v), att->num_components(), values.get())) {
+              for (int c = 0; c < att->num_components(); ++c) {
+                attr.float_data.push_back(values[c]);
+              }
+            }
+          }
+          break;
+        }
+      }
+      
+      meshObject.attributes.push_back(attr);
+      // std::cout << "DEBUG: Added attribute " << att_id << " with type " << static_cast<int>(att->attribute_type()) << std::endl;
+    }
+
+    // Set encoding options from metadata
     meshObject.encoding_options_set = false;
     if (metadata) {
       metadata->GetEntryInt("quantization_bits", &(meshObject.quantization_bits));
@@ -177,38 +226,6 @@ namespace DracoFunctions {
       }
     }
 
-    if (geotype == draco::EncodedGeometryType::POINT_CLOUD) {
-      meshObject.decode_status = successful;
-      return meshObject;
-    }
-
-    meshObject.faces.reserve(3 * mesh->num_faces());
-    for (draco::FaceIndex i(0); i < mesh->num_faces(); ++i) {
-      const auto &f = mesh->face(i);
-      meshObject.faces.push_back(*(reinterpret_cast<const uint32_t *>(&(f[0]))));
-      meshObject.faces.push_back(*(reinterpret_cast<const uint32_t *>(&(f[1]))));
-      meshObject.faces.push_back(*(reinterpret_cast<const uint32_t *>(&(f[2]))));
-    }
-
-    const int normal_att_id = mesh->GetNamedAttributeId(draco::GeometryAttribute::NORMAL);
-    if (normal_att_id < 0) {  // No normal values are present.
-      meshObject.decode_status = successful;
-      return meshObject;
-    }
-
-    const auto *const normal_att = mesh->attribute(normal_att_id);
-    meshObject.normals.reserve(3 * normal_att->size());
-
-    std::array<float, 3> normal_val;
-    for (draco::PointIndex v(0); v < normal_att->size(); ++v){
-      if (!normal_att->ConvertValue<float, 3>(normal_att->mapped_index(v), &normal_val[0])){
-        meshObject.decode_status = no_normal_coord_attribute;
-      }
-      meshObject.normals.push_back(normal_val[0]);
-      meshObject.normals.push_back(normal_val[1]);
-      meshObject.normals.push_back(normal_val[2]);
-    }
-
     meshObject.decode_status = successful;
     return meshObject;
   }
@@ -216,13 +233,18 @@ namespace DracoFunctions {
   void setup_encoder_and_metadata(draco::PointCloud *point_cloud_or_mesh, draco::Encoder &encoder, int compression_level, int quantization_bits, float quantization_range, const float *quantization_origin, bool create_metadata) {
     int speed = 10 - compression_level;
     encoder.SetSpeedOptions(speed, speed);
-    std::unique_ptr<draco::GeometryMetadata> metadata = std::unique_ptr<draco::GeometryMetadata>(new draco::GeometryMetadata());
+    // Use existing metadata or create a new one if `create_metadata` is true.
+    auto metadata = point_cloud_or_mesh->metadata();
+    if (metadata == nullptr && create_metadata) {
+      auto new_metadata = std::unique_ptr<draco::GeometryMetadata>(new draco::GeometryMetadata());
+      point_cloud_or_mesh->AddMetadata(std::move(new_metadata));
+      metadata = point_cloud_or_mesh->metadata();
+    }
     if (quantization_origin == NULL || quantization_range <= 0.f) {
       // @zeruniverse All quantization_range <= 0.f is useless, see
       //    https://github.com/google/draco/blob/master/src/draco/attributes/attribute_quantization_transform.cc#L160-L170
       encoder.SetAttributeQuantization(draco::GeometryAttribute::POSITION, quantization_bits);
-    }
-    else {
+    } else {
       encoder.SetAttributeExplicitQuantization(draco::GeometryAttribute::POSITION, quantization_bits, 3, quantization_origin, quantization_range);
       if (create_metadata) {
         metadata->AddEntryDouble("quantization_range", quantization_range);
@@ -235,7 +257,6 @@ namespace DracoFunctions {
     }
     if (create_metadata) {
       metadata->AddEntryInt("quantization_bits", quantization_bits);
-      point_cloud_or_mesh->AddMetadata(std::move(metadata));
     }
   }
 
@@ -254,7 +275,15 @@ namespace DracoFunctions {
     const std::vector<float> &tex_coord,
     const uint8_t tex_coord_channel,
     const std::vector<float> &normals,
-    const uint8_t has_normals
+    const uint8_t has_normals,
+    std::vector<int8_t>& unique_ids,
+    std::vector<std::vector<float>>& attr_float_data,
+    std::vector<std::vector<uint8_t>>& attr_uint8_data,
+    std::vector<std::vector<uint16_t>>& attr_uint16_data,
+    std::vector<std::vector<uint32_t>>& attr_uint32_data,
+    std::vector<int>& attr_data_types,
+    std::vector<int>& attr_num_components,
+    std::vector<std::string>& attr_names
   ) {
     // @zeruniverse TriangleSoupMeshBuilder will cause problems when
     //    preserve_order=True due to vertices merging.
@@ -330,6 +359,42 @@ namespace DracoFunctions {
     }
 
 
+
+    // GENERIC ATTRIBUTES
+    std::vector<int> generic_attr_ids;
+    generic_attr_ids.reserve(unique_ids.size());
+
+    for (size_t i = 0; i < unique_ids.size(); ++i) {
+      draco::GeometryAttribute generic_attr;
+      draco::DataType dtype = static_cast<draco::DataType>(attr_data_types[i]);
+      int num_components = attr_num_components[i];
+      if (dtype != draco::DT_FLOAT32 && dtype != draco::DT_UINT8 && dtype != draco::DT_UINT16 && dtype != draco::DT_UINT32) {
+        // Unsupported data type, skip
+        // std::cout << "DEBUG: Unsupported attribute data type for " << unique_ids[i] << std::endl;
+        generic_attr_ids.push_back(-1);
+        continue;
+      }
+      generic_attr.Init(draco::GeometryAttribute::GENERIC, nullptr, num_components, dtype, false, 0, 0);
+      int att_id = mesh.AddAttribute(generic_attr, true, num_pts);
+      if (att_id == -1) {
+        // Failed to add attribute, skip
+        // std::cout << "DEBUG: Failed to add attribute " << unique_ids[i] << std::endl;
+        generic_attr_ids.push_back(-1);
+        continue;
+      }
+      if (unique_ids[i] >= 0) {
+        mesh.attribute(att_id)->set_unique_id(unique_ids[i]);
+      }
+      if (!attr_names[i].empty()) {
+        auto attribute_metadata = std::unique_ptr<draco::AttributeMetadata>(new draco::AttributeMetadata());
+        attribute_metadata->AddEntryString("name", attr_names[i]);
+        mesh.AddAttributeMetadata(att_id, std::move(attribute_metadata));
+      }
+
+      generic_attr_ids.push_back(att_id);
+    }
+
+
     const int pos_att_id = mesh.AddAttribute(positions_attr, true, num_pts);
     std::vector<int32_t> pts_int32;
     std::vector<uint32_t> pts_uint32;
@@ -363,11 +428,33 @@ namespace DracoFunctions {
       }
       if(has_normals){
         mesh.attribute(normal_att_id)->SetAttributeValue(draco::AttributeValueIndex(i), &normals[i * 3]);
-      }  
-    }
-    
+      }
 
-    // Process faces
+
+      // GENERIC ATTRIBUTES
+      for (size_t j = 0; j < generic_attr_ids.size(); ++j) {
+        const auto &float_data = attr_float_data[j];
+        const auto &uint8_data = attr_uint8_data[j];
+        const auto &uint16_data = attr_uint16_data[j];
+        const auto &uint32_data = attr_uint32_data[j];
+
+        if (generic_attr_ids[j] == -1) {
+          // Skip if attribute was not added
+          continue;
+        } 
+
+        if (attr_data_types[j] == draco::DT_FLOAT32) {
+          mesh.attribute(generic_attr_ids[j])->SetAttributeValue(draco::AttributeValueIndex(i), &float_data[i * attr_num_components[j]]);
+        } else if (attr_data_types[j] == draco::DT_UINT8) {
+          mesh.attribute(generic_attr_ids[j])->SetAttributeValue(draco::AttributeValueIndex(i), &uint8_data[i * attr_num_components[j]]);
+        } else if (attr_data_types[j] == draco::DT_UINT16) {
+          mesh.attribute(generic_attr_ids[j])->SetAttributeValue(draco::AttributeValueIndex(i), &uint16_data[i * attr_num_components[j]]);
+        } else if (attr_data_types[j] == draco::DT_UINT32) {
+          mesh.attribute(generic_attr_ids[j])->SetAttributeValue(draco::AttributeValueIndex(i), &uint32_data[i * attr_num_components[j]]);
+        }
+      }
+    }
+
     const size_t num_faces = faces.size() / 3;
     for (size_t i = 0; i < num_faces; ++i) {
       mesh.AddFace(

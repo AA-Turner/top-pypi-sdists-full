@@ -8,7 +8,7 @@ from ...typing import Union, AsyncResult, Messages, MediaListType
 from ...requests import StreamSession, StreamResponse, raise_for_status, sse_stream
 from ...image import use_aspect_ratio
 from ...image.copy_images import save_response_media
-from ...providers.response import FinishReason, ToolCalls, Usage, ImageResponse, ProviderInfo, AudioResponse, Reasoning
+from ...providers.response import FinishReason, ToolCalls, Usage, ImageResponse, ProviderInfo, AudioResponse, Reasoning, JsonConversation
 from ...tools.media import render_messages
 from ...tools.run_tools import AuthManager
 from ...errors import MissingAuthError
@@ -58,9 +58,13 @@ class OpenaiTemplate(AsyncGeneratorProvider, ProviderModelMixin, RaiseErrorMixin
                 cls.models_count = {model.get("name") if cls.use_model_names else model.get("id", model.get("name")): len(model.get("providers", [])) for model in data if len(model.get("providers", [])) > 1}
                 if cls.sort_models:
                     cls.models.sort()
+            except MissingAuthError:
+                raise
             except Exception as e:
-                debug.error(e)
-                return cls.fallback_models
+                if cls.fallback_models:
+                    debug.error(e)
+                    return cls.fallback_models
+                raise e
         return cls.models
 
     @classmethod
@@ -70,6 +74,7 @@ class OpenaiTemplate(AsyncGeneratorProvider, ProviderModelMixin, RaiseErrorMixin
         messages: Messages,
         proxy: str = None,
         timeout: int = 120,
+        conversation: JsonConversation = None,
         media: MediaListType = None,
         api_key: str = None,
         api_endpoint: str = None,
@@ -134,6 +139,7 @@ class OpenaiTemplate(AsyncGeneratorProvider, ProviderModelMixin, RaiseErrorMixin
                 stop=stop,
                 stream="audio" not in extra_parameters if stream is None else stream,
                 user=user if cls.add_user else None,
+                conversation=conversation.get_dict() if conversation else None,
                 **extra_parameters,
                 **extra_body
             )
@@ -158,11 +164,9 @@ class OpenaiTemplate(AsyncGeneratorProvider, ProviderModelMixin, RaiseErrorMixin
             **({} if headers is None else headers)
         }
     
-async def read_response(response: StreamResponse, stream: bool, prompt: str, provider_info: dict, download_media: bool):
+async def read_response(response: StreamResponse, stream: bool, prompt: str, provider_info: dict, download_media: bool) -> AsyncResult:
     content_type = response.headers.get("content-type", "text/event-stream" if stream else "application/json")
-    if content_type.startswith("text/plain"):
-        yield await response.text()
-    elif content_type.startswith("application/json"):
+    if content_type.startswith("application/json"):
         data = await response.json()
         OpenaiTemplate.raise_error(data, response.status)
         await raise_for_status(response)
@@ -171,6 +175,8 @@ async def read_response(response: StreamResponse, stream: bool, prompt: str, pro
             yield ProviderInfo(**provider_info, model=model)
         if "usage" in data:
             yield Usage(**data["usage"])
+        if "conversation" in data:
+            yield JsonConversation.from_dict(data["conversation"])
         if "choices" in data:
             choice = next(iter(data["choices"]), None)
             message = choice.get("message", {})
@@ -224,6 +230,8 @@ async def read_response(response: StreamResponse, stream: bool, prompt: str, pro
                     yield Reasoning(reasoning_content)
             if "usage" in data and data["usage"]:
                 yield Usage(**data["usage"])
+            if "conversation" in data and data["conversation"]:
+                yield JsonConversation.from_dict(data["conversation"])
             if choice and choice.get("finish_reason") is not None:
                 yield FinishReason(choice["finish_reason"])
     else:

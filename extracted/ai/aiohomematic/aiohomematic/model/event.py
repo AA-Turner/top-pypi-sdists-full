@@ -98,10 +98,8 @@ class GenericEvent(BaseParameterDataPoint[Any, Any]):
         """Return the event_type of the event."""
         return self._event_type
 
-    async def event(self, value: Any, received_at: datetime | None = None) -> None:
+    async def event(self, value: Any, received_at: datetime) -> None:
         """Handle event for which this handler has subscribed."""
-        if received_at is None:
-            received_at = datetime.now()
         if self.event_type in DATA_POINT_EVENTS:
             self.fire_data_point_updated_callback()
         self._set_modified_at(modified_at=received_at)
@@ -139,11 +137,8 @@ class DeviceErrorEvent(GenericEvent):
 
     _event_type = EventType.DEVICE_ERROR
 
-    async def event(self, value: Any, received_at: datetime | None = None) -> None:
+    async def event(self, value: Any, received_at: datetime) -> None:
         """Handle event for which this handler has subscribed."""
-        if received_at is None:
-            received_at = datetime.now()
-
         old_value, new_value = self.write_value(value=value, write_at=received_at)
 
         if (
@@ -164,7 +159,7 @@ class ImpulseEvent(GenericEvent):
     _event_type = EventType.IMPULSE
 
 
-@inspector()
+@inspector
 def create_event_and_append_to_channel(channel: hmd.Channel, parameter: str, parameter_data: ParameterData) -> None:
     """Create action event data_point."""
     _LOGGER.debug(

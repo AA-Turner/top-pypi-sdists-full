@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zope.structuredtext
-Version: 5.1
+Version: 6.0
 Summary: StructuredText parser
 Home-page: http://github.com/zopefoundation/zope.structuredtext
 Author: Zope Foundation and Contributors
@@ -24,7 +24,7 @@ Requires-Python: >=3.9
 License-File: LICENSE.txt
 Requires-Dist: setuptools
 Provides-Extra: test
-Requires-Dist: zope.testrunner; extra == "test"
+Requires-Dist: zope.testrunner>=6.4; extra == "test"
 Provides-Extra: docs
 Requires-Dist: Sphinx; extra == "docs"
 Dynamic: author
@@ -71,6 +71,12 @@ Please see https://zopestructuredtext.readthedocs.org/ for documentation.
 =========
  Changes
 =========
+
+6.0 (2025-09-12)
+================
+
+- Replace ``pkg_resources`` namespace with PEP 420 native namespace.
+
 
 5.1 (2025-08-11)
 ================

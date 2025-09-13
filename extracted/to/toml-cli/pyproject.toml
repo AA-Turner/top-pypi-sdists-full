@@ -1,6 +1,6 @@
 [project]
 name = "toml-cli"
-version = "0.8.1"
+version = "0.8.2"
 description = "Command line interface to read and write keys/values to/from toml files"
 readme = "README.md"
 license = "MIT AND (Apache-2.0 OR BSD-2-Clause)"

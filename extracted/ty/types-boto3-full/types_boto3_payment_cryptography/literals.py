@@ -43,6 +43,7 @@ __all__ = (
     "PaymentCryptographyControlPlaneServiceName",
     "ResourceServiceName",
     "ServiceName",
+    "SigningAlgorithmTypeType",
     "SymmetricKeyAlgorithmType",
     "Tr34KeyBlockFormatType",
     "WrappedKeyMaterialFormatType",
@@ -132,6 +133,7 @@ ListAliasesPaginatorName = Literal["list_aliases"]
 ListKeysPaginatorName = Literal["list_keys"]
 ListTagsForResourcePaginatorName = Literal["list_tags_for_resource"]
 MultiRegionKeyTypeType = Literal["PRIMARY", "REPLICA"]
+SigningAlgorithmTypeType = Literal["SHA224", "SHA256", "SHA384", "SHA512"]
 SymmetricKeyAlgorithmType = Literal[
     "AES_128",
     "AES_192",

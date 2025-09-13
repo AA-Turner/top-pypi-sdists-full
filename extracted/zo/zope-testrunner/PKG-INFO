@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.2
 Name: zope.testrunner
-Version: 7.4
+Version: 8.0
 Summary: Zope testrunner script.
 Home-page: https://github.com/zopefoundation/zope.testrunner
 Author: Zope Foundation and Contributors
@@ -36,6 +36,16 @@ Requires-Dist: testtools>=0.9.30; extra == "subunit"
 Provides-Extra: docs
 Requires-Dist: Sphinx; extra == "docs"
 Requires-Dist: sphinxcontrib-programoutput; extra == "docs"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 =================
  zope.testrunner
@@ -217,6 +227,12 @@ test execution order, and run multiple tests in parallel.
 ===========================
  zope.testrunner Changelog
 ===========================
+
+8.0 (2025-09-12)
+================
+
+- Replace ``pkg_resources`` namespace with PEP 420 native namespace.
+
 
 7.4 (2025-05-28)
 ================

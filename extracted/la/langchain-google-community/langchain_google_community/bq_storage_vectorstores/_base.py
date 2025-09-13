@@ -79,13 +79,8 @@ class BaseBigQueryVectorStore(VectorStore, BaseModel, ABC):
     _logger: Any = None
     _full_table_id: Optional[str] = None
 
-    model_config = ConfigDict(
-        arbitrary_types_allowed=True,
-    )
-
     @abstractmethod
-    def sync_data(self) -> None:
-        ...
+    def sync_data(self) -> None: ...
 
     @abstractmethod
     def get_documents(
@@ -115,8 +110,8 @@ class BaseBigQueryVectorStore(VectorStore, BaseModel, ABC):
         filter: Optional[Dict[str, Any]] = None,
         k: int = 5,
         batch_size: Union[int, None] = None,
-    ) -> List[List[List[Any]]]:
-        ...
+        **kwargs: Any,
+    ) -> List[List[List[Any]]]: ...
 
     @model_validator(mode="after")
     def validate_vals(self) -> Self:

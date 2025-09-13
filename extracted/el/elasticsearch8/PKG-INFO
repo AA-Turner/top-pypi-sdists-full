@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: elasticsearch8
-Version: 8.19.0
+Version: 8.19.1
 Summary: Python client for Elasticsearch
 Project-URL: Documentation, https://elasticsearch8-py.readthedocs.io/
 Project-URL: Homepage, https://github.com/elastic/elasticsearch8-py
@@ -41,7 +41,6 @@ Requires-Dist: isort; extra == 'dev'
 Requires-Dist: jinja2; extra == 'dev'
 Requires-Dist: mapbox-vector-tile; extra == 'dev'
 Requires-Dist: mypy; extra == 'dev'
-Requires-Dist: nltk; extra == 'dev'
 Requires-Dist: nox; extra == 'dev'
 Requires-Dist: numpy; extra == 'dev'
 Requires-Dist: orjson; extra == 'dev'
@@ -55,7 +54,6 @@ Requires-Dist: pytest-mock; extra == 'dev'
 Requires-Dist: python-dateutil; extra == 'dev'
 Requires-Dist: pyyaml>=5.4; extra == 'dev'
 Requires-Dist: requests<3,>=2; extra == 'dev'
-Requires-Dist: sentence-transformers; extra == 'dev'
 Requires-Dist: simsimd; extra == 'dev'
 Requires-Dist: tqdm; extra == 'dev'
 Requires-Dist: twine; extra == 'dev'

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: flytekitplugins-spark
-Version: 1.16.3
+Version: 1.16.4
 Summary: Spark 3 plugin for flytekit
 Author: flyteorg
 Author-email: admin@flyte.org
@@ -18,7 +18,7 @@ Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.9
 Requires-Dist: flytekit>=1.15.1
-Requires-Dist: pyspark<4.0.0,>=3.4.0
+Requires-Dist: pyspark>=3.4.0
 Requires-Dist: aiohttp
 Requires-Dist: flyteidl>=1.11.0b1
 Requires-Dist: pandas

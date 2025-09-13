@@ -28,15 +28,7 @@ def probability_by_hamming_weight(J, h, z, theta, t, n_qubits):
     bias = np.empty(n_qubits - 1, dtype=np.float64)
 
     # critical angle
-    theta_c = np.arcsin(
-        max(
-            -1.0,
-            min(
-                1.0,
-                (1.0 if J > 0.0 else -1.0) if np.isclose(abs(z * J), 0.0) else (abs(h) / (z * J)),
-            ),
-        )
-    )
+    theta_c = np.arcsin(max(-1.0, min(1.0, abs(h) / (z * J))))
 
     p = (
         pow(2.0, abs(J / h) - 1.0)
@@ -48,8 +40,10 @@ def probability_by_hamming_weight(J, h, z, theta, t, n_qubits):
         return bias
 
     tot_n = 1.0 + 1.0 / pow(2.0, p * n_qubits)
+    factor = pow(2.0, -p)
+    n = 1.0
     for q in range(1, n_qubits):
-        n = 1.0 / pow(2.0, p * q)
+        n *= factor
         bias[q - 1] = n
         tot_n += n
     bias /= tot_n
@@ -376,14 +370,14 @@ def maxcut_tfim(
 
     best_solution, best_value = sample_for_solution(G_m, shots, hamming_prob, degrees, J_eff, n_qubits)
 
-    bit_string = "".join(["1" if b else "0" for b in best_solution])
-    bit_list = list(bit_string)
+    bit_string = ""
     l, r = [], []
-    for i in range(len(bit_list)):
-        b = bit_list[i] == "1"
-        if b:
+    for i in range(len(best_solution)):
+        if best_solution[i]:
+            bit_string += "1"
             r.append(nodes[i])
         else:
+            bit_string += "0"
             l.append(nodes[i])
 
     return bit_string, best_value, (l, r)

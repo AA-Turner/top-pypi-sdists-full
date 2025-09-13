@@ -9,3 +9,6 @@ readme = "README.md"
 
 [dependencies]
 itertools.workspace = true
+
+[dev-dependencies]
+pretty_assertions.workspace = true

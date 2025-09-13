@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: zope.browsermenu
-Version: 5.1
+Version: 6.0
 Summary: Browser menu implementation for Zope.
 Home-page: http://github.com/zopefoundation/zope.browsermenu/
 Author: Zope Foundation and Contributors
@@ -36,7 +36,18 @@ Requires-Dist: zope.security
 Requires-Dist: zope.traversing>3.7
 Provides-Extra: test
 Requires-Dist: zope.testing; extra == "test"
-Requires-Dist: zope.testrunner; extra == "test"
+Requires-Dist: zope.testrunner>=6.4; extra == "test"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 ======================
  ``zope.browsermenu``
@@ -68,6 +79,12 @@ for configuring them.
 =========
  Changes
 =========
+
+6.0 (2025-09-12)
+================
+
+- Replace ``pkg_resources`` namespace with PEP 420 native namespace.
+
 
 5.1 (2025-02-13)
 ================

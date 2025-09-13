@@ -1,7 +1,7 @@
 r'''
 # `google_dialogflow_cx_webhook`
 
-Refer to the Terraform Registry for docs: [`google_dialogflow_cx_webhook`](https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook).
+Refer to the Terraform Registry for docs: [`google_dialogflow_cx_webhook`](https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DialogflowCxWebhook(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.dialogflowCxWebhook.DialogflowCxWebhook",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook google_dialogflow_cx_webhook}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook google_dialogflow_cx_webhook}.'''
 
     def __init__(
         self,
@@ -70,21 +70,21 @@ class DialogflowCxWebhook(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook google_dialogflow_cx_webhook} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook google_dialogflow_cx_webhook} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param display_name: The human-readable name of the webhook, unique within the agent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#display_name DialogflowCxWebhook#display_name}
-        :param disabled: Indicates whether the webhook is disabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#disabled DialogflowCxWebhook#disabled}
-        :param enable_spell_correction: Deprecated. Indicates if automatic spell correction is enabled in detect intent requests. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#enable_spell_correction DialogflowCxWebhook#enable_spell_correction}
-        :param enable_stackdriver_logging: Deprecated. Determines whether this agent should log conversation queries. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#enable_stackdriver_logging DialogflowCxWebhook#enable_stackdriver_logging}
-        :param generic_web_service: generic_web_service block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#generic_web_service DialogflowCxWebhook#generic_web_service}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#id DialogflowCxWebhook#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param parent: The agent to create a webhook for. Format: projects//locations//agents/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#parent DialogflowCxWebhook#parent}
-        :param security_settings: Deprecated. Name of the SecuritySettings reference for the agent. Format: projects//locations//securitySettings/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#security_settings DialogflowCxWebhook#security_settings}
-        :param service_directory: service_directory block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#service_directory DialogflowCxWebhook#service_directory}
-        :param timeout: Webhook execution timeout. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#timeout DialogflowCxWebhook#timeout}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#timeouts DialogflowCxWebhook#timeouts}
+        :param display_name: The human-readable name of the webhook, unique within the agent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#display_name DialogflowCxWebhook#display_name}
+        :param disabled: Indicates whether the webhook is disabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#disabled DialogflowCxWebhook#disabled}
+        :param enable_spell_correction: Deprecated. Indicates if automatic spell correction is enabled in detect intent requests. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#enable_spell_correction DialogflowCxWebhook#enable_spell_correction}
+        :param enable_stackdriver_logging: Deprecated. Determines whether this agent should log conversation queries. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#enable_stackdriver_logging DialogflowCxWebhook#enable_stackdriver_logging}
+        :param generic_web_service: generic_web_service block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#generic_web_service DialogflowCxWebhook#generic_web_service}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#id DialogflowCxWebhook#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param parent: The agent to create a webhook for. Format: projects//locations//agents/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#parent DialogflowCxWebhook#parent}
+        :param security_settings: Deprecated. Name of the SecuritySettings reference for the agent. Format: projects//locations//securitySettings/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#security_settings DialogflowCxWebhook#security_settings}
+        :param service_directory: service_directory block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#service_directory DialogflowCxWebhook#service_directory}
+        :param timeout: Webhook execution timeout. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#timeout DialogflowCxWebhook#timeout}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#timeouts DialogflowCxWebhook#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -133,7 +133,7 @@ class DialogflowCxWebhook(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DialogflowCxWebhook to import.
-        :param import_from_id: The id of the existing DialogflowCxWebhook that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DialogflowCxWebhook that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DialogflowCxWebhook to import is found.
         '''
         if __debug__:
@@ -161,17 +161,17 @@ class DialogflowCxWebhook(
         webhook_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param uri: The webhook URI for receiving POST requests. It must use https protocol. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#uri DialogflowCxWebhook#uri}
-        :param allowed_ca_certs: Specifies a list of allowed custom CA certificates (in DER format) for HTTPS verification. This overrides the default SSL trust store. If this is empty or unspecified, Dialogflow will use Google's default trust store to verify certificates. N.B. Make sure the HTTPS server certificates are signed with "subject alt name". For instance a certificate can be self-signed using the following command, openssl x509 -req -days 200 -in example.com.csr -signkey example.com.key -out example.com.crt -extfile <(printf "\\nsubjectAltName='DNS:www.example.com'") Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#allowed_ca_certs DialogflowCxWebhook#allowed_ca_certs}
-        :param http_method: HTTP method for the flexible webhook calls. Standard webhook always uses POST. Possible values: ["POST", "GET", "HEAD", "PUT", "DELETE", "PATCH", "OPTIONS"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#http_method DialogflowCxWebhook#http_method}
-        :param oauth_config: oauth_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#oauth_config DialogflowCxWebhook#oauth_config}
-        :param parameter_mapping: Maps the values extracted from specific fields of the flexible webhook response into session parameters. - Key: session parameter name - Value: field path in the webhook response Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#parameter_mapping DialogflowCxWebhook#parameter_mapping}
-        :param request_body: Defines a custom JSON object as request body to send to flexible webhook. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#request_body DialogflowCxWebhook#request_body}
-        :param request_headers: The HTTP request headers to send together with webhook requests. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#request_headers DialogflowCxWebhook#request_headers}
-        :param secret_version_for_username_password: The SecretManager secret version resource storing the username:password pair for HTTP Basic authentication. Format: 'projects/{project}/secrets/{secret}/versions/{version}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#secret_version_for_username_password DialogflowCxWebhook#secret_version_for_username_password}
-        :param secret_versions_for_request_headers: secret_versions_for_request_headers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#secret_versions_for_request_headers DialogflowCxWebhook#secret_versions_for_request_headers}
-        :param service_agent_auth: Indicate the auth token type generated from the `Diglogflow service agent <https://cloud.google.com/iam/docs/service-agents#dialogflow-service-agent>`_. The generated token is sent in the Authorization header. Possible values: ["NONE", "ID_TOKEN", "ACCESS_TOKEN"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#service_agent_auth DialogflowCxWebhook#service_agent_auth}
-        :param webhook_type: Type of the webhook. Possible values: ["STANDARD", "FLEXIBLE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#webhook_type DialogflowCxWebhook#webhook_type}
+        :param uri: The webhook URI for receiving POST requests. It must use https protocol. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#uri DialogflowCxWebhook#uri}
+        :param allowed_ca_certs: Specifies a list of allowed custom CA certificates (in DER format) for HTTPS verification. This overrides the default SSL trust store. If this is empty or unspecified, Dialogflow will use Google's default trust store to verify certificates. N.B. Make sure the HTTPS server certificates are signed with "subject alt name". For instance a certificate can be self-signed using the following command, openssl x509 -req -days 200 -in example.com.csr -signkey example.com.key -out example.com.crt -extfile <(printf "\\nsubjectAltName='DNS:www.example.com'") Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#allowed_ca_certs DialogflowCxWebhook#allowed_ca_certs}
+        :param http_method: HTTP method for the flexible webhook calls. Standard webhook always uses POST. Possible values: ["POST", "GET", "HEAD", "PUT", "DELETE", "PATCH", "OPTIONS"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#http_method DialogflowCxWebhook#http_method}
+        :param oauth_config: oauth_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#oauth_config DialogflowCxWebhook#oauth_config}
+        :param parameter_mapping: Maps the values extracted from specific fields of the flexible webhook response into session parameters. - Key: session parameter name - Value: field path in the webhook response Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#parameter_mapping DialogflowCxWebhook#parameter_mapping}
+        :param request_body: Defines a custom JSON object as request body to send to flexible webhook. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#request_body DialogflowCxWebhook#request_body}
+        :param request_headers: The HTTP request headers to send together with webhook requests. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#request_headers DialogflowCxWebhook#request_headers}
+        :param secret_version_for_username_password: The SecretManager secret version resource storing the username:password pair for HTTP Basic authentication. Format: 'projects/{project}/secrets/{secret}/versions/{version}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#secret_version_for_username_password DialogflowCxWebhook#secret_version_for_username_password}
+        :param secret_versions_for_request_headers: secret_versions_for_request_headers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#secret_versions_for_request_headers DialogflowCxWebhook#secret_versions_for_request_headers}
+        :param service_agent_auth: Indicate the auth token type generated from the `Diglogflow service agent <https://cloud.google.com/iam/docs/service-agents#dialogflow-service-agent>`_. The generated token is sent in the Authorization header. Possible values: ["NONE", "ID_TOKEN", "ACCESS_TOKEN"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#service_agent_auth DialogflowCxWebhook#service_agent_auth}
+        :param webhook_type: Type of the webhook. Possible values: ["STANDARD", "FLEXIBLE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#webhook_type DialogflowCxWebhook#webhook_type}
         '''
         value = DialogflowCxWebhookGenericWebService(
             uri=uri,
@@ -197,8 +197,8 @@ class DialogflowCxWebhook(
         generic_web_service: typing.Optional[typing.Union["DialogflowCxWebhookServiceDirectoryGenericWebService", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param service: The name of Service Directory service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#service DialogflowCxWebhook#service}
-        :param generic_web_service: generic_web_service block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#generic_web_service DialogflowCxWebhook#generic_web_service}
+        :param service: The name of Service Directory service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#service DialogflowCxWebhook#service}
+        :param generic_web_service: generic_web_service block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#generic_web_service DialogflowCxWebhook#generic_web_service}
         '''
         value = DialogflowCxWebhookServiceDirectory(
             service=service, generic_web_service=generic_web_service
@@ -215,9 +215,9 @@ class DialogflowCxWebhook(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#create DialogflowCxWebhook#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#delete DialogflowCxWebhook#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#update DialogflowCxWebhook#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#create DialogflowCxWebhook#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#delete DialogflowCxWebhook#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#update DialogflowCxWebhook#update}.
         '''
         value = DialogflowCxWebhookTimeouts(
             create=create, delete=delete, update=update
@@ -537,17 +537,17 @@ class DialogflowCxWebhookConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param display_name: The human-readable name of the webhook, unique within the agent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#display_name DialogflowCxWebhook#display_name}
-        :param disabled: Indicates whether the webhook is disabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#disabled DialogflowCxWebhook#disabled}
-        :param enable_spell_correction: Deprecated. Indicates if automatic spell correction is enabled in detect intent requests. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#enable_spell_correction DialogflowCxWebhook#enable_spell_correction}
-        :param enable_stackdriver_logging: Deprecated. Determines whether this agent should log conversation queries. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#enable_stackdriver_logging DialogflowCxWebhook#enable_stackdriver_logging}
-        :param generic_web_service: generic_web_service block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#generic_web_service DialogflowCxWebhook#generic_web_service}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#id DialogflowCxWebhook#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param parent: The agent to create a webhook for. Format: projects//locations//agents/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#parent DialogflowCxWebhook#parent}
-        :param security_settings: Deprecated. Name of the SecuritySettings reference for the agent. Format: projects//locations//securitySettings/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#security_settings DialogflowCxWebhook#security_settings}
-        :param service_directory: service_directory block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#service_directory DialogflowCxWebhook#service_directory}
-        :param timeout: Webhook execution timeout. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#timeout DialogflowCxWebhook#timeout}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#timeouts DialogflowCxWebhook#timeouts}
+        :param display_name: The human-readable name of the webhook, unique within the agent. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#display_name DialogflowCxWebhook#display_name}
+        :param disabled: Indicates whether the webhook is disabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#disabled DialogflowCxWebhook#disabled}
+        :param enable_spell_correction: Deprecated. Indicates if automatic spell correction is enabled in detect intent requests. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#enable_spell_correction DialogflowCxWebhook#enable_spell_correction}
+        :param enable_stackdriver_logging: Deprecated. Determines whether this agent should log conversation queries. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#enable_stackdriver_logging DialogflowCxWebhook#enable_stackdriver_logging}
+        :param generic_web_service: generic_web_service block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#generic_web_service DialogflowCxWebhook#generic_web_service}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#id DialogflowCxWebhook#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param parent: The agent to create a webhook for. Format: projects//locations//agents/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#parent DialogflowCxWebhook#parent}
+        :param security_settings: Deprecated. Name of the SecuritySettings reference for the agent. Format: projects//locations//securitySettings/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#security_settings DialogflowCxWebhook#security_settings}
+        :param service_directory: service_directory block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#service_directory DialogflowCxWebhook#service_directory}
+        :param timeout: Webhook execution timeout. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#timeout DialogflowCxWebhook#timeout}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#timeouts DialogflowCxWebhook#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -683,7 +683,7 @@ class DialogflowCxWebhookConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def display_name(self) -> builtins.str:
         '''The human-readable name of the webhook, unique within the agent.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#display_name DialogflowCxWebhook#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#display_name DialogflowCxWebhook#display_name}
         '''
         result = self._values.get("display_name")
         assert result is not None, "Required property 'display_name' is missing"
@@ -695,7 +695,7 @@ class DialogflowCxWebhookConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Indicates whether the webhook is disabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#disabled DialogflowCxWebhook#disabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#disabled DialogflowCxWebhook#disabled}
         '''
         result = self._values.get("disabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -706,7 +706,7 @@ class DialogflowCxWebhookConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Deprecated. Indicates if automatic spell correction is enabled in detect intent requests.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#enable_spell_correction DialogflowCxWebhook#enable_spell_correction}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#enable_spell_correction DialogflowCxWebhook#enable_spell_correction}
         '''
         result = self._values.get("enable_spell_correction")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -717,7 +717,7 @@ class DialogflowCxWebhookConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Deprecated. Determines whether this agent should log conversation queries.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#enable_stackdriver_logging DialogflowCxWebhook#enable_stackdriver_logging}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#enable_stackdriver_logging DialogflowCxWebhook#enable_stackdriver_logging}
         '''
         result = self._values.get("enable_stackdriver_logging")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -728,14 +728,14 @@ class DialogflowCxWebhookConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["DialogflowCxWebhookGenericWebService"]:
         '''generic_web_service block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#generic_web_service DialogflowCxWebhook#generic_web_service}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#generic_web_service DialogflowCxWebhook#generic_web_service}
         '''
         result = self._values.get("generic_web_service")
         return typing.cast(typing.Optional["DialogflowCxWebhookGenericWebService"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#id DialogflowCxWebhook#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#id DialogflowCxWebhook#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -747,7 +747,7 @@ class DialogflowCxWebhookConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def parent(self) -> typing.Optional[builtins.str]:
         '''The agent to create a webhook for. Format: projects//locations//agents/.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#parent DialogflowCxWebhook#parent}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#parent DialogflowCxWebhook#parent}
         '''
         result = self._values.get("parent")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -756,7 +756,7 @@ class DialogflowCxWebhookConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def security_settings(self) -> typing.Optional[builtins.str]:
         '''Deprecated. Name of the SecuritySettings reference for the agent. Format: projects//locations//securitySettings/.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#security_settings DialogflowCxWebhook#security_settings}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#security_settings DialogflowCxWebhook#security_settings}
         '''
         result = self._values.get("security_settings")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -767,7 +767,7 @@ class DialogflowCxWebhookConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["DialogflowCxWebhookServiceDirectory"]:
         '''service_directory block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#service_directory DialogflowCxWebhook#service_directory}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#service_directory DialogflowCxWebhook#service_directory}
         '''
         result = self._values.get("service_directory")
         return typing.cast(typing.Optional["DialogflowCxWebhookServiceDirectory"], result)
@@ -776,7 +776,7 @@ class DialogflowCxWebhookConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeout(self) -> typing.Optional[builtins.str]:
         '''Webhook execution timeout.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#timeout DialogflowCxWebhook#timeout}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#timeout DialogflowCxWebhook#timeout}
         '''
         result = self._values.get("timeout")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -785,7 +785,7 @@ class DialogflowCxWebhookConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["DialogflowCxWebhookTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#timeouts DialogflowCxWebhook#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#timeouts DialogflowCxWebhook#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DialogflowCxWebhookTimeouts"], result)
@@ -836,17 +836,17 @@ class DialogflowCxWebhookGenericWebService:
         webhook_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param uri: The webhook URI for receiving POST requests. It must use https protocol. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#uri DialogflowCxWebhook#uri}
-        :param allowed_ca_certs: Specifies a list of allowed custom CA certificates (in DER format) for HTTPS verification. This overrides the default SSL trust store. If this is empty or unspecified, Dialogflow will use Google's default trust store to verify certificates. N.B. Make sure the HTTPS server certificates are signed with "subject alt name". For instance a certificate can be self-signed using the following command, openssl x509 -req -days 200 -in example.com.csr -signkey example.com.key -out example.com.crt -extfile <(printf "\\nsubjectAltName='DNS:www.example.com'") Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#allowed_ca_certs DialogflowCxWebhook#allowed_ca_certs}
-        :param http_method: HTTP method for the flexible webhook calls. Standard webhook always uses POST. Possible values: ["POST", "GET", "HEAD", "PUT", "DELETE", "PATCH", "OPTIONS"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#http_method DialogflowCxWebhook#http_method}
-        :param oauth_config: oauth_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#oauth_config DialogflowCxWebhook#oauth_config}
-        :param parameter_mapping: Maps the values extracted from specific fields of the flexible webhook response into session parameters. - Key: session parameter name - Value: field path in the webhook response Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#parameter_mapping DialogflowCxWebhook#parameter_mapping}
-        :param request_body: Defines a custom JSON object as request body to send to flexible webhook. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#request_body DialogflowCxWebhook#request_body}
-        :param request_headers: The HTTP request headers to send together with webhook requests. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#request_headers DialogflowCxWebhook#request_headers}
-        :param secret_version_for_username_password: The SecretManager secret version resource storing the username:password pair for HTTP Basic authentication. Format: 'projects/{project}/secrets/{secret}/versions/{version}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#secret_version_for_username_password DialogflowCxWebhook#secret_version_for_username_password}
-        :param secret_versions_for_request_headers: secret_versions_for_request_headers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#secret_versions_for_request_headers DialogflowCxWebhook#secret_versions_for_request_headers}
-        :param service_agent_auth: Indicate the auth token type generated from the `Diglogflow service agent <https://cloud.google.com/iam/docs/service-agents#dialogflow-service-agent>`_. The generated token is sent in the Authorization header. Possible values: ["NONE", "ID_TOKEN", "ACCESS_TOKEN"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#service_agent_auth DialogflowCxWebhook#service_agent_auth}
-        :param webhook_type: Type of the webhook. Possible values: ["STANDARD", "FLEXIBLE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#webhook_type DialogflowCxWebhook#webhook_type}
+        :param uri: The webhook URI for receiving POST requests. It must use https protocol. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#uri DialogflowCxWebhook#uri}
+        :param allowed_ca_certs: Specifies a list of allowed custom CA certificates (in DER format) for HTTPS verification. This overrides the default SSL trust store. If this is empty or unspecified, Dialogflow will use Google's default trust store to verify certificates. N.B. Make sure the HTTPS server certificates are signed with "subject alt name". For instance a certificate can be self-signed using the following command, openssl x509 -req -days 200 -in example.com.csr -signkey example.com.key -out example.com.crt -extfile <(printf "\\nsubjectAltName='DNS:www.example.com'") Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#allowed_ca_certs DialogflowCxWebhook#allowed_ca_certs}
+        :param http_method: HTTP method for the flexible webhook calls. Standard webhook always uses POST. Possible values: ["POST", "GET", "HEAD", "PUT", "DELETE", "PATCH", "OPTIONS"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#http_method DialogflowCxWebhook#http_method}
+        :param oauth_config: oauth_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#oauth_config DialogflowCxWebhook#oauth_config}
+        :param parameter_mapping: Maps the values extracted from specific fields of the flexible webhook response into session parameters. - Key: session parameter name - Value: field path in the webhook response Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#parameter_mapping DialogflowCxWebhook#parameter_mapping}
+        :param request_body: Defines a custom JSON object as request body to send to flexible webhook. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#request_body DialogflowCxWebhook#request_body}
+        :param request_headers: The HTTP request headers to send together with webhook requests. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#request_headers DialogflowCxWebhook#request_headers}
+        :param secret_version_for_username_password: The SecretManager secret version resource storing the username:password pair for HTTP Basic authentication. Format: 'projects/{project}/secrets/{secret}/versions/{version}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#secret_version_for_username_password DialogflowCxWebhook#secret_version_for_username_password}
+        :param secret_versions_for_request_headers: secret_versions_for_request_headers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#secret_versions_for_request_headers DialogflowCxWebhook#secret_versions_for_request_headers}
+        :param service_agent_auth: Indicate the auth token type generated from the `Diglogflow service agent <https://cloud.google.com/iam/docs/service-agents#dialogflow-service-agent>`_. The generated token is sent in the Authorization header. Possible values: ["NONE", "ID_TOKEN", "ACCESS_TOKEN"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#service_agent_auth DialogflowCxWebhook#service_agent_auth}
+        :param webhook_type: Type of the webhook. Possible values: ["STANDARD", "FLEXIBLE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#webhook_type DialogflowCxWebhook#webhook_type}
         '''
         if isinstance(oauth_config, dict):
             oauth_config = DialogflowCxWebhookGenericWebServiceOauthConfig(**oauth_config)
@@ -891,7 +891,7 @@ class DialogflowCxWebhookGenericWebService:
     def uri(self) -> builtins.str:
         '''The webhook URI for receiving POST requests. It must use https protocol.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#uri DialogflowCxWebhook#uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#uri DialogflowCxWebhook#uri}
         '''
         result = self._values.get("uri")
         assert result is not None, "Required property 'uri' is missing"
@@ -912,7 +912,7 @@ class DialogflowCxWebhookGenericWebService:
         -out example.com.crt
         -extfile <(printf "\\nsubjectAltName='DNS:www.example.com'")
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#allowed_ca_certs DialogflowCxWebhook#allowed_ca_certs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#allowed_ca_certs DialogflowCxWebhook#allowed_ca_certs}
         '''
         result = self._values.get("allowed_ca_certs")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -924,7 +924,7 @@ class DialogflowCxWebhookGenericWebService:
         Standard webhook always uses
         POST. Possible values: ["POST", "GET", "HEAD", "PUT", "DELETE", "PATCH", "OPTIONS"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#http_method DialogflowCxWebhook#http_method}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#http_method DialogflowCxWebhook#http_method}
         '''
         result = self._values.get("http_method")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -935,7 +935,7 @@ class DialogflowCxWebhookGenericWebService:
     ) -> typing.Optional["DialogflowCxWebhookGenericWebServiceOauthConfig"]:
         '''oauth_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#oauth_config DialogflowCxWebhook#oauth_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#oauth_config DialogflowCxWebhook#oauth_config}
         '''
         result = self._values.get("oauth_config")
         return typing.cast(typing.Optional["DialogflowCxWebhookGenericWebServiceOauthConfig"], result)
@@ -949,7 +949,7 @@ class DialogflowCxWebhookGenericWebService:
         - Key: session parameter name
         - Value: field path in the webhook response
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#parameter_mapping DialogflowCxWebhook#parameter_mapping}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#parameter_mapping DialogflowCxWebhook#parameter_mapping}
         '''
         result = self._values.get("parameter_mapping")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -958,7 +958,7 @@ class DialogflowCxWebhookGenericWebService:
     def request_body(self) -> typing.Optional[builtins.str]:
         '''Defines a custom JSON object as request body to send to flexible webhook.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#request_body DialogflowCxWebhook#request_body}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#request_body DialogflowCxWebhook#request_body}
         '''
         result = self._values.get("request_body")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -969,7 +969,7 @@ class DialogflowCxWebhookGenericWebService:
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''The HTTP request headers to send together with webhook requests.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#request_headers DialogflowCxWebhook#request_headers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#request_headers DialogflowCxWebhook#request_headers}
         '''
         result = self._values.get("request_headers")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -978,7 +978,7 @@ class DialogflowCxWebhookGenericWebService:
     def secret_version_for_username_password(self) -> typing.Optional[builtins.str]:
         '''The SecretManager secret version resource storing the username:password pair for HTTP Basic authentication. Format: 'projects/{project}/secrets/{secret}/versions/{version}'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#secret_version_for_username_password DialogflowCxWebhook#secret_version_for_username_password}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#secret_version_for_username_password DialogflowCxWebhook#secret_version_for_username_password}
         '''
         result = self._values.get("secret_version_for_username_password")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -989,7 +989,7 @@ class DialogflowCxWebhookGenericWebService:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DialogflowCxWebhookGenericWebServiceSecretVersionsForRequestHeaders"]]]:
         '''secret_versions_for_request_headers block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#secret_versions_for_request_headers DialogflowCxWebhook#secret_versions_for_request_headers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#secret_versions_for_request_headers DialogflowCxWebhook#secret_versions_for_request_headers}
         '''
         result = self._values.get("secret_versions_for_request_headers")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DialogflowCxWebhookGenericWebServiceSecretVersionsForRequestHeaders"]]], result)
@@ -998,7 +998,7 @@ class DialogflowCxWebhookGenericWebService:
     def service_agent_auth(self) -> typing.Optional[builtins.str]:
         '''Indicate the auth token type generated from the `Diglogflow service agent <https://cloud.google.com/iam/docs/service-agents#dialogflow-service-agent>`_. The generated token is sent in the Authorization header. Possible values: ["NONE", "ID_TOKEN", "ACCESS_TOKEN"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#service_agent_auth DialogflowCxWebhook#service_agent_auth}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#service_agent_auth DialogflowCxWebhook#service_agent_auth}
         '''
         result = self._values.get("service_agent_auth")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1007,7 +1007,7 @@ class DialogflowCxWebhookGenericWebService:
     def webhook_type(self) -> typing.Optional[builtins.str]:
         '''Type of the webhook. Possible values: ["STANDARD", "FLEXIBLE"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#webhook_type DialogflowCxWebhook#webhook_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#webhook_type DialogflowCxWebhook#webhook_type}
         '''
         result = self._values.get("webhook_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1046,11 +1046,11 @@ class DialogflowCxWebhookGenericWebServiceOauthConfig:
         secret_version_for_client_secret: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param client_id: The client ID provided by the 3rd party platform. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#client_id DialogflowCxWebhook#client_id}
-        :param token_endpoint: The token endpoint provided by the 3rd party platform to exchange an access token. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#token_endpoint DialogflowCxWebhook#token_endpoint}
-        :param client_secret: The client secret provided by the 3rd party platform. If the 'secret_version_for_client_secret' field is set, this field will be ignored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#client_secret DialogflowCxWebhook#client_secret}
-        :param scopes: The OAuth scopes to grant. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#scopes DialogflowCxWebhook#scopes}
-        :param secret_version_for_client_secret: The name of the SecretManager secret version resource storing the client secret. If this field is set, the 'client_secret' field will be ignored. Format: 'projects/{project}/secrets/{secret}/versions/{version}' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#secret_version_for_client_secret DialogflowCxWebhook#secret_version_for_client_secret}
+        :param client_id: The client ID provided by the 3rd party platform. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#client_id DialogflowCxWebhook#client_id}
+        :param token_endpoint: The token endpoint provided by the 3rd party platform to exchange an access token. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#token_endpoint DialogflowCxWebhook#token_endpoint}
+        :param client_secret: The client secret provided by the 3rd party platform. If the 'secret_version_for_client_secret' field is set, this field will be ignored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#client_secret DialogflowCxWebhook#client_secret}
+        :param scopes: The OAuth scopes to grant. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#scopes DialogflowCxWebhook#scopes}
+        :param secret_version_for_client_secret: The name of the SecretManager secret version resource storing the client secret. If this field is set, the 'client_secret' field will be ignored. Format: 'projects/{project}/secrets/{secret}/versions/{version}' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#secret_version_for_client_secret DialogflowCxWebhook#secret_version_for_client_secret}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b66a1bb2679d8cc9720ad5bca429c4d2d1196cded6a6f55e01f69a461334a52d)
@@ -1074,7 +1074,7 @@ class DialogflowCxWebhookGenericWebServiceOauthConfig:
     def client_id(self) -> builtins.str:
         '''The client ID provided by the 3rd party platform.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#client_id DialogflowCxWebhook#client_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#client_id DialogflowCxWebhook#client_id}
         '''
         result = self._values.get("client_id")
         assert result is not None, "Required property 'client_id' is missing"
@@ -1084,7 +1084,7 @@ class DialogflowCxWebhookGenericWebServiceOauthConfig:
     def token_endpoint(self) -> builtins.str:
         '''The token endpoint provided by the 3rd party platform to exchange an access token.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#token_endpoint DialogflowCxWebhook#token_endpoint}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#token_endpoint DialogflowCxWebhook#token_endpoint}
         '''
         result = self._values.get("token_endpoint")
         assert result is not None, "Required property 'token_endpoint' is missing"
@@ -1094,7 +1094,7 @@ class DialogflowCxWebhookGenericWebServiceOauthConfig:
     def client_secret(self) -> typing.Optional[builtins.str]:
         '''The client secret provided by the 3rd party platform.  If the 'secret_version_for_client_secret' field is set, this field will be ignored.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#client_secret DialogflowCxWebhook#client_secret}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#client_secret DialogflowCxWebhook#client_secret}
         '''
         result = self._values.get("client_secret")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1103,7 +1103,7 @@ class DialogflowCxWebhookGenericWebServiceOauthConfig:
     def scopes(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The OAuth scopes to grant.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#scopes DialogflowCxWebhook#scopes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#scopes DialogflowCxWebhook#scopes}
         '''
         result = self._values.get("scopes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1116,7 +1116,7 @@ class DialogflowCxWebhookGenericWebServiceOauthConfig:
         ignored.
         Format: 'projects/{project}/secrets/{secret}/versions/{version}'
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#secret_version_for_client_secret DialogflowCxWebhook#secret_version_for_client_secret}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#secret_version_for_client_secret DialogflowCxWebhook#secret_version_for_client_secret}
         '''
         result = self._values.get("secret_version_for_client_secret")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1299,11 +1299,11 @@ class DialogflowCxWebhookGenericWebServiceOutputReference(
         secret_version_for_client_secret: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param client_id: The client ID provided by the 3rd party platform. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#client_id DialogflowCxWebhook#client_id}
-        :param token_endpoint: The token endpoint provided by the 3rd party platform to exchange an access token. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#token_endpoint DialogflowCxWebhook#token_endpoint}
-        :param client_secret: The client secret provided by the 3rd party platform. If the 'secret_version_for_client_secret' field is set, this field will be ignored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#client_secret DialogflowCxWebhook#client_secret}
-        :param scopes: The OAuth scopes to grant. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#scopes DialogflowCxWebhook#scopes}
-        :param secret_version_for_client_secret: The name of the SecretManager secret version resource storing the client secret. If this field is set, the 'client_secret' field will be ignored. Format: 'projects/{project}/secrets/{secret}/versions/{version}' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#secret_version_for_client_secret DialogflowCxWebhook#secret_version_for_client_secret}
+        :param client_id: The client ID provided by the 3rd party platform. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#client_id DialogflowCxWebhook#client_id}
+        :param token_endpoint: The token endpoint provided by the 3rd party platform to exchange an access token. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#token_endpoint DialogflowCxWebhook#token_endpoint}
+        :param client_secret: The client secret provided by the 3rd party platform. If the 'secret_version_for_client_secret' field is set, this field will be ignored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#client_secret DialogflowCxWebhook#client_secret}
+        :param scopes: The OAuth scopes to grant. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#scopes DialogflowCxWebhook#scopes}
+        :param secret_version_for_client_secret: The name of the SecretManager secret version resource storing the client secret. If this field is set, the 'client_secret' field will be ignored. Format: 'projects/{project}/secrets/{secret}/versions/{version}' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#secret_version_for_client_secret DialogflowCxWebhook#secret_version_for_client_secret}
         '''
         value = DialogflowCxWebhookGenericWebServiceOauthConfig(
             client_id=client_id,
@@ -1585,8 +1585,8 @@ class DialogflowCxWebhookGenericWebServiceOutputReference(
 class DialogflowCxWebhookGenericWebServiceSecretVersionsForRequestHeaders:
     def __init__(self, *, key: builtins.str, secret_version: builtins.str) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#key DialogflowCxWebhook#key}.
-        :param secret_version: The SecretManager secret version resource storing the header value. Format: 'projects/{project}/secrets/{secret}/versions/{version}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#secret_version DialogflowCxWebhook#secret_version}
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#key DialogflowCxWebhook#key}.
+        :param secret_version: The SecretManager secret version resource storing the header value. Format: 'projects/{project}/secrets/{secret}/versions/{version}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#secret_version DialogflowCxWebhook#secret_version}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d835df2050fec798b3ee604656794d54c95c3d0da19827fba5864839b574744a)
@@ -1599,7 +1599,7 @@ class DialogflowCxWebhookGenericWebServiceSecretVersionsForRequestHeaders:
 
     @builtins.property
     def key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#key DialogflowCxWebhook#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#key DialogflowCxWebhook#key}.'''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
         return typing.cast(builtins.str, result)
@@ -1608,7 +1608,7 @@ class DialogflowCxWebhookGenericWebServiceSecretVersionsForRequestHeaders:
     def secret_version(self) -> builtins.str:
         '''The SecretManager secret version resource storing the header value. Format: 'projects/{project}/secrets/{secret}/versions/{version}'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#secret_version DialogflowCxWebhook#secret_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#secret_version DialogflowCxWebhook#secret_version}
         '''
         result = self._values.get("secret_version")
         assert result is not None, "Required property 'secret_version' is missing"
@@ -1810,8 +1810,8 @@ class DialogflowCxWebhookServiceDirectory:
         generic_web_service: typing.Optional[typing.Union["DialogflowCxWebhookServiceDirectoryGenericWebService", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param service: The name of Service Directory service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#service DialogflowCxWebhook#service}
-        :param generic_web_service: generic_web_service block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#generic_web_service DialogflowCxWebhook#generic_web_service}
+        :param service: The name of Service Directory service. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#service DialogflowCxWebhook#service}
+        :param generic_web_service: generic_web_service block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#generic_web_service DialogflowCxWebhook#generic_web_service}
         '''
         if isinstance(generic_web_service, dict):
             generic_web_service = DialogflowCxWebhookServiceDirectoryGenericWebService(**generic_web_service)
@@ -1829,7 +1829,7 @@ class DialogflowCxWebhookServiceDirectory:
     def service(self) -> builtins.str:
         '''The name of Service Directory service.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#service DialogflowCxWebhook#service}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#service DialogflowCxWebhook#service}
         '''
         result = self._values.get("service")
         assert result is not None, "Required property 'service' is missing"
@@ -1841,7 +1841,7 @@ class DialogflowCxWebhookServiceDirectory:
     ) -> typing.Optional["DialogflowCxWebhookServiceDirectoryGenericWebService"]:
         '''generic_web_service block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#generic_web_service DialogflowCxWebhook#generic_web_service}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#generic_web_service DialogflowCxWebhook#generic_web_service}
         '''
         result = self._values.get("generic_web_service")
         return typing.cast(typing.Optional["DialogflowCxWebhookServiceDirectoryGenericWebService"], result)
@@ -1892,17 +1892,17 @@ class DialogflowCxWebhookServiceDirectoryGenericWebService:
         webhook_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param uri: The webhook URI for receiving POST requests. It must use https protocol. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#uri DialogflowCxWebhook#uri}
-        :param allowed_ca_certs: Specifies a list of allowed custom CA certificates (in DER format) for HTTPS verification. This overrides the default SSL trust store. If this is empty or unspecified, Dialogflow will use Google's default trust store to verify certificates. N.B. Make sure the HTTPS server certificates are signed with "subject alt name". For instance a certificate can be self-signed using the following command, openssl x509 -req -days 200 -in example.com.csr -signkey example.com.key -out example.com.crt -extfile <(printf "\\nsubjectAltName='DNS:www.example.com'") Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#allowed_ca_certs DialogflowCxWebhook#allowed_ca_certs}
-        :param http_method: HTTP method for the flexible webhook calls. Standard webhook always uses POST. Possible values: ["POST", "GET", "HEAD", "PUT", "DELETE", "PATCH", "OPTIONS"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#http_method DialogflowCxWebhook#http_method}
-        :param oauth_config: oauth_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#oauth_config DialogflowCxWebhook#oauth_config}
-        :param parameter_mapping: Maps the values extracted from specific fields of the flexible webhook response into session parameters. - Key: session parameter name - Value: field path in the webhook response Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#parameter_mapping DialogflowCxWebhook#parameter_mapping}
-        :param request_body: Defines a custom JSON object as request body to send to flexible webhook. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#request_body DialogflowCxWebhook#request_body}
-        :param request_headers: The HTTP request headers to send together with webhook requests. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#request_headers DialogflowCxWebhook#request_headers}
-        :param secret_version_for_username_password: The SecretManager secret version resource storing the username:password pair for HTTP Basic authentication. Format: 'projects/{project}/secrets/{secret}/versions/{version}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#secret_version_for_username_password DialogflowCxWebhook#secret_version_for_username_password}
-        :param secret_versions_for_request_headers: secret_versions_for_request_headers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#secret_versions_for_request_headers DialogflowCxWebhook#secret_versions_for_request_headers}
-        :param service_agent_auth: Indicate the auth token type generated from the `Diglogflow service agent <https://cloud.google.com/iam/docs/service-agents#dialogflow-service-agent>`_. The generated token is sent in the Authorization header. Possible values: ["NONE", "ID_TOKEN", "ACCESS_TOKEN"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#service_agent_auth DialogflowCxWebhook#service_agent_auth}
-        :param webhook_type: Type of the webhook. Possible values: ["STANDARD", "FLEXIBLE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#webhook_type DialogflowCxWebhook#webhook_type}
+        :param uri: The webhook URI for receiving POST requests. It must use https protocol. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#uri DialogflowCxWebhook#uri}
+        :param allowed_ca_certs: Specifies a list of allowed custom CA certificates (in DER format) for HTTPS verification. This overrides the default SSL trust store. If this is empty or unspecified, Dialogflow will use Google's default trust store to verify certificates. N.B. Make sure the HTTPS server certificates are signed with "subject alt name". For instance a certificate can be self-signed using the following command, openssl x509 -req -days 200 -in example.com.csr -signkey example.com.key -out example.com.crt -extfile <(printf "\\nsubjectAltName='DNS:www.example.com'") Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#allowed_ca_certs DialogflowCxWebhook#allowed_ca_certs}
+        :param http_method: HTTP method for the flexible webhook calls. Standard webhook always uses POST. Possible values: ["POST", "GET", "HEAD", "PUT", "DELETE", "PATCH", "OPTIONS"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#http_method DialogflowCxWebhook#http_method}
+        :param oauth_config: oauth_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#oauth_config DialogflowCxWebhook#oauth_config}
+        :param parameter_mapping: Maps the values extracted from specific fields of the flexible webhook response into session parameters. - Key: session parameter name - Value: field path in the webhook response Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#parameter_mapping DialogflowCxWebhook#parameter_mapping}
+        :param request_body: Defines a custom JSON object as request body to send to flexible webhook. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#request_body DialogflowCxWebhook#request_body}
+        :param request_headers: The HTTP request headers to send together with webhook requests. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#request_headers DialogflowCxWebhook#request_headers}
+        :param secret_version_for_username_password: The SecretManager secret version resource storing the username:password pair for HTTP Basic authentication. Format: 'projects/{project}/secrets/{secret}/versions/{version}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#secret_version_for_username_password DialogflowCxWebhook#secret_version_for_username_password}
+        :param secret_versions_for_request_headers: secret_versions_for_request_headers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#secret_versions_for_request_headers DialogflowCxWebhook#secret_versions_for_request_headers}
+        :param service_agent_auth: Indicate the auth token type generated from the `Diglogflow service agent <https://cloud.google.com/iam/docs/service-agents#dialogflow-service-agent>`_. The generated token is sent in the Authorization header. Possible values: ["NONE", "ID_TOKEN", "ACCESS_TOKEN"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#service_agent_auth DialogflowCxWebhook#service_agent_auth}
+        :param webhook_type: Type of the webhook. Possible values: ["STANDARD", "FLEXIBLE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#webhook_type DialogflowCxWebhook#webhook_type}
         '''
         if isinstance(oauth_config, dict):
             oauth_config = DialogflowCxWebhookServiceDirectoryGenericWebServiceOauthConfig(**oauth_config)
@@ -1947,7 +1947,7 @@ class DialogflowCxWebhookServiceDirectoryGenericWebService:
     def uri(self) -> builtins.str:
         '''The webhook URI for receiving POST requests. It must use https protocol.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#uri DialogflowCxWebhook#uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#uri DialogflowCxWebhook#uri}
         '''
         result = self._values.get("uri")
         assert result is not None, "Required property 'uri' is missing"
@@ -1968,7 +1968,7 @@ class DialogflowCxWebhookServiceDirectoryGenericWebService:
         -out example.com.crt
         -extfile <(printf "\\nsubjectAltName='DNS:www.example.com'")
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#allowed_ca_certs DialogflowCxWebhook#allowed_ca_certs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#allowed_ca_certs DialogflowCxWebhook#allowed_ca_certs}
         '''
         result = self._values.get("allowed_ca_certs")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1980,7 +1980,7 @@ class DialogflowCxWebhookServiceDirectoryGenericWebService:
         Standard webhook always uses
         POST. Possible values: ["POST", "GET", "HEAD", "PUT", "DELETE", "PATCH", "OPTIONS"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#http_method DialogflowCxWebhook#http_method}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#http_method DialogflowCxWebhook#http_method}
         '''
         result = self._values.get("http_method")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1991,7 +1991,7 @@ class DialogflowCxWebhookServiceDirectoryGenericWebService:
     ) -> typing.Optional["DialogflowCxWebhookServiceDirectoryGenericWebServiceOauthConfig"]:
         '''oauth_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#oauth_config DialogflowCxWebhook#oauth_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#oauth_config DialogflowCxWebhook#oauth_config}
         '''
         result = self._values.get("oauth_config")
         return typing.cast(typing.Optional["DialogflowCxWebhookServiceDirectoryGenericWebServiceOauthConfig"], result)
@@ -2005,7 +2005,7 @@ class DialogflowCxWebhookServiceDirectoryGenericWebService:
         - Key: session parameter name
         - Value: field path in the webhook response
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#parameter_mapping DialogflowCxWebhook#parameter_mapping}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#parameter_mapping DialogflowCxWebhook#parameter_mapping}
         '''
         result = self._values.get("parameter_mapping")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -2014,7 +2014,7 @@ class DialogflowCxWebhookServiceDirectoryGenericWebService:
     def request_body(self) -> typing.Optional[builtins.str]:
         '''Defines a custom JSON object as request body to send to flexible webhook.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#request_body DialogflowCxWebhook#request_body}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#request_body DialogflowCxWebhook#request_body}
         '''
         result = self._values.get("request_body")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2025,7 +2025,7 @@ class DialogflowCxWebhookServiceDirectoryGenericWebService:
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''The HTTP request headers to send together with webhook requests.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#request_headers DialogflowCxWebhook#request_headers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#request_headers DialogflowCxWebhook#request_headers}
         '''
         result = self._values.get("request_headers")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -2034,7 +2034,7 @@ class DialogflowCxWebhookServiceDirectoryGenericWebService:
     def secret_version_for_username_password(self) -> typing.Optional[builtins.str]:
         '''The SecretManager secret version resource storing the username:password pair for HTTP Basic authentication. Format: 'projects/{project}/secrets/{secret}/versions/{version}'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#secret_version_for_username_password DialogflowCxWebhook#secret_version_for_username_password}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#secret_version_for_username_password DialogflowCxWebhook#secret_version_for_username_password}
         '''
         result = self._values.get("secret_version_for_username_password")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2045,7 +2045,7 @@ class DialogflowCxWebhookServiceDirectoryGenericWebService:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DialogflowCxWebhookServiceDirectoryGenericWebServiceSecretVersionsForRequestHeaders"]]]:
         '''secret_versions_for_request_headers block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#secret_versions_for_request_headers DialogflowCxWebhook#secret_versions_for_request_headers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#secret_versions_for_request_headers DialogflowCxWebhook#secret_versions_for_request_headers}
         '''
         result = self._values.get("secret_versions_for_request_headers")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["DialogflowCxWebhookServiceDirectoryGenericWebServiceSecretVersionsForRequestHeaders"]]], result)
@@ -2054,7 +2054,7 @@ class DialogflowCxWebhookServiceDirectoryGenericWebService:
     def service_agent_auth(self) -> typing.Optional[builtins.str]:
         '''Indicate the auth token type generated from the `Diglogflow service agent <https://cloud.google.com/iam/docs/service-agents#dialogflow-service-agent>`_. The generated token is sent in the Authorization header. Possible values: ["NONE", "ID_TOKEN", "ACCESS_TOKEN"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#service_agent_auth DialogflowCxWebhook#service_agent_auth}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#service_agent_auth DialogflowCxWebhook#service_agent_auth}
         '''
         result = self._values.get("service_agent_auth")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2063,7 +2063,7 @@ class DialogflowCxWebhookServiceDirectoryGenericWebService:
     def webhook_type(self) -> typing.Optional[builtins.str]:
         '''Type of the webhook. Possible values: ["STANDARD", "FLEXIBLE"].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#webhook_type DialogflowCxWebhook#webhook_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#webhook_type DialogflowCxWebhook#webhook_type}
         '''
         result = self._values.get("webhook_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2102,11 +2102,11 @@ class DialogflowCxWebhookServiceDirectoryGenericWebServiceOauthConfig:
         secret_version_for_client_secret: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param client_id: The client ID provided by the 3rd party platform. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#client_id DialogflowCxWebhook#client_id}
-        :param token_endpoint: The token endpoint provided by the 3rd party platform to exchange an access token. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#token_endpoint DialogflowCxWebhook#token_endpoint}
-        :param client_secret: The client secret provided by the 3rd party platform. If the 'secret_version_for_client_secret' field is set, this field will be ignored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#client_secret DialogflowCxWebhook#client_secret}
-        :param scopes: The OAuth scopes to grant. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#scopes DialogflowCxWebhook#scopes}
-        :param secret_version_for_client_secret: The name of the SecretManager secret version resource storing the client secret. If this field is set, the 'client_secret' field will be ignored. Format: 'projects/{project}/secrets/{secret}/versions/{version}' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#secret_version_for_client_secret DialogflowCxWebhook#secret_version_for_client_secret}
+        :param client_id: The client ID provided by the 3rd party platform. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#client_id DialogflowCxWebhook#client_id}
+        :param token_endpoint: The token endpoint provided by the 3rd party platform to exchange an access token. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#token_endpoint DialogflowCxWebhook#token_endpoint}
+        :param client_secret: The client secret provided by the 3rd party platform. If the 'secret_version_for_client_secret' field is set, this field will be ignored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#client_secret DialogflowCxWebhook#client_secret}
+        :param scopes: The OAuth scopes to grant. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#scopes DialogflowCxWebhook#scopes}
+        :param secret_version_for_client_secret: The name of the SecretManager secret version resource storing the client secret. If this field is set, the 'client_secret' field will be ignored. Format: 'projects/{project}/secrets/{secret}/versions/{version}' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#secret_version_for_client_secret DialogflowCxWebhook#secret_version_for_client_secret}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b3de165377f68e4dfac4fcb833658450aeef7a1c0d9cc0aa6617a6b71161a1e5)
@@ -2130,7 +2130,7 @@ class DialogflowCxWebhookServiceDirectoryGenericWebServiceOauthConfig:
     def client_id(self) -> builtins.str:
         '''The client ID provided by the 3rd party platform.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#client_id DialogflowCxWebhook#client_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#client_id DialogflowCxWebhook#client_id}
         '''
         result = self._values.get("client_id")
         assert result is not None, "Required property 'client_id' is missing"
@@ -2140,7 +2140,7 @@ class DialogflowCxWebhookServiceDirectoryGenericWebServiceOauthConfig:
     def token_endpoint(self) -> builtins.str:
         '''The token endpoint provided by the 3rd party platform to exchange an access token.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#token_endpoint DialogflowCxWebhook#token_endpoint}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#token_endpoint DialogflowCxWebhook#token_endpoint}
         '''
         result = self._values.get("token_endpoint")
         assert result is not None, "Required property 'token_endpoint' is missing"
@@ -2150,7 +2150,7 @@ class DialogflowCxWebhookServiceDirectoryGenericWebServiceOauthConfig:
     def client_secret(self) -> typing.Optional[builtins.str]:
         '''The client secret provided by the 3rd party platform.  If the 'secret_version_for_client_secret' field is set, this field will be ignored.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#client_secret DialogflowCxWebhook#client_secret}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#client_secret DialogflowCxWebhook#client_secret}
         '''
         result = self._values.get("client_secret")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2159,7 +2159,7 @@ class DialogflowCxWebhookServiceDirectoryGenericWebServiceOauthConfig:
     def scopes(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The OAuth scopes to grant.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#scopes DialogflowCxWebhook#scopes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#scopes DialogflowCxWebhook#scopes}
         '''
         result = self._values.get("scopes")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -2172,7 +2172,7 @@ class DialogflowCxWebhookServiceDirectoryGenericWebServiceOauthConfig:
         ignored.
         Format: 'projects/{project}/secrets/{secret}/versions/{version}'
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#secret_version_for_client_secret DialogflowCxWebhook#secret_version_for_client_secret}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#secret_version_for_client_secret DialogflowCxWebhook#secret_version_for_client_secret}
         '''
         result = self._values.get("secret_version_for_client_secret")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2355,11 +2355,11 @@ class DialogflowCxWebhookServiceDirectoryGenericWebServiceOutputReference(
         secret_version_for_client_secret: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param client_id: The client ID provided by the 3rd party platform. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#client_id DialogflowCxWebhook#client_id}
-        :param token_endpoint: The token endpoint provided by the 3rd party platform to exchange an access token. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#token_endpoint DialogflowCxWebhook#token_endpoint}
-        :param client_secret: The client secret provided by the 3rd party platform. If the 'secret_version_for_client_secret' field is set, this field will be ignored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#client_secret DialogflowCxWebhook#client_secret}
-        :param scopes: The OAuth scopes to grant. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#scopes DialogflowCxWebhook#scopes}
-        :param secret_version_for_client_secret: The name of the SecretManager secret version resource storing the client secret. If this field is set, the 'client_secret' field will be ignored. Format: 'projects/{project}/secrets/{secret}/versions/{version}' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#secret_version_for_client_secret DialogflowCxWebhook#secret_version_for_client_secret}
+        :param client_id: The client ID provided by the 3rd party platform. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#client_id DialogflowCxWebhook#client_id}
+        :param token_endpoint: The token endpoint provided by the 3rd party platform to exchange an access token. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#token_endpoint DialogflowCxWebhook#token_endpoint}
+        :param client_secret: The client secret provided by the 3rd party platform. If the 'secret_version_for_client_secret' field is set, this field will be ignored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#client_secret DialogflowCxWebhook#client_secret}
+        :param scopes: The OAuth scopes to grant. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#scopes DialogflowCxWebhook#scopes}
+        :param secret_version_for_client_secret: The name of the SecretManager secret version resource storing the client secret. If this field is set, the 'client_secret' field will be ignored. Format: 'projects/{project}/secrets/{secret}/versions/{version}' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#secret_version_for_client_secret DialogflowCxWebhook#secret_version_for_client_secret}
         '''
         value = DialogflowCxWebhookServiceDirectoryGenericWebServiceOauthConfig(
             client_id=client_id,
@@ -2643,8 +2643,8 @@ class DialogflowCxWebhookServiceDirectoryGenericWebServiceOutputReference(
 class DialogflowCxWebhookServiceDirectoryGenericWebServiceSecretVersionsForRequestHeaders:
     def __init__(self, *, key: builtins.str, secret_version: builtins.str) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#key DialogflowCxWebhook#key}.
-        :param secret_version: The SecretManager secret version resource storing the header value. Format: 'projects/{project}/secrets/{secret}/versions/{version}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#secret_version DialogflowCxWebhook#secret_version}
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#key DialogflowCxWebhook#key}.
+        :param secret_version: The SecretManager secret version resource storing the header value. Format: 'projects/{project}/secrets/{secret}/versions/{version}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#secret_version DialogflowCxWebhook#secret_version}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3275abae74f99a763d96fcdc9d70c6cb14a052433b4335904bf48ca500d7f2c3)
@@ -2657,7 +2657,7 @@ class DialogflowCxWebhookServiceDirectoryGenericWebServiceSecretVersionsForReque
 
     @builtins.property
     def key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#key DialogflowCxWebhook#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#key DialogflowCxWebhook#key}.'''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
         return typing.cast(builtins.str, result)
@@ -2666,7 +2666,7 @@ class DialogflowCxWebhookServiceDirectoryGenericWebServiceSecretVersionsForReque
     def secret_version(self) -> builtins.str:
         '''The SecretManager secret version resource storing the header value. Format: 'projects/{project}/secrets/{secret}/versions/{version}'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#secret_version DialogflowCxWebhook#secret_version}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#secret_version DialogflowCxWebhook#secret_version}
         '''
         result = self._values.get("secret_version")
         assert result is not None, "Required property 'secret_version' is missing"
@@ -2892,17 +2892,17 @@ class DialogflowCxWebhookServiceDirectoryOutputReference(
         webhook_type: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param uri: The webhook URI for receiving POST requests. It must use https protocol. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#uri DialogflowCxWebhook#uri}
-        :param allowed_ca_certs: Specifies a list of allowed custom CA certificates (in DER format) for HTTPS verification. This overrides the default SSL trust store. If this is empty or unspecified, Dialogflow will use Google's default trust store to verify certificates. N.B. Make sure the HTTPS server certificates are signed with "subject alt name". For instance a certificate can be self-signed using the following command, openssl x509 -req -days 200 -in example.com.csr -signkey example.com.key -out example.com.crt -extfile <(printf "\\nsubjectAltName='DNS:www.example.com'") Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#allowed_ca_certs DialogflowCxWebhook#allowed_ca_certs}
-        :param http_method: HTTP method for the flexible webhook calls. Standard webhook always uses POST. Possible values: ["POST", "GET", "HEAD", "PUT", "DELETE", "PATCH", "OPTIONS"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#http_method DialogflowCxWebhook#http_method}
-        :param oauth_config: oauth_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#oauth_config DialogflowCxWebhook#oauth_config}
-        :param parameter_mapping: Maps the values extracted from specific fields of the flexible webhook response into session parameters. - Key: session parameter name - Value: field path in the webhook response Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#parameter_mapping DialogflowCxWebhook#parameter_mapping}
-        :param request_body: Defines a custom JSON object as request body to send to flexible webhook. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#request_body DialogflowCxWebhook#request_body}
-        :param request_headers: The HTTP request headers to send together with webhook requests. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#request_headers DialogflowCxWebhook#request_headers}
-        :param secret_version_for_username_password: The SecretManager secret version resource storing the username:password pair for HTTP Basic authentication. Format: 'projects/{project}/secrets/{secret}/versions/{version}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#secret_version_for_username_password DialogflowCxWebhook#secret_version_for_username_password}
-        :param secret_versions_for_request_headers: secret_versions_for_request_headers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#secret_versions_for_request_headers DialogflowCxWebhook#secret_versions_for_request_headers}
-        :param service_agent_auth: Indicate the auth token type generated from the `Diglogflow service agent <https://cloud.google.com/iam/docs/service-agents#dialogflow-service-agent>`_. The generated token is sent in the Authorization header. Possible values: ["NONE", "ID_TOKEN", "ACCESS_TOKEN"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#service_agent_auth DialogflowCxWebhook#service_agent_auth}
-        :param webhook_type: Type of the webhook. Possible values: ["STANDARD", "FLEXIBLE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#webhook_type DialogflowCxWebhook#webhook_type}
+        :param uri: The webhook URI for receiving POST requests. It must use https protocol. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#uri DialogflowCxWebhook#uri}
+        :param allowed_ca_certs: Specifies a list of allowed custom CA certificates (in DER format) for HTTPS verification. This overrides the default SSL trust store. If this is empty or unspecified, Dialogflow will use Google's default trust store to verify certificates. N.B. Make sure the HTTPS server certificates are signed with "subject alt name". For instance a certificate can be self-signed using the following command, openssl x509 -req -days 200 -in example.com.csr -signkey example.com.key -out example.com.crt -extfile <(printf "\\nsubjectAltName='DNS:www.example.com'") Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#allowed_ca_certs DialogflowCxWebhook#allowed_ca_certs}
+        :param http_method: HTTP method for the flexible webhook calls. Standard webhook always uses POST. Possible values: ["POST", "GET", "HEAD", "PUT", "DELETE", "PATCH", "OPTIONS"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#http_method DialogflowCxWebhook#http_method}
+        :param oauth_config: oauth_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#oauth_config DialogflowCxWebhook#oauth_config}
+        :param parameter_mapping: Maps the values extracted from specific fields of the flexible webhook response into session parameters. - Key: session parameter name - Value: field path in the webhook response Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#parameter_mapping DialogflowCxWebhook#parameter_mapping}
+        :param request_body: Defines a custom JSON object as request body to send to flexible webhook. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#request_body DialogflowCxWebhook#request_body}
+        :param request_headers: The HTTP request headers to send together with webhook requests. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#request_headers DialogflowCxWebhook#request_headers}
+        :param secret_version_for_username_password: The SecretManager secret version resource storing the username:password pair for HTTP Basic authentication. Format: 'projects/{project}/secrets/{secret}/versions/{version}'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#secret_version_for_username_password DialogflowCxWebhook#secret_version_for_username_password}
+        :param secret_versions_for_request_headers: secret_versions_for_request_headers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#secret_versions_for_request_headers DialogflowCxWebhook#secret_versions_for_request_headers}
+        :param service_agent_auth: Indicate the auth token type generated from the `Diglogflow service agent <https://cloud.google.com/iam/docs/service-agents#dialogflow-service-agent>`_. The generated token is sent in the Authorization header. Possible values: ["NONE", "ID_TOKEN", "ACCESS_TOKEN"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#service_agent_auth DialogflowCxWebhook#service_agent_auth}
+        :param webhook_type: Type of the webhook. Possible values: ["STANDARD", "FLEXIBLE"]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#webhook_type DialogflowCxWebhook#webhook_type}
         '''
         value = DialogflowCxWebhookServiceDirectoryGenericWebService(
             uri=uri,
@@ -2985,9 +2985,9 @@ class DialogflowCxWebhookTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#create DialogflowCxWebhook#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#delete DialogflowCxWebhook#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#update DialogflowCxWebhook#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#create DialogflowCxWebhook#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#delete DialogflowCxWebhook#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#update DialogflowCxWebhook#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7c842b11bc836b822e631dc09ea9fdab93263ac1b64292e9ffd608d1ed25c44f)
@@ -3004,19 +3004,19 @@ class DialogflowCxWebhookTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#create DialogflowCxWebhook#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#create DialogflowCxWebhook#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#delete DialogflowCxWebhook#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#delete DialogflowCxWebhook#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/dialogflow_cx_webhook#update DialogflowCxWebhook#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/dialogflow_cx_webhook#update DialogflowCxWebhook#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

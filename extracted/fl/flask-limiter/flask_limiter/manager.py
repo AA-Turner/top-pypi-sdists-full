@@ -3,22 +3,26 @@ from __future__ import annotations
 import itertools
 import logging
 from collections.abc import Iterable
+from typing import TYPE_CHECKING
 
 import flask
 from ordered_set import OrderedSet
 
 from .constants import ExemptionScope
+from .limits import ApplicationLimit, RuntimeLimit
 from .util import get_qualified_name
-from .wrappers import Limit, LimitGroup
+
+if TYPE_CHECKING:
+    from . import Limit
 
 
 class LimitManager:
     def __init__(
         self,
-        application_limits: list[LimitGroup],
-        default_limits: list[LimitGroup],
-        decorated_limits: dict[str, OrderedSet[LimitGroup]],
-        blueprint_limits: dict[str, OrderedSet[LimitGroup]],
+        application_limits: list[ApplicationLimit],
+        default_limits: list[Limit],
+        decorated_limits: dict[str, OrderedSet[Limit]],
+        blueprint_limits: dict[str, OrderedSet[Limit]],
         route_exemptions: dict[str, ExemptionScope],
         blueprint_exemptions: dict[str, ExemptionScope],
     ) -> None:
@@ -32,29 +36,27 @@ class LimitManager:
         self._logger = logging.getLogger("flask-limiter")
 
     @property
-    def application_limits(self) -> list[Limit]:
+    def application_limits(self) -> list[RuntimeLimit]:
         return list(itertools.chain(*self._application_limits))
 
     @property
-    def default_limits(self) -> list[Limit]:
+    def default_limits(self) -> list[RuntimeLimit]:
         return list(itertools.chain(*self._default_limits))
 
-    def set_application_limits(self, limits: list[LimitGroup]) -> None:
+    def set_application_limits(self, limits: list[ApplicationLimit]) -> None:
         self._application_limits = limits
 
-    def set_default_limits(self, limits: list[LimitGroup]) -> None:
+    def set_default_limits(self, limits: list[Limit]) -> None:
         self._default_limits = limits
 
-    def add_decorated_limit(
-        self, route: str, limit: LimitGroup | None, override: bool = False
-    ) -> None:
+    def add_decorated_limit(self, route: str, limit: Limit | None, override: bool = False) -> None:
         if limit:
             if not override:
                 self._decorated_limits.setdefault(route, OrderedSet()).add(limit)
             else:
                 self._decorated_limits[route] = OrderedSet([limit])
 
-    def add_blueprint_limit(self, blueprint: str, limit: LimitGroup | None) -> None:
+    def add_blueprint_limit(self, blueprint: str, limit: Limit | None) -> None:
         if limit:
             self._blueprint_limits.setdefault(blueprint, OrderedSet()).add(limit)
 
@@ -78,7 +80,7 @@ class LimitManager:
         callable_name: str | None = None,
         in_middleware: bool = False,
         marked_for_limiting: bool = False,
-    ) -> tuple[list[Limit], ...]:
+    ) -> tuple[list[RuntimeLimit], ...]:
         before_request_context = in_middleware and marked_for_limiting
         decorated_limits = []
         hinted_limits = []
@@ -113,23 +115,17 @@ class LimitManager:
         # all  the decorated limits explicitly declared
         # that they don't override the defaults - so, they should
         # be included.
-        combined_defaults = all(
-            not limit.override_defaults for limit in decorated_limits
-        )
+        combined_defaults = all(not limit.override_defaults for limit in decorated_limits)
         # previous requests to this endpoint have exercised decorated
         # rate limits on callables that are not view functions. check
         # if all of them declared that they don't override defaults
         # and if so include the default limits.
         hinted_limits_request_defaults = (
-            all(not limit.override_defaults for limit in hinted_limits)
-            if hinted_limits
-            else False
+            all(not limit.override_defaults for limit in hinted_limits) if hinted_limits else False
         )
         if (
             (explicit_limits_exempt or combined_defaults)
-            and (
-                not (before_request_context or exemption_scope & ExemptionScope.DEFAULT)
-            )
+            and (not (before_request_context or exemption_scope & ExemptionScope.DEFAULT))
         ) or hinted_limits_request_defaults:
             all_limits += self.default_limits
         return all_limits, decorated_limits
@@ -151,15 +147,14 @@ class LimitManager:
                 ancestor_exemption_scopes,
             ) = self._blueprint_exemption_scope(app, blueprint)
             if (
-                blueprint_exemption_scope
-                & ~(ExemptionScope.DEFAULT | ExemptionScope.APPLICATION)
+                blueprint_exemption_scope & ~(ExemptionScope.DEFAULT | ExemptionScope.APPLICATION)
                 or ancestor_exemption_scopes
             ):
                 for exemption in ancestor_exemption_scopes.values():
                     blueprint_exemption_scope |= exemption
             return route_exemption_scope | blueprint_exemption_scope
 
-    def decorated_limits(self, callable_name: str) -> list[Limit]:
+    def decorated_limits(self, callable_name: str) -> list[RuntimeLimit]:
         limits = []
         if not self._route_exemptions.get(callable_name, ExemptionScope.NONE):
             if callable_name in self._decorated_limits:
@@ -173,25 +168,19 @@ class LimitManager:
                         )
         return limits
 
-    def blueprint_limits(self, app: flask.Flask, blueprint: str) -> list[Limit]:
-        limits: list[Limit] = []
+    def blueprint_limits(self, app: flask.Flask, blueprint: str) -> list[RuntimeLimit]:
+        limits: list[RuntimeLimit] = []
 
         blueprint_instance = app.blueprints.get(blueprint) if blueprint else None
         if blueprint_instance:
             blueprint_name = blueprint_instance.name
             blueprint_ancestory = set(blueprint.split(".") if blueprint else [])
 
-            self_exemption, ancestor_exemptions = self._blueprint_exemption_scope(
-                app, blueprint
-            )
+            self_exemption, ancestor_exemptions = self._blueprint_exemption_scope(app, blueprint)
 
-            if not (
-                self_exemption & ~(ExemptionScope.DEFAULT | ExemptionScope.APPLICATION)
-            ):
-                blueprint_self_limits = self._blueprint_limits.get(
-                    blueprint_name, OrderedSet()
-                )
-                blueprint_limits: Iterable[LimitGroup] = (
+            if not (self_exemption & ~(ExemptionScope.DEFAULT | ExemptionScope.APPLICATION)):
+                blueprint_self_limits = self._blueprint_limits.get(blueprint_name, OrderedSet())
+                blueprint_limits: Iterable[Limit] = (
                     itertools.chain(
                         *(
                             self._blueprint_limits.get(member, [])
@@ -202,13 +191,9 @@ class LimitManager:
                     )
                     if not (
                         blueprint_self_limits
-                        and all(
-                            limit.override_defaults for limit in blueprint_self_limits
-                        )
+                        and all(limit.override_defaults for limit in blueprint_self_limits)
                     )
-                    and not self._blueprint_exemptions.get(
-                        blueprint_name, ExemptionScope.NONE
-                    )
+                    and not self._blueprint_exemptions.get(blueprint_name, ExemptionScope.NONE)
                     & ExemptionScope.ANCESTORS
                     else blueprint_self_limits
                 )
@@ -217,7 +202,7 @@ class LimitManager:
                         try:
                             limits.extend(
                                 [
-                                    Limit(
+                                    RuntimeLimit(
                                         limit.limit,
                                         limit.key_func,
                                         limit.scope,
@@ -250,12 +235,9 @@ class LimitManager:
 
         ancestory = set(blueprint_name.split("."))
         ancestor_exemption = {
-            k
-            for k, f in self._blueprint_exemptions.items()
-            if f & ExemptionScope.DESCENDENTS
+            k for k, f in self._blueprint_exemptions.items() if f & ExemptionScope.DESCENDENTS
         }.intersection(ancestory)
 
         return exemption, {
-            k: self._blueprint_exemptions.get(k, ExemptionScope.NONE)
-            for k in ancestor_exemption
+            k: self._blueprint_exemptions.get(k, ExemptionScope.NONE) for k in ancestor_exemption
         }

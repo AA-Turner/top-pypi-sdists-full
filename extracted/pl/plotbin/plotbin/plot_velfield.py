@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-  Copyright (C) 2013-2022, Michele Cappellari
+  Copyright (C) 2013-2025, Michele Cappellari
   E-mail: michele.cappellari_at_physics.ox.ac.uk
   http://purl.org/cappellari/software
 
@@ -42,12 +42,16 @@ MODIFICATION HISTORY:
         Ensure ticks are within the given limits (to fix a new Matplotlib bug).
         Use default_rng instead of deprecated numpy.random. 
         MC, Oxford, 4 June 2024
+    V1.1.8: Removed dependency on mpl_toolkits.axes_grid1.make_axes_locatable.
+        This fixes a new Matplotlib bug when saving the colorbar to a PDF file.
+        MC, Oxford, 12 December 2024
+    V1.1.9: Allow for negative flux values in log contour plot. 
+        MC, Oxford, 30 August 2025
 
 """
 
 import numpy as np
 from matplotlib import pyplot as plt
-from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.ticker import MaxNLocator
 
 from plotbin.sauron_colormap import register_sauron_colormap
@@ -88,20 +92,16 @@ def plot_velfield(x, y, vel, vmin=None, vmax=None, ncolors=64,
     cnt.set_edgecolor("face")  
 
     ax.axis('image')  # Equal axes and no rescaling
-    ax.minorticks_on()
-    ax.tick_params(length=10, which='major')
-    ax.tick_params(length=5, which='minor')
 
     if flux[0] is not None:
-        ax.tricontour(x, y, -2.5*np.log10(flux/np.max(flux).ravel()),
-                      levels=np.arange(20), colors=linescolor)  # 1 mag contours
+        levels = np.max(flux)*10**(-0.4*np.arange(20)[::-1])  # 1 mag contours
+        ax.tricontour(x, y, flux, levels=levels, colors=linescolor) 
 
     if not nodots:
         ax.plot(x, y, '.k', markersize=markersize, **kwargs)
 
     if colorbar:
-        divider = make_axes_locatable(ax)
-        cax = divider.append_axes("right", size="5%", pad=0.1)
+        cax = ax.inset_axes([1.02, 0, .05, 1], transform=ax.transAxes)
         ticks = MaxNLocator(nticks).tick_values(vmin, vmax)
         ticks = ticks[(ticks >= vmin) & (ticks <= vmax)]  # Fix Matplotlib bug
         cbar = plt.colorbar(cnt, cax=cax, ticks=ticks)
@@ -129,4 +129,4 @@ if __name__ == '__main__':
     plt.clf()
     plt.title('Velocity')
     plot_velfield(xbin, ybin, vel, flux=flux, colorbar=True, label='km/s', vmin=-120, vmax=120)
-    plt.pause(1)
+    plt.pause(10)

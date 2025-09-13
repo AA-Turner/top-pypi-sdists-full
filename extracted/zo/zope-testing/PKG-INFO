@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: zope.testing
-Version: 5.1
+Version: 6.0
 Summary: Zope testing helpers
 Home-page: https://github.com/zopefoundation/zope.testing
 Author: Zope Foundation and Contributors
@@ -29,12 +29,24 @@ Requires-Python: >=3.9
 License-File: LICENSE.txt
 Requires-Dist: setuptools
 Provides-Extra: test
-Requires-Dist: zope.testrunner; extra == "test"
+Requires-Dist: zope.testrunner>=6.4; extra == "test"
 Provides-Extra: docs
 Requires-Dist: sphinx; extra == "docs"
 Requires-Dist: repoze.sphinx.autointerface; extra == "docs"
 Requires-Dist: zope.exceptions; extra == "docs"
 Requires-Dist: zope.interface; extra == "docs"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 =================
 ``zope.testing``
@@ -115,6 +127,12 @@ Now, run ``tox`` to run the ``zope.testing`` test suite.
 =========
  Changes
 =========
+
+6.0 (2025-09-12)
+================
+
+- Replace ``pkg_resources`` namespace with PEP 420 native namespace.
+
 
 5.1 (2025-02-14)
 ================

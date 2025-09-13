@@ -15196,7 +15196,7 @@ async def bots_by_inline(chat_id, message, BASE_P):
     return result
 
 
-async def get_buttons_main(lz, bot_un, BASE_P):
+async def get_buttons_main(lz, bot_un, BASE_P, text_like=None):
     result = []
     try:
         url_usr = f"tg://user?id={my_tid}" if random.choice([True, False]) else 'https://t.me/ferey_support?text=hi'
@@ -15206,7 +15206,8 @@ async def get_buttons_main(lz, bot_un, BASE_P):
         else:
             url_share = f'https://t.me/share/url?url=https%3A%2F%2Ft.me%2F{bot_un}&text=%40{bot_un}'
         web_app_ = types.WebAppInfo(url='https://telegra.ph/Links-07-05-462')   # "ᵗᶢᴿᴬᴾᴴ"  "ᶜᵸᴬᴺᴺᴱᴸ"
-        text_like = await read_likes(BASE_P) if random.choice([True, False]) else '⁰⁰⁰'
+        if not text_like:
+            text_like = await read_likes(BASE_P) if random.choice([True, False]) else '⁰⁰⁰'
 
         result = [
             types.InlineKeyboardButton(text="👩🏽‍💼", url=url_usr),

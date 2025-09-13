@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zope.i18n
-Version: 5.3
+Version: 6.0
 Summary: Zope Internationalization Support
 Home-page: https://github.com/zopefoundation/zope.i18n
 Author: Zope Foundation and Contributors
@@ -39,7 +39,7 @@ Requires-Dist: zope.configuration; extra == "test"
 Requires-Dist: zope.security; extra == "test"
 Requires-Dist: zope.publisher; extra == "test"
 Requires-Dist: zope.testing; extra == "test"
-Requires-Dist: zope.testrunner; extra == "test"
+Requires-Dist: zope.testrunner>=6.4; extra == "test"
 Provides-Extra: compile
 Provides-Extra: zcml
 Requires-Dist: zope.component[zcml]; extra == "zcml"
@@ -99,6 +99,12 @@ localization.
 =========
  CHANGES
 =========
+
+6.0 (2025-09-12)
+================
+
+- Replace ``pkg_resources`` namespace with PEP 420 native namespace.
+
 
 5.3 (2025-07-23)
 ================

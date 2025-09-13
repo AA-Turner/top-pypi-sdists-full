@@ -684,6 +684,7 @@ __all__ = [
     'DashboardDataPointDrillUpDownOption',
     'DashboardDataPointMenuLabelOption',
     'DashboardDataPointTooltipOption',
+    'DashboardDataQaEnabledOption',
     'DashboardDataSetIdentifierDeclaration',
     'DashboardDataSetReference',
     'DashboardDateAxisOptions',
@@ -38513,7 +38514,11 @@ class DashboardAssetOptions(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "weekStart":
+        if key == "excludedDataSetArns":
+            suggest = "excluded_data_set_arns"
+        elif key == "qBusinessInsightsStatus":
+            suggest = "q_business_insights_status"
+        elif key == "weekStart":
             suggest = "week_start"
 
         if suggest:
@@ -38528,16 +38533,32 @@ class DashboardAssetOptions(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
+                 excluded_data_set_arns: Optional[Sequence[builtins.str]] = None,
+                 q_business_insights_status: Optional['DashboardQBusinessInsightsStatus'] = None,
                  timezone: Optional[builtins.str] = None,
                  week_start: Optional['DashboardDayOfTheWeek'] = None):
         """
         :param builtins.str timezone: Determines the timezone for the analysis.
         :param 'DashboardDayOfTheWeek' week_start: Determines the week start day for an analysis.
         """
+        if excluded_data_set_arns is not None:
+            pulumi.set(__self__, "excluded_data_set_arns", excluded_data_set_arns)
+        if q_business_insights_status is not None:
+            pulumi.set(__self__, "q_business_insights_status", q_business_insights_status)
         if timezone is not None:
             pulumi.set(__self__, "timezone", timezone)
         if week_start is not None:
             pulumi.set(__self__, "week_start", week_start)
+
+    @property
+    @pulumi.getter(name="excludedDataSetArns")
+    def excluded_data_set_arns(self) -> Optional[Sequence[builtins.str]]:
+        return pulumi.get(self, "excluded_data_set_arns")
+
+    @property
+    @pulumi.getter(name="qBusinessInsightsStatus")
+    def q_business_insights_status(self) -> Optional['DashboardQBusinessInsightsStatus']:
+        return pulumi.get(self, "q_business_insights_status")
 
     @property
     @pulumi.getter
@@ -44753,6 +44774,36 @@ class DashboardDataPointTooltipOption(dict):
         """
         The status of the data point tool tip options.
         """
+        return pulumi.get(self, "availability_status")
+
+
+@pulumi.output_type
+class DashboardDataQaEnabledOption(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "availabilityStatus":
+            suggest = "availability_status"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in DashboardDataQaEnabledOption. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        DashboardDataQaEnabledOption.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        DashboardDataQaEnabledOption.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 availability_status: Optional['DashboardBehavior'] = None):
+        if availability_status is not None:
+            pulumi.set(__self__, "availability_status", availability_status)
+
+    @property
+    @pulumi.getter(name="availabilityStatus")
+    def availability_status(self) -> Optional['DashboardBehavior']:
         return pulumi.get(self, "availability_status")
 
 
@@ -63520,6 +63571,8 @@ class DashboardPublishOptions(dict):
             suggest = "data_point_menu_label_option"
         elif key == "dataPointTooltipOption":
             suggest = "data_point_tooltip_option"
+        elif key == "dataQaEnabledOption":
+            suggest = "data_qa_enabled_option"
         elif key == "exportToCsvOption":
             suggest = "export_to_csv_option"
         elif key == "exportWithHiddenFieldsOption":
@@ -63551,6 +63604,7 @@ class DashboardPublishOptions(dict):
                  data_point_drill_up_down_option: Optional['outputs.DashboardDataPointDrillUpDownOption'] = None,
                  data_point_menu_label_option: Optional['outputs.DashboardDataPointMenuLabelOption'] = None,
                  data_point_tooltip_option: Optional['outputs.DashboardDataPointTooltipOption'] = None,
+                 data_qa_enabled_option: Optional['outputs.DashboardDataQaEnabledOption'] = None,
                  export_to_csv_option: Optional['outputs.DashboardExportToCsvOption'] = None,
                  export_with_hidden_fields_option: Optional['outputs.DashboardExportWithHiddenFieldsOption'] = None,
                  sheet_controls_option: Optional['outputs.DashboardSheetControlsOption'] = None,
@@ -63580,6 +63634,8 @@ class DashboardPublishOptions(dict):
             pulumi.set(__self__, "data_point_menu_label_option", data_point_menu_label_option)
         if data_point_tooltip_option is not None:
             pulumi.set(__self__, "data_point_tooltip_option", data_point_tooltip_option)
+        if data_qa_enabled_option is not None:
+            pulumi.set(__self__, "data_qa_enabled_option", data_qa_enabled_option)
         if export_to_csv_option is not None:
             pulumi.set(__self__, "export_to_csv_option", export_to_csv_option)
         if export_with_hidden_fields_option is not None:
@@ -63626,6 +63682,11 @@ class DashboardPublishOptions(dict):
         The data point tool tip options of a dashboard.
         """
         return pulumi.get(self, "data_point_tooltip_option")
+
+    @property
+    @pulumi.getter(name="dataQaEnabledOption")
+    def data_qa_enabled_option(self) -> Optional['outputs.DashboardDataQaEnabledOption']:
+        return pulumi.get(self, "data_qa_enabled_option")
 
     @property
     @pulumi.getter(name="exportToCsvOption")

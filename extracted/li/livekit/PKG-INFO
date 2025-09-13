@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: livekit
-Version: 1.0.12
+Version: 1.0.13
 Summary: Python Real-time SDK for LiveKit
 Home-page: https://github.com/livekit/python-sdks
 License: Apache-2.0

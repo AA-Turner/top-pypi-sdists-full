@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hud-python
-Version: 0.4.22
+Version: 0.4.24
 Summary: SDK for the HUD platform.
 Project-URL: Homepage, https://github.com/hud-evals/hud-python
 Project-URL: Bug Tracker, https://github.com/hud-evals/hud-python/issues
@@ -66,6 +66,7 @@ Requires-Dist: langchain-anthropic; extra == 'agent'
 Requires-Dist: langchain-openai; extra == 'agent'
 Requires-Dist: numpy>=1.24.0; extra == 'agent'
 Requires-Dist: openai; extra == 'agent'
+Requires-Dist: pillow>=11.1.0; extra == 'agent'
 Provides-Extra: agents
 Requires-Dist: anthropic; extra == 'agents'
 Requires-Dist: datasets>=2.14.0; extra == 'agents'
@@ -79,6 +80,7 @@ Requires-Dist: langchain-anthropic; extra == 'agents'
 Requires-Dist: langchain-openai; extra == 'agents'
 Requires-Dist: numpy>=1.24.0; extra == 'agents'
 Requires-Dist: openai; extra == 'agents'
+Requires-Dist: pillow>=11.1.0; extra == 'agents'
 Provides-Extra: dev
 Requires-Dist: aiodocker>=0.24.0; extra == 'dev'
 Requires-Dist: anthropic; extra == 'dev'

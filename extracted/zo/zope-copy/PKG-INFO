@@ -1,11 +1,11 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: zope.copy
-Version: 5.0
+Version: 6.0
 Summary: Pluggable object copying mechanism
 Home-page: http://github.com/zopefoundation/zope.copy
 Author: Zope Foundation and Contributors
-Author-email: zope-dev@zope.org
-License: ZPL 2.1
+Author-email: zope-dev@zope.dev
+License: ZPL-2.1
 Keywords: zope3 copying cloning
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: Zope :: 3
@@ -14,7 +14,6 @@ Classifier: License :: OSI Approved :: Zope Public License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -23,7 +22,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Database
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 License-File: LICENSE.txt
 Requires-Dist: setuptools
 Requires-Dist: zodbpickle
@@ -32,10 +31,22 @@ Provides-Extra: test
 Requires-Dist: zope.component; extra == "test"
 Requires-Dist: zope.location; extra == "test"
 Requires-Dist: zope.testing; extra == "test"
-Requires-Dist: zope.testrunner; extra == "test"
+Requires-Dist: zope.testrunner>=6.4; extra == "test"
 Provides-Extra: docs
 Requires-Dist: Sphinx; extra == "docs"
 Requires-Dist: repoze.sphinx.autointerface; extra == "docs"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 ===============
  ``zope.copy``
@@ -67,6 +78,14 @@ Documentation is hosted at https://zopecopy.readthedocs.io/
 =========
  Changes
 =========
+
+6.0 (2025-09-12)
+================
+
+- Replace ``pkg_resources`` namespace with PEP 420 native namespace.
+
+- Drop support for Python 3.8.
+
 
 5.0 (2024-10-25)
 ================

@@ -119,7 +119,6 @@ class StartInteractiveSessionBlock:
             python_version=self.connection_info.get("python_version"),
             ray_version=self.connection_info.get("ray_version"),
             ray_commit=self.connection_info.get("ray_commit"),
-            protocol_version=self.connection_info.get("protocol_version"),
             _num_clients=self.connection_info.get("num_clients"),
         )
         self.log.info(

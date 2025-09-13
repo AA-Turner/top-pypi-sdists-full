@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: zope.publisher
-Version: 7.3
+Version: 8.0
 Summary: The Zope publisher publishes Python objects on the web.
 Home-page: https://github.com/zopefoundation/zope.publisher
 Author: Zope Foundation and Contributors
@@ -38,11 +38,22 @@ Requires-Dist: zope.proxy
 Requires-Dist: zope.security>=4.0.0
 Provides-Extra: test
 Requires-Dist: zope.testing; extra == "test"
-Requires-Dist: zope.testrunner; extra == "test"
+Requires-Dist: zope.testrunner>=6.4; extra == "test"
 Provides-Extra: docs
 Requires-Dist: Sphinx; extra == "docs"
 Requires-Dist: repoze.sphinx.autointerface; extra == "docs"
 Requires-Dist: sphinx_rtd_theme; extra == "docs"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 ================
  zope.publisher
@@ -68,6 +79,11 @@ Documentation is hosted at https://zopepublisher.readthedocs.io/
 =========
  Changes
 =========
+
+8.0 (2025-09-12)
+================
+
+- Replace ``pkg_resources`` namespace with PEP 420 native namespace.
 
 7.3 (2025-03-05)
 ================

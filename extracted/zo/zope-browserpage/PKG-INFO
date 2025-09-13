@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zope.browserpage
-Version: 5.1
+Version: 6.0
 Summary: ZCML directives for configuring browser views for Zope.
 Home-page: https://github.com/zopefoundation/zope.browserpage
 Author: Zope Foundation and Contributors
@@ -38,7 +38,7 @@ Requires-Dist: zope.browsermenu; extra == "menu"
 Provides-Extra: test
 Requires-Dist: zope.browsermenu; extra == "test"
 Requires-Dist: zope.testing; extra == "test"
-Requires-Dist: zope.testrunner; extra == "test"
+Requires-Dist: zope.testrunner>=6.4; extra == "test"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -90,6 +90,12 @@ the menu attribute.
 =========
  Changes
 =========
+
+6.0 (2025-09-12)
+================
+
+- Replace ``pkg_resources`` namespace with PEP 420 native namespace.
+
 
 5.1 (2025-06-26)
 ================

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hf-xet
-Version: 1.1.9
+Version: 1.1.10
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython

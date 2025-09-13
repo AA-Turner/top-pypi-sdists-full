@@ -1,30 +1,31 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.3
 Name: pysnc
-Version: 1.1.10
+Version: 1.2.0
 Summary: Python SNC (REST) API
-Home-page: https://github.com/ServiceNow/PySNC
 License: MIT
 Keywords: servicenow,snc
 Author: Matthew Gill
 Author-email: matthew.gill@servicenow.com
-Requires-Python: >=3.8,<4.0
+Requires-Python: >=3.9,<4.0
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.7
+Provides-Extra: asyncio
 Provides-Extra: oauth
+Requires-Dist: asyncio (>=4.0.0,<5.0.0) ; extra == "asyncio"
 Requires-Dist: certifi (>=2024.7.4,<2025.0.0)
-Requires-Dist: requests (>=2.31.0,<3.0.0)
+Requires-Dist: httpx (>=0.28.1,<0.29.0) ; extra == "asyncio"
+Requires-Dist: requests (>=2.32)
 Requires-Dist: requests-oauthlib (>=1.2.0) ; extra == "oauth"
-Requires-Dist: urllib3 (>=2.0.7,<3.0.0)
+Requires-Dist: urllib3 (>=2.5)
 Project-URL: Documentation, https://servicenow.github.io/PySNC/
 Project-URL: Repository, https://github.com/ServiceNow/PySNC
 Description-Content-Type: text/markdown
@@ -41,6 +42,12 @@ Spawned from the desire to interact with ServiceNow data in a familiar and consi
 
 ```
 pip install pysnc
+```
+
+If you also want to install the asyncio support, you can run:
+
+```
+pip install pysnc[asyncio]
 ```
 
 ## Quick Start

@@ -461,6 +461,7 @@ class SEQUENCER_MT_marker(_bpy_types.Menu):
 
 class SEQUENCER_MT_modifier_add(_bpy_types.Menu):
     MODIFIER_TYPES_I18N_CONTEXT: typing.Any
+    MODIFIER_TYPES_TO_ICONS: typing.Any
     MODIFIER_TYPES_TO_LABELS: typing.Any
     bl_label: typing.Any
     bl_options: typing.Any

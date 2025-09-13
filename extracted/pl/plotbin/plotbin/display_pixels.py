@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-Copyright (C) 2014-2017, Michele Cappellari
+Copyright (C) 2014-2023, Michele Cappellari
 E-mail: michele.cappellari_at_physics.ox.ac.uk
 
 Updated versions of the software are available from my web page
@@ -37,12 +37,18 @@ MODIFICATION HISTORY:
         MC, Oxford, 9 November 2017
     V1.1.7: Changed imports for plotbin as a package. MC, Oxford, 17 April 2018
     V1.1.8: Use default size for tick marks. MC, Oxford, 12 December 2023
-    
+    V1.1.9: Removed edgecolors="face" in pcolormesh to avoid possible spurious
+        artifacts, introduced by Matplotlib changes. MC, Oxford, 16 August 2024
+    V1.1.10: Removed dependency on mpl_toolkits.axes_grid1.make_axes_locatable.
+        This fixes a new Matplotlib bug when saving the colorbar to a PDF file.
+        MC, Oxford, 12 December 2024
+    V1.2.0: Use KDTree for pixel size estimation. Removed masked_array logic.
+        Updated usage example. MC, Oxford, 7 September 2025
+
 """
 import matplotlib.pyplot as plt
-from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.ticker import MaxNLocator
-from scipy.spatial import distance
+from scipy.spatial import KDTree
 import numpy as np
 
 from plotbin.sauron_colormap import register_sauron_colormap
@@ -60,11 +66,17 @@ def display_pixels(x, y, val, pixelsize=None, vmin=None, vmax=None,
     constant spacing (like an axis-aligned image), but not all elements of
     the grid are required (missing data are OK).
 
-    By default the program checks that the data form a regular grid within 10%
+    By default, the program checks that the data form a regular grid within 10%
     of the pixel size. One can ignore this check with ``check_grid=False``
 
     This routine is designed to be fast even with large images and to produce
     minimal file sizes when the output is saved in a vector format like PDF.
+
+    NOTE: To avoid possible small white gaps between the pixels in the PDF, one
+    may try to pass to `display_pixels` the parameters `edgecolors="face"` and
+    something like `linewidth=.01`. However, I found the above `linewidth` to
+    be suitable for the PDF but to produce too thick edges on the screen.
+    Alternatively, one can set `rasterized="True"`.
 
     """
     x, y, val = map(np.ravel, [x, y, val])
@@ -81,10 +93,9 @@ def display_pixels(x, y, val, pixelsize=None, vmin=None, vmax=None,
         vmax = np.max(val)
 
     if pixelsize is None:
-        if x.size < 1e4:
-            pixelsize = np.min(distance.pdist(np.column_stack([x, y])))
-        else:
-            raise ValueError("Dataset is large: Provide `pixelsize`")
+        xy = np.c_[x, y]
+        dist, _ = KDTree(xy).query(xy, [2])
+        pixelsize = np.median(dist)
 
     xmin, xmax = np.min(x), np.max(x)
     ymin, ymax = np.min(y), np.max(y)
@@ -92,13 +103,10 @@ def display_pixels(x, y, val, pixelsize=None, vmin=None, vmax=None,
     y1 = (y - ymin)/pixelsize
     nx = int(round((xmax - xmin)/pixelsize) + 1)
     ny = int(round((ymax - ymin)/pixelsize) + 1)
-    mask = np.ones((nx, ny), dtype=bool)
-    img = np.empty((nx, ny))
+    img = np.full((nx, ny), np.nan)  # use nan for missing data
     j = np.round(x1).astype(int)
     k = np.round(y1).astype(int)
-    mask[j, k] = 0
     img[j, k] = val
-    img = np.ma.masked_array(img, mask)
 
     if check_grid:
         assert np.all(np.abs(np.append(j - x1, k - y1)) < 0.1), \
@@ -107,34 +115,20 @@ def display_pixels(x, y, val, pixelsize=None, vmin=None, vmax=None,
     ax = plt.gca()
 
     if (angle is None) or (angle == 0):
-
-        imx = ax.imshow(np.rot90(img), interpolation='nearest',
-                        origin='upper', cmap=cmap, vmin=vmin, vmax=vmax,
+        imx = ax.imshow(img.T, interpolation='nearest',
+                        origin='lower', cmap=cmap, vmin=vmin, vmax=vmax,
                         extent=[xmin-pixelsize/2, xmax+pixelsize/2,
                                 ymin-pixelsize/2, ymax+pixelsize/2], **kwargs)
-
     else:
-
         x, y = np.ogrid[xmin-pixelsize/2 : xmax+pixelsize/2 : (nx+1)*1j,
                         ymin-pixelsize/2 : ymax+pixelsize/2 : (ny+1)*1j]
         ang = np.radians(angle)
         x, y = x*np.cos(ang) - y*np.sin(ang), x*np.sin(ang) + y*np.cos(ang)
-        imx = ax.pcolormesh(x, y, img, cmap=cmap, vmin=vmin, vmax=vmax,
-                            edgecolors="face", **kwargs)
+        imx = ax.pcolormesh(x, y, img, cmap=cmap, vmin=vmin, vmax=vmax, **kwargs)
         ax.axis('image')
-        mask1 = np.ones_like(x, dtype=bool)
-        mask1[:-1, :-1] *= mask  # Flag the four corners of the mesh
-        mask1[:-1, 1:] *= mask
-        mask1[1:, :-1] *= mask
-        mask1[1:, 1:] *= mask
-        x0, x1 = np.min(x[~mask1]), np.max(x[~mask1])
-        y0, y1 = np.min(y[~mask1]), np.max(y[~mask1])
-        ax.set_xlim([x0, x1])
-        ax.set_ylim([y0, y1])
 
     if colorbar:
-        divider = make_axes_locatable(ax)
-        cax = divider.append_axes("right", size="5%", pad=0.1)
+        cax = ax.inset_axes([1.02, 0, .05, 1], transform=ax.transAxes)
         ticks = MaxNLocator(nticks).tick_values(vmin, vmax)
         cbar = plt.colorbar(imx, cax=cax, ticks=ticks)
         cbar.solids.set_edgecolor("face")  # Remove gaps in PDF http://stackoverflow.com/a/15021541
@@ -152,14 +146,17 @@ def display_pixels(x, y, val, pixelsize=None, vmin=None, vmax=None,
 
 if __name__ == '__main__':
 
-    n = 50  # 1 arcsec pixels
+    n = 20
     x = np.linspace(-20, 20, n)
     y = np.linspace(-20, 20, n)
-    xx, yy = np.meshgrid(x,y)
-    counts = xx**2 - 2*yy**2
-    w = xx**2 + 2*yy**2 < 10.1**2
+    xx, yy = np.meshgrid(x, y)
+
+    # Two Gaussians with different centers
+    g1 = np.exp((-((xx - 10)**2 + yy**2))/100)
+    g2 = np.exp((-((xx + 8)**2 + (yy - 20)**2))/100)
+    counts = g1 + g2
+    w = ((xx > -8) | (yy > -5)) & ((xx < 15) | (yy < 5))   # mask
 
     plt.clf()
-    ax = display_pixels(xx[w], yy[w], counts[w], pixelsize=x[1]-x[0],
-                        angle=20, colorbar=True)
+    ax = display_pixels(xx[w], yy[w], counts[w], angle=10, colorbar=True)
     plt.pause(1)

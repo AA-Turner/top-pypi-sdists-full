@@ -65,6 +65,9 @@ class StandardCapabilityName(str, Enum):
     LIST_APPLICATIONS_ENTITLEMENTS = 'list_applications_entitlements'
     LIST_APPLICATIONS_RESOURCES = 'list_applications_resources'
     UNASSIGN_APPLICATION = 'unassign_application'
+    LIST_APPLICATIONS_ENTITLEMENT_ASSOCIATIONS = 'list_applications_entitlement_associations'
+    UNASSIGN_APPLICATION_ENTITLEMENT = 'unassign_application_entitlement'
+    ASSIGN_APPLICATION_ENTITLEMENT = 'assign_application_entitlement'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

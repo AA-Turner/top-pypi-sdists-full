@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: zenml
-Version: 0.84.3
+Version: 0.85.0
 Summary: ZenML: Write production-ready ML code.
 License: Apache-2.0
 Keywords: machine learning,production,pipeline,mlops,devops
@@ -55,7 +55,7 @@ Requires-Dist: bandit (>=1.7.5,<2.0.0) ; extra == "dev"
 Requires-Dist: bcrypt (==4.0.1)
 Requires-Dist: boto3 (>=1.16.0) ; extra == "secrets-aws" or extra == "connectors-aws"
 Requires-Dist: click (>=8.0.1,<=8.2.1)
-Requires-Dist: cloudpickle (>=2.0.0,<3)
+Requires-Dist: cloudpickle (>=2.0.0)
 Requires-Dist: copier (>=8.1.0) ; extra == "templates"
 Requires-Dist: coverage[toml] (>=5.5,<6.0) ; extra == "dev"
 Requires-Dist: darglint (>=1.8.1,<2.0.0) ; extra == "dev"

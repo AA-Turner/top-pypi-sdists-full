@@ -60,14 +60,11 @@ def conv2d(input: Union["Tensor", xp.ndarray], filters: Union["Tensor", xp.ndarr
     if not depthwise:
         slides = slider(input)  # (N, C, out_H, out_W, F_H, F_W)
         filters = filters # (F_N, C, F_H, F_W)
-        output = ng.einsum("ncpqhw,fchw->nfpq", slides, filters,
-                           use_opt_einsum=False) # (N, F_N, out_H, out_W) 
+        output = ng.einsum("ncpqhw,fchw->nfpq", slides, filters, use_opt_einsum=True) # (N, F_N, out_H, out_W) 
     else:
         slides = slider(input)  # (N, C, out_H, out_W, F_H, F_W)
         filters = filters # (C, F_H, F_W)
-        output = ng.einsum('ncpqhw,chw->ncpq', slides, filters,
-                           use_opt_einsum=False)
-
+        output = ng.einsum('ncpqhw,chw->ncpq', slides, filters, use_opt_einsum=True) # (N, C, out_H, out_W)
     return output
 
 

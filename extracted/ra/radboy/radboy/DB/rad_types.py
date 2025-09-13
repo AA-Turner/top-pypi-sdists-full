@@ -1,6 +1,11 @@
 from decimal import Decimal as TDecimal,getcontext
 import string,random,re
 from colored import Fore,Back,Style
+
+def index_inList(x,b):
+    return (x <= -1 and x in list(range(-1,-(len(b)+1),-1))) or (x >= 0 and\
+ x in range((len(b))))
+
 class decc(TDecimal):
     ''' defines a decimal of 'cf\''''
     def __new__(self,value,cf=3):

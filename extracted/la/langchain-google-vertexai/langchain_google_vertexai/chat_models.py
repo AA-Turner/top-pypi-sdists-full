@@ -604,15 +604,13 @@ def _append_to_content(
 @overload
 def _parse_response_candidate(
     response_candidate: "Candidate", streaming: Literal[False] = False
-) -> AIMessage:
-    ...
+) -> AIMessage: ...
 
 
 @overload
 def _parse_response_candidate(
     response_candidate: "Candidate", streaming: Literal[True]
-) -> AIMessageChunk:
-    ...
+) -> AIMessageChunk: ...
 
 
 def _parse_response_candidate(
@@ -1451,7 +1449,7 @@ class ChatVertexAI(_VertexAICommon, BaseChatModel):
     """ Optional tag llm calls with metadata to help in tracebility and biling.
     """
 
-    perform_literal_eval_on_string_raw_content: bool = True
+    perform_literal_eval_on_string_raw_content: bool = False
     """Whether to perform literal eval on string raw content.
     """
 

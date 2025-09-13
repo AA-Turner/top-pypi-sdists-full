@@ -553,8 +553,9 @@
         growth: 2.6,                // Ramp step quickly if adaptive is enabled
         minInterval: 500,           // Minimum time between snapshots (ms) to avoid churn
         softLatency: 1200,          // Force snapshot only after a noticeable idle (ms)
-        minLinesForHL: 50, minCharsForHL: 5000,
-        promoteMinInterval: 300, promoteMaxLatency: 800, promoteMinLines: 50,
+        minLinesForHL: Utils.g('PROFILE_CODE_HL_N_LINE', 25),
+        minCharsForHL: Utils.g('PROFILE_CODE_HL_N_CHARS', 5000),
+        promoteMinInterval: 300, promoteMaxLatency: 800, promoteMinLines: Utils.g('PROFILE_CODE_HL_N_LINE', 25),
         adaptiveStep: Utils.g('PROFILE_CODE_ADAPTIVE_STEP', true),
         // Hard switches to plain streaming (no incremental hljs, minimal DOM churn)
         stopAfterLines: Utils.g('PROFILE_CODE_STOP_HL_AFTER_LINES', 300),   // Stop incremental hljs after this many lines
@@ -736,175 +737,159 @@
     }
   }
 
-  // ==========================================================================
-  // 2) Code scroll state manager
-  // ==========================================================================
+    // ==========================================================================
+    // 2) Code scroll state manager
+    // ==========================================================================
 
-  class CodeScrollState {
-    constructor(cfg, raf) {
-      this.cfg = cfg;
-      this.raf = raf;
-      this.map = new WeakMap();
-      this.rafMap = new WeakMap();
-      this.rafIds = new Set(); // legacy
-      this.rafKeyMap = new WeakMap();
-    }
-    // Get or create per-code element state.
-    state(el) {
-      let s = this.map.get(el);
-      if (!s) { s = { autoFollow: false, lastScrollTop: 0, userInteracted: false, freezeUntil: 0 }; this.map.set(el, s); }
-      return s;
-    }
-    // Check if code block is already finalized (not streaming).
-    isFinalizedCode(el) {
-      if (!el || el.tagName !== 'CODE') return false;
-      if (el.dataset && el.dataset._active_stream === '1') return false;
-      const highlighted = (el.getAttribute('data-highlighted') === 'yes') || el.classList.contains('hljs');
-      return highlighted;
-    }
-    // Is element scrolled close to the bottom by a margin?
-    isNearBottomEl(el, margin = 100) {
-      if (!el) return true;
-      const distance = el.scrollHeight - el.clientHeight - el.scrollTop;
-      return distance <= margin;
-    }
-    // Scroll code element to the bottom respecting interaction state.
-    scrollToBottom(el, live = false, force = false) {
-      if (!el || !el.isConnected) return;
-      if (!force && this.isFinalizedCode(el)) return;
-
-      const st = this.state(el);
-      const now = Utils.now();
-      if (!force && st.freezeUntil && now < st.freezeUntil) return;
-
-      const distNow = el.scrollHeight - el.clientHeight - el.scrollTop;
-      if (!force && distNow <= 1) { st.lastScrollTop = el.scrollTop; return; }
-
-      const marginPx = live ? 96 : this.cfg.CODE_SCROLL.NEAR_MARGIN_PX;
-      const behavior = 'instant';
-
-      if (!force) {
-        if (live && st.autoFollow !== true) return;
-        if (!live && !(st.autoFollow === true || this.isNearBottomEl(el, marginPx) || !st.userInteracted)) return;
+    class CodeScrollState {
+      constructor(cfg, raf) {
+        this.cfg = cfg;
+        this.raf = raf;
+        this.map = new WeakMap();
+        this.rafMap = new WeakMap();
+        this.rafIds = new Set(); // legacy
+        this.rafKeyMap = new WeakMap();
       }
+      // Get or create per-code element state.
+      state(el) {
+        let s = this.map.get(el);
+        if (!s) { s = { autoFollow: false, lastScrollTop: 0, userInteracted: false, freezeUntil: 0 }; this.map.set(el, s); }
+        return s;
+      }
+      // Check if code block is already finalized (not streaming).
+      isFinalizedCode(el) {
+        if (!el || el.tagName !== 'CODE') return false;
+        if (el.dataset && el.dataset._active_stream === '1') return false;
+        const highlighted = (el.getAttribute('data-highlighted') === 'yes') || el.classList.contains('hljs');
+        return highlighted;
+      }
+      // Is element scrolled close to the bottom by a margin?
+      isNearBottomEl(el, margin = 100) {
+        if (!el) return true;
+        const distance = el.scrollHeight - el.clientHeight - el.scrollTop;
+        return distance <= margin;
+      }
+      // Scroll code element to the bottom respecting interaction state.
+      scrollToBottom(el, live = false, force = false) {
+        if (!el || !el.isConnected) return;
+        if (!force && this.isFinalizedCode(el)) return;
 
-      try { el.scrollTo({ top: el.scrollHeight, behavior }); } catch (_) { el.scrollTop = el.scrollHeight; }
-      st.lastScrollTop = el.scrollTop;
-    }
-    // Schedule bottom scroll in rAF (coalesces multiple calls).
-    scheduleScroll(el, live = false, force = false) {
-      if (!el || !el.isConnected) return;
-      if (!force && this.isFinalizedCode(el)) return;
-      if (this.rafMap.get(el)) return;
-      this.rafMap.set(el, true);
-
-      let key = this.rafKeyMap.get(el);
-      if (!key) { key = { t: 'codeScroll', el }; this.rafKeyMap.set(el, key); }
-
-      this.raf.schedule(key, () => {
-        this.rafMap.delete(el);
-        this.scrollToBottom(el, live, force);
-      }, 'CodeScroll', 0);
-    }
-    // Attach scroll/wheel/touch handlers to manage auto-follow state.
-    attachHandlers(codeEl) {
-      if (!codeEl || codeEl.dataset.csListeners === '1') return;
-      codeEl.dataset.csListeners = '1';
-      const st = this.state(codeEl);
-
-      const onScroll = (ev) => {
-        const top = codeEl.scrollTop;
-        const isUser = !!(ev && ev.isTrusted === true);
+        const st = this.state(el);
         const now = Utils.now();
+        if (!force && st.freezeUntil && now < st.freezeUntil) return;
 
-        if (this.isFinalizedCode(codeEl)) {
-          if (isUser) st.userInteracted = true;
-          st.autoFollow = false;
-          st.lastScrollTop = top;
-          return;
+        const distNow = el.scrollHeight - el.clientHeight - el.scrollTop;
+        if (!force && distNow <= 1) { st.lastScrollTop = el.scrollTop; return; }
+
+        const marginPx = live ? 96 : this.cfg.CODE_SCROLL.NEAR_MARGIN_PX;
+        const behavior = 'instant';
+
+        if (!force) {
+          if (live && st.autoFollow !== true) return;
+          if (!live && !(st.autoFollow === true || this.isNearBottomEl(el, marginPx) || !st.userInteracted)) return;
         }
 
-        if (isUser) {
-          if (top + 1 < st.lastScrollTop) {
-            st.autoFollow = false; st.userInteracted = true; st.freezeUntil = now + 1000;
-          } else if (this.isNearBottomEl(codeEl, this.cfg.CODE_SCROLL.AUTO_FOLLOW_REENABLE_PX)) {
-            st.autoFollow = true;
+        try { el.scrollTo({ top: el.scrollHeight, behavior }); } catch (_) { el.scrollTop = el.scrollHeight; }
+        st.lastScrollTop = el.scrollTop;
+      }
+      // Schedule bottom scroll in rAF (coalesces multiple calls).
+      scheduleScroll(el, live = false, force = false) {
+        if (!el || !el.isConnected) return;
+        if (!force && this.isFinalizedCode(el)) return;
+        if (this.rafMap.get(el)) return;
+        this.rafMap.set(el, true);
+
+        let key = this.rafKeyMap.get(el);
+        if (!key) { key = { t: 'codeScroll', el }; this.rafKeyMap.set(el, key); }
+
+        this.raf.schedule(key, () => {
+          this.rafMap.delete(el);
+          this.scrollToBottom(el, live, force);
+        }, 'CodeScroll', 0);
+      }
+      // Attach scroll/wheel/touch handlers to manage auto-follow state.
+      attachHandlers(codeEl) {
+        if (!codeEl || codeEl.dataset.csListeners === '1') return;
+        codeEl.dataset.csListeners = '1';
+        const st = this.state(codeEl);
+
+        const onScroll = (ev) => {
+          const top = codeEl.scrollTop;
+          const isUser = !!(ev && ev.isTrusted === true);
+          const now = Utils.now();
+
+          if (this.isFinalizedCode(codeEl)) {
+            if (isUser) st.userInteracted = true;
+            st.autoFollow = false;
+            st.lastScrollTop = top;
+            return;
           }
-        } else {
-          if (this.isNearBottomEl(codeEl, this.cfg.CODE_SCROLL.AUTO_FOLLOW_REENABLE_PX)) st.autoFollow = true;
-        }
-        st.lastScrollTop = top;
-      };
 
-      const onWheel = (ev) => {
-        st.userInteracted = true;
-        const now = Utils.now();
+          if (isUser) {
+            if (top + 1 < st.lastScrollTop) {
+              st.autoFollow = false; st.userInteracted = true; st.freezeUntil = now + 1000;
+            } else if (this.isNearBottomEl(codeEl, this.cfg.CODE_SCROLL.AUTO_FOLLOW_REENABLE_PX)) {
+              st.autoFollow = true;
+            }
+          } else {
+            if (this.isNearBottomEl(codeEl, this.cfg.CODE_SCROLL.AUTO_FOLLOW_REENABLE_PX)) st.autoFollow = true;
+          }
+          st.lastScrollTop = top;
+        };
 
-        if (this.isFinalizedCode(codeEl)) { st.autoFollow = false; return; }
+        const onWheel = (ev) => {
+          st.userInteracted = true;
+          const now = Utils.now();
 
-        if (ev.deltaY < 0) { st.autoFollow = false; st.freezeUntil = now + 1000; }
-        else if (this.isNearBottomEl(codeEl, this.cfg.CODE_SCROLL.AUTO_FOLLOW_REENABLE_PX)) { st.autoFollow = true; }
-      };
+          if (this.isFinalizedCode(codeEl)) { st.autoFollow = false; return; }
 
-      codeEl.addEventListener('scroll', onScroll, { passive: true });
-      codeEl.addEventListener('wheel', onWheel, { passive: true });
-      codeEl.addEventListener('touchstart', function () { st.userInteracted = true; }, { passive: true });
-    }
-    // Ensure code starts scrolled to bottom once after insert.
-    initCodeBottomOnce(codeEl) {
-      if (!codeEl || !codeEl.isConnected) return;
-      if (codeEl.dataset && codeEl.dataset._active_stream === '1') return;
-      if (codeEl.dataset && codeEl.dataset.csInitBtm === '1') return;
-      const wrapper = codeEl.closest('.code-wrapper');
-      if (!wrapper) return;
+          if (ev.deltaY < 0) { st.autoFollow = false; st.freezeUntil = now + 1000; }
+          else if (this.isNearBottomEl(codeEl, this.cfg.CODE_SCROLL.AUTO_FOLLOW_REENABLE_PX)) { st.autoFollow = true; }
+        };
 
-      codeEl.dataset.csInitBtm = '1';
-      const key = { t: 'codeInitBottom', el: codeEl };
-      this.raf.schedule(key, () => {
-        if (!codeEl.isConnected) return;
-        try {
-          this.scrollToBottom(codeEl, false, true);
-          const st = this.state(codeEl);
-          st.autoFollow = false;
-          st.lastScrollTop = codeEl.scrollTop;
-        } catch (_) {}
-      }, 'CodeScroll', 0);
-    }
-    // Attach handlers to all bot code blocks under root (or document).
-    initScrollableBlocks(root) {
-      const scope = root || document;
-      let nodes = [];
-      if (scope.nodeType === 1 && scope.closest && scope.closest('.msg-box.msg-bot')) {
-        nodes = scope.querySelectorAll('pre code');
-      } else {
-        nodes = document.querySelectorAll('.msg-box.msg-bot pre code');
+        codeEl.addEventListener('scroll', onScroll, { passive: true });
+        codeEl.addEventListener('wheel', onWheel, { passive: true });
+        codeEl.addEventListener('touchstart', function () { st.userInteracted = true; }, { passive: true });
       }
-      if (!nodes.length) return;
-      nodes.forEach((code) => {
-        this.attachHandlers(code);
-        if (code.dataset._active_stream === '1') {
-          const st = this.state(code);
-          st.autoFollow = true;
-          this.scheduleScroll(code, true, false);
+      // Attach handlers to all bot code blocks under root (or document).
+      // IMPORTANT: We intentionally do NOT auto-scroll finalized/static code blocks to the bottom.
+      // Only actively streaming code blocks (data-_active_stream="1") are auto-followed live.
+      initScrollableBlocks(root) {
+        const scope = root || document;
+        let nodes = [];
+        if (scope.nodeType === 1 && scope.closest && scope.closest('.msg-box.msg-bot')) {
+          nodes = scope.querySelectorAll('pre code');
         } else {
-          this.initCodeBottomOnce(code);
+          nodes = document.querySelectorAll('.msg-box.msg-bot pre code');
         }
-      });
+        if (!nodes.length) return;
+
+        nodes.forEach((code) => {
+          this.attachHandlers(code);
+          // Live streaming blocks: enable auto-follow and keep them glued to bottom.
+          if (code.dataset._active_stream === '1') {
+            const st = this.state(code);
+            st.autoFollow = true;
+            this.scheduleScroll(code, true, false);
+          }
+          // Finalized/static blocks: do nothing (no initial scroll-to-bottom).
+          // This avoids surprising jumps when static content is rendered.
+        });
+      }
+      // Transfer stored scroll state between elements (after replace).
+      transfer(oldEl, newEl) {
+        if (!oldEl || !newEl || oldEl === newEl) return;
+        const oldState = this.map.get(oldEl);
+        if (oldState) this.map.set(newEl, { ...oldState });
+        this.attachHandlers(newEl);
+      }
+      // Cancel any scheduled scroll tasks for code blocks.
+      cancelAllScrolls() {
+        try { this.raf.cancelGroup('CodeScroll'); } catch (_) {}
+        this.rafMap = new WeakMap();
+        this.rafIds.clear();
+      }
     }
-    // Transfer stored scroll state between elements (after replace).
-    transfer(oldEl, newEl) {
-      if (!oldEl || !newEl || oldEl === newEl) return;
-      const oldState = this.map.get(oldEl);
-      if (oldState) this.map.set(newEl, { ...oldState });
-      this.attachHandlers(newEl);
-    }
-    // Cancel any scheduled scroll tasks for code blocks.
-    cancelAllScrolls() {
-      try { this.raf.cancelGroup('CodeScroll'); } catch (_) {}
-      this.rafMap = new WeakMap();
-      this.rafIds.clear();
-    }
-  }
 
   // ==========================================================================
   // 3) Highlighter (hljs) + rAF viewport scan
@@ -1175,13 +1160,23 @@
   // ==========================================================================
 
   class CustomMarkup {
-    // Logger-aware processor; no console usage.
     constructor(cfg, logger) {
       this.cfg = cfg || { CUSTOM_MARKUP_RULES: [] };
       this.logger = logger || new Logger(cfg);
       this.__compiled = null;
     }
     _d(line, ctx) { try { this.logger.debug('CM', line, ctx); } catch (_) {} }
+
+    // Decode HTML entities once (safe)
+    // This addresses cases when linkify/full markdown path leaves literal "&quot;" etc. in text nodes.
+    // We decode only for rules that explicitly opt-in (see compile()) to avoid changing semantics globally.
+    decodeEntitiesOnce(s) {
+      if (!s || s.indexOf('&') === -1) return String(s || '');
+      // Using a shared <textarea> avoids DOM parsing side-effects and is fast enough for small JSON payloads.
+      const ta = CustomMarkup._decTA || (CustomMarkup._decTA = document.createElement('textarea'));
+      ta.innerHTML = s;
+      return ta.value;
+    }
 
     // Compile rules once; also precompile strict and whitespace-tolerant "full match" regexes.
     compile(rules) {
@@ -1193,11 +1188,26 @@
         const className = (r.className || r.class || '').trim();
         const innerMode = (r.innerMode === 'markdown-inline' || r.innerMode === 'text') ? r.innerMode : 'text';
 
+        // Opt-in decoding: default to true for "cmd" to fix JSON quotes (&quot;) in static full-render path,
+        // leave false for other tags unless explicitly requested by rule author.
+        const decodeEntities = (typeof r.decodeEntities === 'boolean')
+          ? r.decodeEntities
+          : ((r.name || '').toLowerCase() === 'cmd' || className === 'cmd');
+
         const re = new RegExp(Utils.reEscape(r.open) + '([\\s\\S]*?)' + Utils.reEscape(r.close), 'g');
         const reFull = new RegExp('^' + Utils.reEscape(r.open) + '([\\s\\S]*?)' + Utils.reEscape(r.close) + '$');
         const reFullTrim = new RegExp('^\\s*' + Utils.reEscape(r.open) + '([\\s\\S]*?)' + Utils.reEscape(r.close) + '\\s*$');
 
-        const item = { name: r.name || tag, tag, className, innerMode, open: r.open, close: r.close, re, reFull, reFullTrim };
+        const item = {
+          name: r.name || tag,
+          tag,
+          className,
+          innerMode,
+          open: r.open,
+          close: r.close,
+          decodeEntities,  // per-rule decode switch
+          re, reFull, reFullTrim
+        };
         compiled.push(item);
         this._d('COMPILE_RULE', { name: item.name, tag: item.tag, innerMode: item.innerMode, open: item.open, close: item.close });
       }
@@ -1205,6 +1215,7 @@
         const open = '[!cmd]', close = '[/!cmd]';
         const item = {
           name: 'cmd', tag: 'p', className: 'cmd', innerMode: 'text', open, close,
+          decodeEntities: true, // Fallback rule for cmd also opts-in to decoding
           re: new RegExp(Utils.reEscape(open) + '([\\s\\S]*?)' + Utils.reEscape(close), 'g'),
           reFull: new RegExp('^' + Utils.reEscape(open) + '([\\s\\S]*?)' + Utils.reEscape(close) + '$'),
           reFullTrim: new RegExp('^\\s*' + Utils.reEscape(open) + '([\\s\\S]*?)' + Utils.reEscape(close) + '\\s*$')
@@ -1279,16 +1290,22 @@
       return null;
     }
 
-    // Set inner content according to the rule's mode.
-    setInnerByMode(el, mode, text, MD) {
+    // Set inner content according to the rule's mode, with optional entity decode.
+    setInnerByMode(el, mode, text, MD, decodeEntities = false) {
+      let payload = String(text || '');
+      // Decode entities only when asked by the rule (prevents global behavior change).
+      if (decodeEntities && payload && payload.indexOf('&') !== -1) {
+        try { payload = this.decodeEntitiesOnce(payload); } catch (_) { /* keep original on failure */ }
+      }
+
       if (mode === 'markdown-inline' && typeof window.markdownit !== 'undefined') {
         try {
-          if (MD && typeof MD.renderInline === 'function') { el.innerHTML = MD.renderInline(text || ''); return; }
+          if (MD && typeof MD.renderInline === 'function') { el.innerHTML = MD.renderInline(payload); return; }
           const tempMD = window.markdownit({ html: false, linkify: true, breaks: true, highlight: () => '' });
-          el.innerHTML = tempMD.renderInline(text || ''); return;
+          el.innerHTML = tempMD.renderInline(payload); return;
         } catch (_) {}
       }
-      el.textContent = text || '';
+      el.textContent = payload;
     }
 
     // Try to replace an entire <p> that is a full custom markup match.
@@ -1317,8 +1334,8 @@
         out.setAttribute('data-cm', rule.name);
 
         const innerText = m[1] || '';
-        // Use mode-driven inner content materialization (text or markdown-inline).
-        this.setInnerByMode(out, rule.innerMode, innerText, MD);
+        // Use mode-driven inner content materialization (text or markdown-inline) with optional decoding.
+        this.setInnerByMode(out, rule.innerMode, innerText, MD, !!rule.decodeEntities);
 
         // Replace the original <p> with the desired container (<div>, <think>, <p>, etc.).
         try { el.replaceWith(out); } catch (_) {
@@ -1381,7 +1398,7 @@
             const out = document.createElement('p');
             if (fm.rule.className) out.className = fm.rule.className;
             out.setAttribute('data-cm', fm.rule.name);
-            this.setInnerByMode(out, fm.rule.innerMode, fm.inner, MD);
+            this.setInnerByMode(out, fm.rule.innerMode, fm.inner, MD, !!fm.rule.decodeEntities);
             try { parent.replaceWith(out); } catch (_) {
               const par = parent.parentNode; if (par) par.replaceChild(out, parent);
             }
@@ -1407,7 +1424,7 @@
           const el = document.createElement(tag);
           if (m.rule.className) el.className = m.rule.className;
           el.setAttribute('data-cm', m.rule.name);
-          this.setInnerByMode(el, m.rule.innerMode, m.inner, MD);
+          this.setInnerByMode(el, m.rule.innerMode, m.inner, MD, !!m.rule.decodeEntities);
 
           frag.appendChild(el);
           this._d('WALKER_INLINE_MATCH', { rule: m.rule.name, start: m.start, end: m.end });
@@ -2497,237 +2514,586 @@
     }
   }
 
-  class NodesManager {
-    constructor(dom, renderer, highlighter, math) { this.dom = dom; this.renderer = renderer; this.highlighter = highlighter; this.math = math; }
-    // Check if HTML contains only user messages without any markdown or code features.
-    _isUserOnlyContent(html) {
-      try {
-        const tmp = document.createElement('div');
-        tmp.innerHTML = html;
-        const hasBot = !!tmp.querySelector('.msg-box.msg-bot');
-        const hasUser = !!tmp.querySelector('.msg-box.msg-user');
-        const hasMD64 = !!tmp.querySelector('[data-md64]');
-        const hasMDNative = !!tmp.querySelector('[md-block-markdown]');
-        const hasCode = !!tmp.querySelector('pre code');
-        const hasMath = !!tmp.querySelector('script[type^="math/tex"]');
-        return hasUser && !hasBot && !hasMD64 && !hasMDNative && !hasCode && !hasMath;
-      } catch (_) { return false; }
-    }
-    // Convert user markdown placeholders into plain text nodes.
-    _materializeUserMdAsPlainText(scopeEl) {
-      try {
-        const nodes = scopeEl.querySelectorAll('.msg-box.msg-user [data-md64], .msg-box.msg-user [md-block-markdown]');
-        nodes.forEach(el => {
-          let txt = '';
-          if (el.hasAttribute('data-md64')) {
-            const b64 = el.getAttribute('data-md64') || '';
-            el.removeAttribute('data-md64');
-            try { txt = this.renderer.b64ToUtf8(b64); } catch (_) { txt = ''; }
-          } else {
-            // Native Markdown block in user message: keep as plain text (no markdown-it)
-            try { txt = el.textContent || ''; } catch (_) { txt = ''; }
-            try { el.removeAttribute('md-block-markdown'); } catch (_) {}
+    // UserCollapseManager – collapsible user messages (msg-box.msg-user)
+    class UserCollapseManager {
+      constructor(cfg) {
+        this.cfg = cfg || {};
+        // Collapse threshold in pixels (can be overridden via window.USER_MSG_COLLAPSE_HEIGHT_PX).
+        this.threshold = Utils.g('USER_MSG_COLLAPSE_HEIGHT_PX', 1000);
+        // Track processed .msg elements to allow cheap remeasure on resize if needed.
+        this._processed = new Set();
+
+        // Visual indicator attached while collapsed (does not modify original text).
+        this.ellipsisText = ' [...]';
+      }
+
+      _icons() {
+        const I = (this.cfg && this.cfg.ICONS) || {};
+        return { expand: I.EXPAND || '', collapse: I.COLLAPSE || '' };
+      }
+      _labels() {
+        const L = (this.cfg && this.cfg.LOCALE) || {};
+        return { expand: L.EXPAND || 'Expand', collapse: L.COLLAPSE || 'Collapse' };
+      }
+
+      // Schedule a function for next frame (ensures layout is up-to-date before scrolling).
+      _afterLayout(fn) {
+        try {
+          if (typeof runtime !== 'undefined' && runtime.raf && typeof runtime.raf.schedule === 'function') {
+            const key = { t: 'UC:afterLayout', i: Math.random() };
+            runtime.raf.schedule(key, () => { try { fn && fn(); } catch (_) {} }, 'UserCollapse', 0);
+            return;
           }
-          const span = document.createElement('span'); span.textContent = txt; el.replaceWith(span);
+        } catch (_) {}
+        try { requestAnimationFrame(() => { try { fn && fn(); } catch (_) {} }); }
+        catch (_) { setTimeout(() => { try { fn && fn(); } catch (__){ } }, 0); }
+      }
+
+      // Bring toggle into view with minimal scroll (upwards if it moved above after collapse).
+      _scrollToggleIntoView(toggleEl) {
+        if (!toggleEl || !toggleEl.isConnected) return;
+        try { if (runtime && runtime.scrollMgr) { runtime.scrollMgr.userInteracted = true; runtime.scrollMgr.autoFollow = false; } } catch (_) {}
+        this._afterLayout(() => {
+          try {
+            if (toggleEl.scrollIntoView) {
+              // Prefer minimal movement; keep behavior non-animated and predictable.
+              try { toggleEl.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' }); }
+              catch (_) { toggleEl.scrollIntoView(false); }
+            }
+          } catch (_) {}
         });
-      } catch (_) {}
-    }
-    // Append HTML into message input container.
-    appendToInput(content) {
-      // Synchronous DOM update – message input must reflect immediately with no waiting.
-      const el = this.dom.get('_append_input_'); if (!el) return; el.insertAdjacentHTML('beforeend', content);
-    }
-    // Append nodes into messages list and perform post-processing (markdown, code, math).
-    appendNode(content, scrollMgr) {
-      // Keep scroll behavior consistent with existing logic
-      scrollMgr.userInteracted = false; scrollMgr.prevScroll = 0;
-      this.dom.clearStreamBefore();
-
-      const el = this.dom.get('_nodes_'); if (!el) return;
-      el.classList.remove('empty_list');
-
-      const userOnly = this._isUserOnlyContent(content);
-      if (userOnly) {
-        el.insertAdjacentHTML('beforeend', content);
-        this._materializeUserMdAsPlainText(el);
-        scrollMgr.scrollToBottom(false);
-        scrollMgr.scheduleScrollFabUpdate();
-        return;
       }
 
-      el.insertAdjacentHTML('beforeend', content);
+      // Ensure wrapper and toggle exist for a given .msg element.
+      _ensureStructure(msg) {
+        if (!msg || !msg.isConnected) return null;
 
-      try {
-        // Schedule all post-processing strictly after Markdown is materialized.
-        const maybePromise = this.renderer.renderPendingMarkdown(el);
-        const post = () => {
-          try { this.highlighter.scheduleScanVisibleCodes(null); } catch (_) {}
-
-          // In finalize-only mode we must explicitly schedule KaTeX,
-          // and do it AFTER Markdown has produced <script type="math/tex"> nodes.
-          try { if (getMathMode() === 'finalize-only') this.math.schedule(el, 0, true); } catch (_) {}
-        };
-
-        if (maybePromise && typeof maybePromise.then === 'function') {
-          maybePromise.then(post);
-        } else {
-          post();
+        // Wrap all direct children into a dedicated content container to measure height accurately.
+        let content = msg.querySelector('.uc-content');
+        if (!content) {
+          content = document.createElement('div');
+          content.className = 'uc-content';
+          const frag = document.createDocumentFragment();
+          while (msg.firstChild) frag.appendChild(msg.firstChild);
+          content.appendChild(frag);
+          msg.appendChild(content);
         }
-      } catch (_) { /* swallow to keep append path resilient */ }
 
-      // Keep scroll/fab logic identical (immediate; rendering completes shortly after)
-      scrollMgr.scrollToBottom(false);
-      scrollMgr.scheduleScrollFabUpdate();
-    }
-    // Replace messages list content entirely and re-run post-processing.
-    replaceNodes(content, scrollMgr) {
-      // Same semantics as appendNode, but using a hard clone reset
-      scrollMgr.userInteracted = false; scrollMgr.prevScroll = 0;
-      this.dom.clearStreamBefore();
+        // Ensure a single toggle exists (click and keyboard accessible).
+        let toggle = msg.querySelector('.uc-toggle');
+        if (!toggle) {
+          const icons = this._icons();
+          const labels = this._labels();
 
-      const el = this.dom.hardReplaceByClone('_nodes_'); if (!el) return;
-      el.classList.remove('empty_list');
+          toggle = document.createElement('div');
+          toggle.className = 'uc-toggle';
+          toggle.tabIndex = 0;
+          toggle.setAttribute('role', 'button');
+          toggle.setAttribute('aria-expanded', 'false');
+          toggle.title = labels.expand;
 
-      const userOnly = this._isUserOnlyContent(content);
-      if (userOnly) {
-        el.insertAdjacentHTML('beforeend', content);
-        this._materializeUserMdAsPlainText(el);
-        scrollMgr.scrollToBottom(false, true);
-        scrollMgr.scheduleScrollFabUpdate();
-        return;
+          const img = document.createElement('img');
+          img.className = 'uc-toggle-icon';
+          img.alt = labels.expand;
+          img.src = icons.expand;
+          toggle.appendChild(img);
+
+          // Attach local listeners (no global handler change; production-safe).
+          toggle.addEventListener('click', (ev) => {
+            ev.preventDefault();
+            ev.stopPropagation();
+            this.toggleFromToggle(toggle);
+          });
+          toggle.addEventListener('keydown', (ev) => {
+            if (ev.key === 'Enter' || ev.key === ' ') {
+              ev.preventDefault();
+              ev.stopPropagation();
+              this.toggleFromToggle(toggle);
+            }
+          }, { passive: false });
+
+          msg.appendChild(toggle);
+        }
+
+        this._processed.add(msg);
+        msg.dataset.ucInit = '1';
+        return { content, toggle };
       }
 
-      el.insertAdjacentHTML('beforeend', content);
+      // Create or update the ellipsis indicator inside content (absolute in the bottom-right corner).
+      _ensureEllipsisEl(msg, contentEl) {
+        const content = contentEl || (msg && msg.querySelector('.uc-content'));
+        if (!content) return null;
 
-      try {
-        // Defer KaTeX schedule to post-Markdown to avoid races.
-        const maybePromise = this.renderer.renderPendingMarkdown(el);
-        const post = () => {
-          try { this.highlighter.scheduleScanVisibleCodes(null); } catch (_) {}
-          try { if (getMathMode() === 'finalize-only') this.math.schedule(el, 0, true); } catch (_) {}
-        };
-
-        if (maybePromise && typeof maybePromise.then === 'function') {
-          maybePromise.then(post);
-        } else {
-          post();
+        // Ensure the content becomes a positioning context only when needed.
+        if (getComputedStyle(content).position === 'static') {
+          content.style.position = 'relative';
         }
-      } catch (_) { /* swallow */ }
 
-      scrollMgr.scrollToBottom(false, true);
-      scrollMgr.scheduleScrollFabUpdate();
-    }
-    // Append "extra" content into a specific bot message and post-process locally.
-    appendExtra(id, content, scrollMgr) {
-      const el = document.getElementById('msg-bot-' + id); if (!el) return;
-      const extra = el.querySelector('.msg-extra'); if (!extra) return;
+        let dot = content.querySelector('.uc-ellipsis');
+        if (!dot) {
+          dot = document.createElement('span');
+          dot.className = 'uc-ellipsis';
+          dot.textContent = this.ellipsisText;
+          // Inline, theme-agnostic styles; kept minimal and non-interactive.
+          dot.style.position = 'absolute';
+          dot.style.right = '0';
+          dot.style.bottom = '0';
+          dot.style.paddingLeft = '6px';
+          dot.style.pointerEvents = 'none';
+          dot.style.zIndex = '1';
+          dot.style.fontWeight = '500';
+          dot.style.opacity = '0.75';
 
-      extra.insertAdjacentHTML('beforeend', content);
-
-      try {
-        const maybePromise = this.renderer.renderPendingMarkdown(extra);
-
-        const post = () => {
-          const activeCode = (typeof runtime !== 'undefined' && runtime.stream) ? runtime.stream.activeCode : null;
-
-          // Attach observers after Markdown produced the nodes
-          try {
-            this.highlighter.observeNewCode(extra, {
-              deferLastIfStreaming: true,
-              minLinesForLast: this.renderer.cfg.PROFILE_CODE.minLinesForHL,
-              minCharsForLast: this.renderer.cfg.PROFILE_CODE.minCharsForHL
-            }, activeCode);
-            this.highlighter.observeMsgBoxes(extra, (box) => this._onBox(box));
-          } catch (_) {}
-
-          // KaTeX: honor stream mode; in finalize-only force immediate schedule,
-          // now guaranteed to find <script type="math/tex"> nodes.
-          try {
-            const mm = getMathMode();
-            if (mm === 'finalize-only') this.math.schedule(extra, 0, true);
-            else this.math.schedule(extra);
-          } catch (_) {}
-        };
-
-        if (maybePromise && typeof maybePromise.then === 'function') {
-          maybePromise.then(post);
-        } else {
-          post();
+          content.appendChild(dot);
         }
-      } catch (_) { /* swallow */ }
+        return dot;
+      }
 
-      scrollMgr.scheduleScroll(true);
+      // Show ellipsis only when there is hidden overflow (collapsed).
+      _showEllipsis(msg, contentEl) {
+        const dot = this._ensureEllipsisEl(msg, contentEl);
+        if (dot) dot.style.display = 'inline';
+      }
+      // Hide and clean ellipsis when not needed (expanded or short content).
+      _hideEllipsis(msg) {
+        const content = msg && msg.querySelector('.uc-content');
+        if (!content) return;
+        const dot = content.querySelector('.uc-ellipsis');
+        if (dot && dot.parentNode) {
+          // Remove the indicator to avoid accidental copy/select and keep DOM lean.
+          dot.parentNode.removeChild(dot);
+        }
+        // Drop positioning context when no indicator is present (keep styles minimal).
+        try {
+          if (content && content.style && content.querySelector('.uc-ellipsis') == null) {
+            content.style.position = '';
+          }
+        } catch (_) {}
+      }
+
+      // Apply collapse to all user messages under root.
+      apply(root) {
+        const scope = root || document;
+        let list;
+        if (scope.nodeType === 1) list = scope.querySelectorAll('.msg-box.msg-user .msg');
+        else list = document.querySelectorAll('.msg-box.msg-user .msg');
+        if (!list || !list.length) return;
+
+        for (let i = 0; i < list.length; i++) {
+          const msg = list[i];
+          const st = this._ensureStructure(msg);
+          if (!st) continue;
+          this._update(msg, st.content, st.toggle);
+        }
+      }
+
+      // Update collapsed/expanded state depending on content height.
+      _update(msg, contentEl, toggleEl) {
+        const c = contentEl || (msg && msg.querySelector('.uc-content'));
+        if (!msg || !c) return;
+
+        // Special-case: when threshold = 0 (or '0'), auto-collapse is globally disabled.
+        // We avoid any measurement, force the content to be fully expanded, and ensure the toggle is hidden.
+        // This preserves public API while providing an explicit opt-out, without impacting existing behavior.
+        if (this.threshold === 0 || this.threshold === '0') {
+          const t = toggleEl || msg.querySelector('.uc-toggle');
+          const labels = this._labels();
+
+          // Ensure expanded state and remove any limiting classes.
+          c.classList.remove('uc-collapsed');
+          c.classList.remove('uc-expanded'); // No class => fully expanded by default CSS.
+          msg.dataset.ucState = 'expanded';
+
+          // Hide ellipsis in disabled mode.
+          this._hideEllipsis(msg);
+
+          // Hide toggle in disabled mode to avoid user interaction.
+          if (t) {
+            t.classList.remove('visible');
+            t.setAttribute('aria-expanded', 'false');
+            t.title = labels.expand;
+            const img = t.querySelector('img');
+            if (img) { img.alt = labels.expand; }
+          }
+          return; // Do not proceed with measuring or collapsing.
+        }
+
+        // Temporarily remove limiting classes for precise measurement.
+        c.classList.remove('uc-collapsed');
+        c.classList.remove('uc-expanded');
+
+        const fullHeight = Math.ceil(c.scrollHeight);
+        const labels = this._labels();
+        const icons = this._icons();
+        const t = toggleEl || msg.querySelector('.uc-toggle');
+
+        if (fullHeight > this.threshold) {
+          if (t) t.classList.add('visible');
+          const desired = msg.dataset.ucState || 'collapsed';
+          const expand = (desired === 'expanded');
+
+          if (expand) {
+            c.classList.add('uc-expanded');
+            this._hideEllipsis(msg); // Expanded => no ellipsis
+          } else {
+            c.classList.add('uc-collapsed');
+            this._showEllipsis(msg, c); // Collapsed => show ellipsis overlay
+          }
+
+          if (t) {
+            const img = t.querySelector('img');
+            if (img) {
+              if (expand) { img.src = icons.collapse; img.alt = labels.collapse; }
+              else { img.src = icons.expand; img.alt = labels.expand; }
+            }
+            t.setAttribute('aria-expanded', expand ? 'true' : 'false');
+            t.title = expand ? labels.collapse : labels.expand;
+          }
+        } else {
+          // Short content – ensure fully expanded and hide toggle + ellipsis.
+          c.classList.remove('uc-collapsed');
+          c.classList.remove('uc-expanded');
+          msg.dataset.ucState = 'expanded';
+          this._hideEllipsis(msg);
+          if (t) {
+            t.classList.remove('visible');
+            t.setAttribute('aria-expanded', 'false');
+            t.title = labels.expand;
+          }
+        }
+      }
+
+      // Toggle handler via the toggle element (div.uc-toggle).
+      toggleFromToggle(toggleEl) {
+        const msg = toggleEl && toggleEl.closest ? toggleEl.closest('.msg-box.msg-user .msg') : null;
+        if (!msg) return;
+        this.toggle(msg);
+      }
+
+      // Core toggle logic.
+      toggle(msg) {
+        if (!msg || !msg.isConnected) return;
+        const c = msg.querySelector('.uc-content'); if (!c) return;
+        const t = msg.querySelector('.uc-toggle');
+        const labels = this._labels();
+        const icons = this._icons();
+
+        const isCollapsed = c.classList.contains('uc-collapsed');
+        if (isCollapsed) {
+          // Expand – leave scroll as-is; remove ellipsis.
+          c.classList.remove('uc-collapsed');
+          c.classList.add('uc-expanded');
+          msg.dataset.ucState = 'expanded';
+          this._hideEllipsis(msg);
+          if (t) {
+            t.setAttribute('aria-expanded', 'true');
+            t.title = labels.collapse;
+            const img = t.querySelector('img'); if (img) { img.src = icons.collapse; img.alt = labels.collapse; }
+          }
+        } else {
+          // Collapse – apply classes, show ellipsis, then bring toggle into view (scroll up if needed).
+          c.classList.remove('uc-expanded');
+          c.classList.add('uc-collapsed');
+          msg.dataset.ucState = 'collapsed';
+          this._showEllipsis(msg, c);
+          if (t) {
+            t.setAttribute('aria-expanded', 'false');
+            t.title = labels.expand;
+            const img = t.querySelector('img'); if (img) { img.src = icons.expand; img.alt = labels.expand; }
+            // Follow the collapsing content upward – keep the toggle visible.
+            this._scrollToggleIntoView(t);
+          }
+        }
+      }
+
+      // Optional public method to re-evaluate height after layout/resize.
+      remeasureAll() {
+        const arr = Array.from(this._processed || []);
+        for (let i = 0; i < arr.length; i++) {
+          const msg = arr[i];
+          if (!msg || !msg.isConnected) { this._processed.delete(msg); continue; }
+          this._update(msg);
+        }
+      }
     }
-    // When a new message box appears, hook up code/highlight handlers.
-    _onBox(box) {
-      const activeCode = (typeof runtime !== 'undefined' && runtime.stream) ? runtime.stream.activeCode : null;
-      this.highlighter.observeNewCode(box, {
-        deferLastIfStreaming: true,
-        minLinesForLast: this.renderer.cfg.PROFILE_CODE.minLinesForHL,
-        minCharsForLast: this.renderer.cfg.PROFILE_CODE.minCharsForHL
-      }, activeCode);
-      this.renderer.hooks.codeScrollInit(box);
+
+  class NodesManager {
+      constructor(dom, renderer, highlighter, math) {
+        this.dom = dom;
+        this.renderer = renderer;
+        this.highlighter = highlighter;
+        this.math = math;
+        // User message collapse manager
+        this._userCollapse = new UserCollapseManager(this.renderer.cfg);
+      }
+
+      // Check if HTML contains only user messages without any markdown or code features.
+      _isUserOnlyContent(html) {
+        try {
+          const tmp = document.createElement('div');
+          tmp.innerHTML = html;
+          const hasBot = !!tmp.querySelector('.msg-box.msg-bot');
+          const hasUser = !!tmp.querySelector('.msg-box.msg-user');
+          const hasMD64 = !!tmp.querySelector('[data-md64]');
+          const hasMDNative = !!tmp.querySelector('[md-block-markdown]');
+          const hasCode = !!tmp.querySelector('pre code');
+          const hasMath = !!tmp.querySelector('script[type^="math/tex"]');
+          return hasUser && !hasBot && !hasMD64 && !hasMDNative && !hasCode && !hasMath;
+        } catch (_) { return false; }
+      }
+
+      // Convert user markdown placeholders into plain text nodes.
+      _materializeUserMdAsPlainText(scopeEl) {
+        try {
+          const nodes = scopeEl.querySelectorAll('.msg-box.msg-user [data-md64], .msg-box.msg-user [md-block-markdown]');
+          nodes.forEach(el => {
+            let txt = '';
+            if (el.hasAttribute('data-md64')) {
+              const b64 = el.getAttribute('data-md64') || '';
+              el.removeAttribute('data-md64');
+              try { txt = this.renderer.b64ToUtf8(b64); } catch (_) { txt = ''; }
+            } else {
+              // Native Markdown block in user message: keep as plain text (no markdown-it)
+              try { txt = el.textContent || ''; } catch (_) { txt = ''; }
+              try { el.removeAttribute('md-block-markdown'); } catch (_) {}
+            }
+            const span = document.createElement('span'); span.textContent = txt; el.replaceWith(span);
+          });
+        } catch (_) {}
+      }
+
+      // Append HTML into message input container.
+      appendToInput(content) {
+        // Synchronous DOM update – message input must reflect immediately.
+        const el = this.dom.get('_append_input_'); if (!el) return;
+        el.insertAdjacentHTML('beforeend', content);
+        // Apply collapse to any user messages in input area BEFORE the host schedules scroll.
+        try { this._userCollapse.apply(el); } catch (_) {}
+      }
+
+      // Append nodes into messages list and perform post-processing (markdown, code, math).
+      appendNode(content, scrollMgr) {
+        // Keep scroll behavior consistent with existing logic
+        scrollMgr.userInteracted = false; scrollMgr.prevScroll = 0;
+        this.dom.clearStreamBefore();
+
+        const el = this.dom.get('_nodes_'); if (!el) return;
+        el.classList.remove('empty_list');
+
+        const userOnly = this._isUserOnlyContent(content);
+        if (userOnly) {
+          el.insertAdjacentHTML('beforeend', content);
+          this._materializeUserMdAsPlainText(el);
+          // Collapse before scrolling to ensure final height is used for scroll computations.
+          try { this._userCollapse.apply(el); } catch (_) {}
+          scrollMgr.scrollToBottom(false);
+          scrollMgr.scheduleScrollFabUpdate();
+          return;
+        }
+
+        el.insertAdjacentHTML('beforeend', content);
+
+        try {
+          // Defer post-processing (highlight/math/collapse) and perform scroll AFTER collapse.
+          const maybePromise = this.renderer.renderPendingMarkdown(el);
+          const post = () => {
+            // Viewport highlight scheduling
+            try { this.highlighter.scheduleScanVisibleCodes(null); } catch (_) {}
+
+            // In finalize-only mode we must explicitly schedule KaTeX
+            try { if (getMathMode() === 'finalize-only') this.math.schedule(el, 0, true); } catch (_) {}
+
+            // Collapse user messages now that DOM is materialized (ensures correct height).
+            try { this._userCollapse.apply(el); } catch (_) {}
+
+            // Only now scroll to bottom and update FAB – uses post-collapse heights.
+            scrollMgr.scrollToBottom(false);
+            scrollMgr.scheduleScrollFabUpdate();
+          };
+
+          if (maybePromise && typeof maybePromise.then === 'function') {
+            maybePromise.then(post);
+          } else {
+            post();
+          }
+        } catch (_) {
+          // In case of error, do a conservative scroll to keep UX responsive.
+          scrollMgr.scrollToBottom(false);
+          scrollMgr.scheduleScrollFabUpdate();
+        }
+      }
+
+      // Replace messages list content entirely and re-run post-processing.
+      replaceNodes(content, scrollMgr) {
+        // Same semantics as appendNode, but using a hard clone reset
+        scrollMgr.userInteracted = false; scrollMgr.prevScroll = 0;
+        this.dom.clearStreamBefore();
+
+        const el = this.dom.hardReplaceByClone('_nodes_'); if (!el) return;
+        el.classList.remove('empty_list');
+
+        const userOnly = this._isUserOnlyContent(content);
+        if (userOnly) {
+          el.insertAdjacentHTML('beforeend', content);
+          this._materializeUserMdAsPlainText(el);
+          // Collapse before scrolling to ensure final height is used for scroll computations.
+          try { this._userCollapse.apply(el); } catch (_) {}
+          scrollMgr.scrollToBottom(false, true);
+          scrollMgr.scheduleScrollFabUpdate();
+          return;
+        }
+
+        el.insertAdjacentHTML('beforeend', content);
+
+        try {
+          // Defer KaTeX schedule to post-Markdown to avoid races and collapse before scroll.
+          const maybePromise = this.renderer.renderPendingMarkdown(el);
+          const post = () => {
+            try { this.highlighter.scheduleScanVisibleCodes(null); } catch (_) {}
+            try { if (getMathMode() === 'finalize-only') this.math.schedule(el, 0, true); } catch (_) {}
+
+            // Collapse after materialization to compute final heights correctly.
+            try { this._userCollapse.apply(el); } catch (_) {}
+
+            // Now scroll and update FAB using the collapsed layout.
+            scrollMgr.scrollToBottom(false, true);
+            scrollMgr.scheduleScrollFabUpdate();
+          };
+
+          if (maybePromise && typeof maybePromise.then === 'function') {
+            maybePromise.then(post);
+          } else {
+            post();
+          }
+        } catch (_) {
+          scrollMgr.scrollToBottom(false, true);
+          scrollMgr.scheduleScrollFabUpdate();
+        }
+      }
+
+      // Append "extra" content into a specific bot message and post-process locally.
+      appendExtra(id, content, scrollMgr) {
+        const el = document.getElementById('msg-bot-' + id); if (!el) return;
+        const extra = el.querySelector('.msg-extra'); if (!extra) return;
+
+        extra.insertAdjacentHTML('beforeend', content);
+
+        try {
+          const maybePromise = this.renderer.renderPendingMarkdown(extra);
+
+          const post = () => {
+            const activeCode = (typeof runtime !== 'undefined' && runtime.stream) ? runtime.stream.activeCode : null;
+
+            // Attach observers after Markdown produced the nodes
+            try {
+              this.highlighter.observeNewCode(extra, {
+                deferLastIfStreaming: true,
+                minLinesForLast: this.renderer.cfg.PROFILE_CODE.minLinesForHL,
+                minCharsForLast: this.renderer.cfg.PROFILE_CODE.minCharsForHL
+              }, activeCode);
+              this.highlighter.observeMsgBoxes(extra, (box) => this._onBox(box));
+            } catch (_) {}
+
+            // KaTeX: honor stream mode; in finalize-only force immediate schedule
+            try {
+              const mm = getMathMode();
+              if (mm === 'finalize-only') this.math.schedule(extra, 0, true);
+              else this.math.schedule(extra);
+            } catch (_) {}
+          };
+
+          if (maybePromise && typeof maybePromise.then === 'function') {
+            maybePromise.then(post);
+          } else {
+            post();
+          }
+        } catch (_) { /* swallow */ }
+
+        scrollMgr.scheduleScroll(true);
+      }
+
+      // When a new message box appears, hook up code/highlight handlers.
+      _onBox(box) {
+        const activeCode = (typeof runtime !== 'undefined' && runtime.stream) ? runtime.stream.activeCode : null;
+        this.highlighter.observeNewCode(box, {
+          deferLastIfStreaming: true,
+          minLinesForLast: this.renderer.cfg.PROFILE_CODE.minLinesForHL,
+          minCharsForLast: this.renderer.cfg.PROFILE_CODE.minCharsForHL
+        }, activeCode);
+        this.renderer.hooks.codeScrollInit(box);
+      }
+
+      // Remove message by id and keep scroll consistent.
+      removeNode(id, scrollMgr) {
+        scrollMgr.prevScroll = 0;
+        let el = document.getElementById('msg-user-' + id); if (el) el.remove();
+        el = document.getElementById('msg-bot-' + id); if (el) el.remove();
+        this.dom.resetEphemeral();
+        try { this.renderer.renderPendingMarkdown(); } catch (_) {}
+        scrollMgr.scheduleScroll(true);
+      }
+
+      // Remove all messages from (and including) a given message id.
+      removeNodesFromId(id, scrollMgr) {
+        scrollMgr.prevScroll = 0;
+        const container = this.dom.get('_nodes_'); if (!container) return;
+        const elements = container.querySelectorAll('.msg-box');
+        let remove = false;
+        elements.forEach((element) => {
+          if (element.id && element.id.endsWith('-' + id)) remove = true;
+          if (remove) element.remove();
+        });
+        this.dom.resetEphemeral();
+        try { this.renderer.renderPendingMarkdown(container); } catch (_) {}
+        scrollMgr.scheduleScroll(true);
+      }
     }
-    // Remove message by id and keep scroll consistent.
-    removeNode(id, scrollMgr) {
-      scrollMgr.prevScroll = 0;
-      let el = document.getElementById('msg-user-' + id); if (el) el.remove();
-      el = document.getElementById('msg-bot-' + id); if (el) el.remove();
-      this.dom.resetEphemeral();
-      try { this.renderer.renderPendingMarkdown(); } catch (_) {}
-      scrollMgr.scheduleScroll(true);
-    }
-    // Remove all messages from (and including) a given message id.
-    removeNodesFromId(id, scrollMgr) {
-      scrollMgr.prevScroll = 0;
-      const container = this.dom.get('_nodes_'); if (!container) return;
-      const elements = container.querySelectorAll('.msg-box');
-      let remove = false;
-      elements.forEach((element) => {
-        if (element.id && element.id.endsWith('-' + id)) remove = true;
-        if (remove) element.remove();
-      });
-      this.dom.resetEphemeral();
-      try { this.renderer.renderPendingMarkdown(container); } catch (_) {}
-      scrollMgr.scheduleScroll(true);
-    }
-  }
 
   // ==========================================================================
   // 10) UI manager
   // ==========================================================================
 
   class UIManager {
-    // Replace or insert app-level CSS in a <style> tag.
-    updateCSS(styles) {
-      let style = document.getElementById('app-style');
-      if (!style) { style = document.createElement('style'); style.id = 'app-style'; document.head.appendChild(style); }
-      style.textContent = styles;
+      // Replace or insert app-level CSS in a <style> tag.
+      updateCSS(styles) {
+        let style = document.getElementById('app-style');
+        if (!style) { style = document.createElement('style'); style.id = 'app-style'; document.head.appendChild(style); }
+        style.textContent = styles;
+      }
+      // Ensure base styles for code header sticky behavior exist.
+      ensureStickyHeaderStyle() {
+        let style = document.getElementById('code-sticky-style');
+        if (style) return;
+        style = document.createElement('style'); style.id = 'code-sticky-style';
+        style.textContent = [
+          '.code-wrapper { position: relative; }',
+          '.code-wrapper .code-header-wrapper { position: sticky; top: var(--code-header-sticky-top, 0px); z-index: 2; box-shadow: 0 1px 0 rgba(0,0,0,.06); }',
+          '.code-wrapper pre { overflow: visible; margin-top: 0; }',
+          '.code-wrapper pre code { display: block; white-space: pre; max-height: 100dvh; overflow: auto;',
+          '  overscroll-behavior: contain; -webkit-overflow-scrolling: touch; overflow-anchor: none; scrollbar-gutter: stable both-edges; scroll-behavior: auto; }',
+          '#_loader_.hidden { display: none !important; visibility: hidden !important; }',
+          '#_loader_.visible { display: block; visibility: visible; }',
+
+          /* User message collapse (uc-*) */
+          '.msg-box.msg-user .msg { position: relative; }',
+          '.msg-box.msg-user .msg > .uc-content { display: block; overflow: visible; }',
+          '.msg-box.msg-user .msg > .uc-content.uc-collapsed { max-height: 1000px; overflow: hidden; }',
+          '.msg-box.msg-user .msg > .uc-toggle { display: none; margin-top: 8px; text-align: center; cursor: pointer; user-select: none; }',
+          '.msg-box.msg-user .msg > .uc-toggle.visible { display: block; }',
+          '.msg-box.msg-user .msg > .uc-toggle img { width: 20px; height: 20px; opacity: .8; }',
+          '.msg-box.msg-user .msg > .uc-toggle:hover img { opacity: 1; }'
+        ].join('\n');
+        document.head.appendChild(style);
+      }
+      // Toggle classes controlling optional UI features.
+      enableEditIcons() { document.body && document.body.classList.add('display-edit-icons'); }
+      disableEditIcons() { document.body && document.body.classList.remove('display-edit-icons'); }
+      enableTimestamp() { document.body && document.body.classList.add('display-timestamp'); }
+      disableTimestamp() { document.body && document.body.classList.remove('display-timestamp'); }
+      enableBlocks() { document.body && document.body.classList.add('display-blocks'); }
+      disableBlocks() { document.body && document.body.classList.remove('display-blocks'); }
     }
-    // Ensure base styles for code header sticky behavior exist.
-    ensureStickyHeaderStyle() {
-      let style = document.getElementById('code-sticky-style');
-      if (style) return;
-      style = document.createElement('style'); style.id = 'code-sticky-style';
-      style.textContent = [
-        '.code-wrapper { position: relative; }',
-        '.code-wrapper .code-header-wrapper { position: sticky; top: var(--code-header-sticky-top, 0px); z-index: 2; box-shadow: 0 1px 0 rgba(0,0,0,.06); }',
-        '.code-wrapper pre { overflow: visible; margin-top: 0; }',
-        '.code-wrapper pre code { display: block; white-space: pre; max-height: 100dvh; overflow: auto;',
-        '  overscroll-behavior: contain; -webkit-overflow-scrolling: touch; overflow-anchor: none; scrollbar-gutter: stable both-edges; scroll-behavior: auto; }',
-        '#_loader_.hidden { display: none !important; visibility: hidden !important; }',
-        '#_loader_.visible { display: block; visibility: visible; }'
-      ].join('\n');
-      document.head.appendChild(style);
-    }
-    // Toggle classes controlling optional UI features.
-    enableEditIcons() { document.body && document.body.classList.add('display-edit-icons'); }
-    disableEditIcons() { document.body && document.body.classList.remove('display-edit-icons'); }
-    enableTimestamp() { document.body && document.body.classList.add('display-timestamp'); }
-    disableTimestamp() { document.body && document.body.classList.remove('display-timestamp'); }
-    enableBlocks() { document.body && document.body.classList.add('display-blocks'); }
-    disableBlocks() { document.body && document.body.classList.remove('display-blocks'); }
-  }
 
   // ==========================================================================
   // 11) Stream snapshot engine + incremental code streaming

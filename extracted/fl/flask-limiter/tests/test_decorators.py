@@ -9,7 +9,7 @@ import hiro
 from flask import Blueprint, Flask, current_app, g, make_response, request
 from werkzeug.exceptions import BadRequest
 
-from flask_limiter import ExemptionScope, Limiter
+from flask_limiter import ExemptionScope, Limiter, RouteLimit
 from flask_limiter.util import get_remote_address
 
 
@@ -42,9 +42,7 @@ def test_multiple_decorators(extension_factory):
 
 
 def test_exempt_routes(extension_factory):
-    app, limiter = extension_factory(
-        default_limits=["1/minute"], application_limits=["2/minute"]
-    )
+    app, limiter = extension_factory(default_limits=["1/minute"], application_limits=["2/minute"])
 
     @app.route("/t1")
     def t1():
@@ -242,9 +240,7 @@ def test_decorated_limits_with_combined_defaults(extension_factory):
 
 
 def test_decorated_limit_with_combined_defaults_per_method(extension_factory):
-    app, limiter = extension_factory(
-        default_limits=["2/minute"], default_limits_per_method=True
-    )
+    app, limiter = extension_factory(default_limits=["2/minute"], default_limits_per_method=True)
 
     @app.route("/", methods=["GET", "PUT"])
     @limiter.limit("1/second", override_defaults=False, methods=["GET"])
@@ -367,6 +363,45 @@ def test_invalid_decorated_static_limits(caplog):
             assert cli.get("/t1").status_code == 429
     assert "failed to load" in caplog.records[0].msg
     assert "exceeded at endpoint" in caplog.records[-1].msg
+
+
+def test_decorated_limit_with_meta_limit(extension_factory):
+    app, limiter = extension_factory()
+
+    @app.route("/t1")
+    @limiter.limit("1/second", meta_limits=["2/day"])
+    def t1():
+        return "t1"
+
+    with hiro.Timeline().freeze() as timeline:
+        with app.test_client() as cli:
+            assert cli.get("/t1").status_code == 200
+            assert cli.get("/t1").status_code == 429
+            timeline.forward(1)
+            assert cli.get("/t1").status_code == 200
+            assert cli.get("/t1").status_code == 429
+            timeline.forward(1)
+            assert cli.get("/t1").status_code == 429
+
+
+def test_manually_constructed_decorated_limit(extension_factory):
+    app, limiter = extension_factory()
+
+    @app.route("/t1")
+    @RouteLimit("1/second", limiter=limiter)
+    @RouteLimit("2/minute", limiter=limiter)
+    def t1():
+        return "t1"
+
+    with hiro.Timeline().freeze() as timeline:
+        with app.test_client() as cli:
+            assert cli.get("/t1").status_code == 200
+            assert cli.get("/t1").status_code == 429
+            timeline.forward(1)
+            assert cli.get("/t1").status_code == 200
+            assert cli.get("/t1").status_code == 429
+            timeline.forward(1)
+            assert cli.get("/t1").status_code == 429
 
 
 def test_named_shared_limit(extension_factory):
@@ -698,14 +733,10 @@ def test_on_breach_callback_custom_response(extension_factory):
         pass
 
     def on_breach_with_response(request_limit):
-        return make_response(
-            f"custom response {request_limit.limit} @ {request.path}", 429
-        )
+        return make_response(f"custom response {request_limit.limit} @ {request.path}", 429)
 
     def default_on_breach_with_response(request_limit):
-        return make_response(
-            f"default custom response {request_limit.limit} @ {request.path}", 429
-        )
+        return make_response(f"default custom response {request_limit.limit} @ {request.path}", 429)
 
     def on_breach_invalid(): ...
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zope.schema
-Version: 7.1
+Version: 8.0
 Summary: zope.interface extension for defining data schemas
 Home-page: https://github.com/zopefoundation/zope.schema
 Author: Zope Foundation and Contributors
@@ -33,7 +33,7 @@ Requires-Dist: repoze.sphinx.autointerface; extra == "docs"
 Provides-Extra: test
 Requires-Dist: zope.i18nmessageid; extra == "test"
 Requires-Dist: zope.testing; extra == "test"
-Requires-Dist: zope.testrunner; extra == "test"
+Requires-Dist: zope.testrunner>=6.4; extra == "test"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -86,6 +86,12 @@ See https://zopeschema.readthedocs.io/ for more information.
 =========
  Changes
 =========
+
+8.0 (2025-09-12)
+================
+
+- Replace ``pkg_resources`` namespace with PEP 420 native namespace.
+
 
 7.1 (2025-08-11)
 ================

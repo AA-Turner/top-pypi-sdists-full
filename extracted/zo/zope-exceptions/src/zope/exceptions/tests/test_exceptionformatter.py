@@ -23,7 +23,6 @@ import zipfile
 from urllib.error import HTTPError
 
 
-IS_PY38_OR_OLDER = sys.version_info < (3, 9)
 IS_PY312_OR_OLDER = sys.version_info < (3, 13)
 
 
@@ -365,7 +364,7 @@ class TextExceptionFormatterTests(unittest.TestCase):
             '  Module dummy/filename.py, line 26, in dummy_function\n',
             '  Module dummy/filename.py, line 14, in dummy_function\n',
             ''.join(traceback.format_exception_only(ValueError, err))
-            ]
+        ]
         self.assertEqual(lines, expected)
 
     def test_formatException_recursion_in_tb_stack(self):
@@ -435,7 +434,7 @@ class TextExceptionFormatterTests(unittest.TestCase):
             '  Module dummy/filename.py, line 17, in dummy_function\n',
             '...8 entries omitted, because limit is 2...\n',
             '  Module dummy/filename.py, line 1126, in dummy_function\n',
-            ]
+        ]
 
         self.assertEqual(expected, lines)
 
@@ -467,7 +466,7 @@ class TextExceptionFormatterTests(unittest.TestCase):
             '  File "dummy/filename.py", line 17, in dummy_function\n',
             '...2 entries omitted, because limit is 2...\n',
             '  Module dummy/filename.py, line 43, in dummy_function\n',
-            ]
+        ]
 
         self.assertEqual(expected, lines)
 
@@ -595,9 +594,9 @@ class Test_format_exception(unittest.TestCase):
         except ExceptionForTesting:
             s = self._callFUT(False)
         # The traceback should include the name of this function.
-        self.assertTrue(s.find('test_basic_names_text') >= 0)
+        self.assertGreaterEqual(s.find('test_basic_names_text'), 0)
         # The traceback should include the name of the exception.
-        self.assertTrue(s.find('ExceptionForTesting') >= 0)
+        self.assertGreaterEqual(s.find('ExceptionForTesting'), 0)
 
     def test_basic_names_html(self):
         try:
@@ -605,9 +604,9 @@ class Test_format_exception(unittest.TestCase):
         except ExceptionForTesting:
             s = self._callFUT(True)
         # The traceback should include the name of this function.
-        self.assertTrue(s.find('test_basic_names_html') >= 0)
+        self.assertGreaterEqual(s.find('test_basic_names_html'), 0)
         # The traceback should include the name of the exception.
-        self.assertTrue(s.find('ExceptionForTesting') >= 0)
+        self.assertGreaterEqual(s.find('ExceptionForTesting'), 0)
 
     def test_traceback_info_text(self):
         try:
@@ -615,7 +614,7 @@ class Test_format_exception(unittest.TestCase):
             raise ExceptionForTesting
         except ExceptionForTesting:
             s = self._callFUT(False)
-        self.assertTrue(s.find('Adam & Eve') >= 0, s)
+        self.assertGreaterEqual(s.find('Adam & Eve'), 0, s)
 
     def test_traceback_info_html(self):
         try:
@@ -624,7 +623,7 @@ class Test_format_exception(unittest.TestCase):
         except ExceptionForTesting:
             s = self._callFUT(True)
         # Be sure quoting is happening.
-        self.assertTrue(s.find('Adam &amp; Eve') >= 0, s)
+        self.assertGreaterEqual(s.find('Adam &amp; Eve'), 0, s)
 
     def test_traceback_info_is_tuple(self):
         try:
@@ -632,8 +631,8 @@ class Test_format_exception(unittest.TestCase):
             raise ExceptionForTesting
         except ExceptionForTesting:
             s = self._callFUT(False)
-        self.assertTrue(s.find('Adam') >= 0, s)
-        self.assertTrue(s.find('Eve') >= 0, s)
+        self.assertGreaterEqual(s.find('Adam'), 0, s)
+        self.assertGreaterEqual(s.find('Eve'), 0, s)
 
     def test_supplement_text(self, as_html=0):
         try:
@@ -643,15 +642,15 @@ class Test_format_exception(unittest.TestCase):
         except ExceptionForTesting:
             s = self._callFUT(as_html)
         # The source URL
-        self.assertTrue(s.find('/somepath') >= 0, s)
+        self.assertGreaterEqual(s.find('/somepath'), 0, s)
         # The line number
-        self.assertTrue(s.find('634') >= 0, s)
+        self.assertGreaterEqual(s.find('634'), 0, s)
         # The column number
-        self.assertTrue(s.find('57') >= 0, s)
+        self.assertGreaterEqual(s.find('57'), 0, s)
         # The expression
-        self.assertTrue(s.find("You're one in a million") >= 0, s)
+        self.assertGreaterEqual(s.find("You're one in a million"), 0, s)
         # The warning
-        self.assertTrue(s.find("Repent, for the end is nigh") >= 0, s)
+        self.assertGreaterEqual(s.find("Repent, for the end is nigh"), 0, s)
 
     def test_supplement_html(self):
         try:
@@ -661,15 +660,15 @@ class Test_format_exception(unittest.TestCase):
         except ExceptionForTesting:
             s = self._callFUT(True)
         # The source URL
-        self.assertTrue(s.find('/somepath') >= 0, s)
+        self.assertGreaterEqual(s.find('/somepath'), 0, s)
         # The line number
-        self.assertTrue(s.find('634') >= 0, s)
+        self.assertGreaterEqual(s.find('634'), 0, s)
         # The column number
-        self.assertTrue(s.find('57') >= 0, s)
+        self.assertGreaterEqual(s.find('57'), 0, s)
         # The expression
-        self.assertTrue(s.find("You're one in a million") >= 0, s)
+        self.assertGreaterEqual(s.find("You're one in a million"), 0, s)
         # The warning
-        self.assertTrue(s.find("Repent, for the end is nigh") >= 0, s)
+        self.assertGreaterEqual(s.find("Repent, for the end is nigh"), 0, s)
 
     def test_multiple_levels(self):
         # Ensure many levels are shown in a traceback.
@@ -686,8 +685,8 @@ class Test_format_exception(unittest.TestCase):
             f(HOW_MANY)
         except ExceptionForTesting:
             s = self._callFUT(False)
-        for n in range(HOW_MANY+1):
-            self.assertTrue(s.find('level%d' % n) >= 0, s)
+        for n in range(HOW_MANY + 1):
+            self.assertGreaterEqual(s.find('level%d' % n), 0, s)
 
     def test_quote_last_line(self):
         class C:
@@ -739,13 +738,19 @@ class Test_format_exception(unittest.TestCase):
             except FormatterException:
                 s = self._callFUT(False)
         # Recursion was detected
-        self.assertTrue('(Recursive formatException() stopped, '
-                        'trying traceback.format_tb)' in s, s)
+        self.assertIn(
+            '(Recursive formatException() stopped, '
+            'trying traceback.format_tb)',
+            s,
+            s
+        )
         # and we fellback to the stdlib rather than hid the real error
         self.assertEqual(s.splitlines()[-2],
                          '    raise FormatterException("Formatter failed")')
-        self.assertTrue('FormatterException: Formatter failed'
-                        in s.splitlines()[-1])
+        self.assertIn(
+            'FormatterException: Formatter failed',
+            s.splitlines()[-1]
+        )
 
     def test_format_exception_as_html(self):
         # Test for format_exception (as_html=True)
@@ -769,10 +774,6 @@ class Test_format_exception(unittest.TestCase):
             module='zope.exceptions.tests.test_exceptionformatter',
             fn='test_format_exception_as_html',
         )
-        if IS_PY38_OR_OLDER:  # pragma: no cover
-            # Python <= 3.8 hand the pointer at the last character of the
-            # statement:
-            expected = expected.replace(' ^<br />', '^<br />')
         if IS_PY312_OR_OLDER:  # pragma: no cover
             # Python <= 3.12 had a different error message:
             expected = expected.replace(
@@ -830,9 +831,9 @@ class Test_print_exception(unittest.TestCase):
         except ExceptionForTesting:
             s = self._callFUT(False)
         # The traceback should include the name of this function.
-        self.assertTrue(s.find('test_basic_names_text') >= 0)
+        self.assertGreaterEqual(s.find('test_basic_names_text'), 0)
         # The traceback should include the name of the exception.
-        self.assertTrue(s.find('ExceptionForTesting') >= 0)
+        self.assertGreaterEqual(s.find('ExceptionForTesting'), 0)
 
     def test_basic_names_html(self):
         try:
@@ -840,9 +841,9 @@ class Test_print_exception(unittest.TestCase):
         except ExceptionForTesting:
             s = self._callFUT(True)
         # The traceback should include the name of this function.
-        self.assertTrue(s.find('test_basic_names_html') >= 0)
+        self.assertGreaterEqual(s.find('test_basic_names_html'), 0)
         # The traceback should include the name of the exception.
-        self.assertTrue(s.find('ExceptionForTesting') >= 0)
+        self.assertGreaterEqual(s.find('ExceptionForTesting'), 0)
 
 
 class Test_extract_stack(unittest.TestCase):
@@ -861,7 +862,7 @@ class Test_extract_stack(unittest.TestCase):
         except ExceptionForTesting:
             s = self._callFUT(False)
         # The stack trace should include the name of this function.
-        self.assertTrue(s.find('test_basic_names_as_text') >= 0)
+        self.assertGreaterEqual(s.find('test_basic_names_as_text'), 0)
 
     def test_basic_names_as_html(self):
         try:
@@ -869,7 +870,7 @@ class Test_extract_stack(unittest.TestCase):
         except ExceptionForTesting:
             s = self._callFUT(True)
         # The stack trace should include the name of this function.
-        self.assertTrue(s.find('test_basic_names_as_html') >= 0)
+        self.assertGreaterEqual(s.find('test_basic_names_as_html'), 0)
 
     def test_traceback_info_text(self):
         try:
@@ -877,7 +878,7 @@ class Test_extract_stack(unittest.TestCase):
             raise ExceptionForTesting
         except ExceptionForTesting:
             s = self._callFUT(False)
-        self.assertTrue(s.find('Adam & Eve') >= 0, s)
+        self.assertGreaterEqual(s.find('Adam & Eve'), 0, s)
 
     def test_traceback_info_html(self):
         try:
@@ -885,7 +886,7 @@ class Test_extract_stack(unittest.TestCase):
             raise ExceptionForTesting
         except ExceptionForTesting:
             s = self._callFUT(True)
-        self.assertTrue(s.find('Adam &amp; Eve') >= 0, s)
+        self.assertGreaterEqual(s.find('Adam &amp; Eve'), 0, s)
 
     def test_traceback_supplement_text(self):
         try:
@@ -895,15 +896,15 @@ class Test_extract_stack(unittest.TestCase):
         except ExceptionForTesting:
             s = self._callFUT(False)
         # The source URL
-        self.assertTrue(s.find('/somepath') >= 0, s)
+        self.assertGreaterEqual(s.find('/somepath'), 0, s)
         # The line number
-        self.assertTrue(s.find('634') >= 0, s)
+        self.assertGreaterEqual(s.find('634'), 0, s)
         # The column number
-        self.assertTrue(s.find('57') >= 0, s)
+        self.assertGreaterEqual(s.find('57'), 0, s)
         # The expression
-        self.assertTrue(s.find("You're one in a million") >= 0, s)
+        self.assertGreaterEqual(s.find("You're one in a million"), 0, s)
         # The warning
-        self.assertTrue(s.find("Repent, for the end is nigh") >= 0, s)
+        self.assertGreaterEqual(s.find("Repent, for the end is nigh"), 0, s)
 
     def test_traceback_supplement_html(self):
         try:
@@ -913,15 +914,15 @@ class Test_extract_stack(unittest.TestCase):
         except ExceptionForTesting:
             s = self._callFUT(True)
         # The source URL
-        self.assertTrue(s.find('/somepath') >= 0, s)
+        self.assertGreaterEqual(s.find('/somepath'), 0, s)
         # The line number
-        self.assertTrue(s.find('634') >= 0, s)
+        self.assertGreaterEqual(s.find('634'), 0, s)
         # The column number
-        self.assertTrue(s.find('57') >= 0, s)
+        self.assertGreaterEqual(s.find('57'), 0, s)
         # The expression
-        self.assertTrue(s.find("You're one in a million") >= 0, s)
+        self.assertGreaterEqual(s.find("You're one in a million"), 0, s)
         # The warning
-        self.assertTrue(s.find("Repent, for the end is nigh") >= 0, s)
+        self.assertGreaterEqual(s.find("Repent, for the end is nigh"), 0, s)
 
     def test_noinput(self):
         try:
@@ -929,7 +930,7 @@ class Test_extract_stack(unittest.TestCase):
         except ExceptionForTesting:
             from zope.exceptions.exceptionformatter import extract_stack
             s = ''.join(extract_stack())
-            self.assertTrue(s.find('test_noinput') >= 0)
+            self.assertGreaterEqual(s.find('test_noinput'), 0)
 
 
 class ExceptionForTesting(Exception):

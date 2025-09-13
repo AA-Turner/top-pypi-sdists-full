@@ -8,6 +8,7 @@ runner = CliRunner()
 
 
 def test_get_value(tmp_path: pathlib.Path):
+    "toml_cli.app"
     test_toml_path = tmp_path / "test.toml"
     test_toml_path.write_text(
         """

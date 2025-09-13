@@ -44,6 +44,8 @@ from .type_defs import (
     ExportKeyOutputTypeDef,
     GetAliasInputTypeDef,
     GetAliasOutputTypeDef,
+    GetCertificateSigningRequestInputTypeDef,
+    GetCertificateSigningRequestOutputTypeDef,
     GetDefaultKeyReplicationRegionsOutputTypeDef,
     GetKeyInputTypeDef,
     GetKeyOutputTypeDef,
@@ -220,6 +222,16 @@ class PaymentCryptographyControlPlaneClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/payment-cryptography/client/get_alias.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_payment_cryptography/client/#get_alias)
+        """
+
+    def get_certificate_signing_request(
+        self, **kwargs: Unpack[GetCertificateSigningRequestInputTypeDef]
+    ) -> GetCertificateSigningRequestOutputTypeDef:
+        """
+        Used to retrieve the public key for a keypair.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/payment-cryptography/client/get_certificate_signing_request.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_payment_cryptography/client/#get_certificate_signing_request)
         """
 
     def get_default_key_replication_regions(self) -> GetDefaultKeyReplicationRegionsOutputTypeDef:

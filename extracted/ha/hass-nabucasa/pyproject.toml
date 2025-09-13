@@ -19,7 +19,7 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
 ]
 dependencies = [
-    "acme==4.2.0",
+    "acme==5.0.0",
     "aiohttp>=3.6.1",
     "async_timeout>=4",
     "atomicwrites-homeassistant==1.4.1",
@@ -32,14 +32,14 @@ dependencies = [
     "snitun==0.44.0",
     "webrtc-models<1.0.0",
     "yarl>=1.20,<2",
-    "sentence-stream==1.1.0",
+    "sentence-stream==1.2.0",
 ]
 description = "Home Assistant cloud integration by Nabu Casa, Inc."
 license = {text = "GPL v3"}
 name = "hass-nabucasa"
 readme = "README.md"
 requires-python = ">=3.13"
-version = "1.1.0"
+version = "1.1.1"
 
 [project.optional-dependencies]
 test = [
@@ -52,11 +52,11 @@ test = [
     "pytest-aiohttp==1.1.0",
     "pytest-socket==0.7.0",
     "pytest-timeout==2.4.0",
-    "pytest==8.4.1",
-    "ruff==0.12.11",
+    "pytest==8.4.2",
+    "ruff==0.12.12",
     "types_atomicwrites==1.4.5.1",
     "types_pyOpenSSL==24.1.0.20240722",
-    "xmltodict==0.14.2",
+    "xmltodict==0.15.1",
     "syrupy==4.9.1",
     "tomli==2.2.1",
 ]

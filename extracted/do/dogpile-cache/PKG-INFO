@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dogpile.cache
-Version: 1.4.0
+Version: 1.4.1
 Summary: A caching front-end based on the Dogpile lock.
 Author-email: Mike Bayer <mike_mp@zzzcomputing.com>
 License-Expression: MIT

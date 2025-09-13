@@ -12,9 +12,20 @@ from montecarlodata.queries.keys import Queries
 from montecarlodata.utils import GqlWrapper
 
 
+# Should be in sync with monolith IntegrationKeyScope: https://github.com/monte-carlo-data/monolith-django/blob/a6f7fce58b5d6e933655c19823067886a826fe48/monolith/service/dynamo/integration_key.py#L14
+# and with saas-serverless AuthScope: https://github.com/monte-carlo-data/saas-serverless/blob/3128eb4eea6e10522b0ac34122dd1c008661c8aa/integration-gateway/gateway/base/auth.py#L19
 class IntegrationKeyScope(Enum):
-    Spark = "spark"
+    CircuitBreaker = "circuit_breaker"
     DatabricksMetadata = "databricksmetadata"
+    DatabricksWebhook = "databricks_webhook"
+    DbtCloudWebhook = "dbt_cloud_webhook"
+    S3PresignedUrl = "s3_presigned_url"
+    Spark = "spark"
+    AirflowCallbacks = "airflowcallbacks"
+    Agent = "agent"
+    SCIM_v2 = "SCIM_v2"
+    AzureDevopsWebhook = "azure_devops_webhook"
+    MCP = "mcp"
 
     @classmethod
     def values(cls) -> List[str]:

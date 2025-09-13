@@ -8,8 +8,9 @@ project(
         'optimization=3',
         'pkgconfig.relocatable=true',
         'warning_level=1',  # equivalent to -Wall. We should consider cranking it up to 3
+        'python.allow_limited_api=false',  # Our build system can then opt-in for Python 3.12+
     ],
-    meson_version: '>= 1.2.0',
+    meson_version: '>= 1.3.0',
     # As of August 2024, there is no nicer way that I know of to dynamically get the version
     version: run_command(
         ['dwave/optimization/_build/_version.py'],
@@ -25,6 +26,7 @@ py = import('python').find_installation(pure: false)
 
 dwave_optimization_include = include_directories('dwave/optimization/include/')
 dwave_optimization_src = [
+    'dwave/optimization/src/nodes/binaryop.cpp',
     'dwave/optimization/src/nodes/collections.cpp',
     'dwave/optimization/src/nodes/constants.cpp',
     'dwave/optimization/src/nodes/creation.cpp',
@@ -35,16 +37,19 @@ dwave_optimization_src = [
     'dwave/optimization/src/nodes/lambda.cpp',
     'dwave/optimization/src/nodes/lp.cpp',
     'dwave/optimization/src/nodes/manipulation.cpp',
-    'dwave/optimization/src/nodes/mathematical.cpp',
+    'dwave/optimization/src/nodes/naryop.cpp',
     'dwave/optimization/src/nodes/numbers.cpp',
     'dwave/optimization/src/nodes/quadratic_model.cpp',
+    'dwave/optimization/src/nodes/reduce.cpp',
+    'dwave/optimization/src/nodes/softmax.cpp',
     'dwave/optimization/src/nodes/sorting.cpp',
     'dwave/optimization/src/nodes/statistics.cpp',
     'dwave/optimization/src/nodes/testing.cpp',
+    'dwave/optimization/src/nodes/unaryop.cpp',
     'dwave/optimization/src/array.cpp',
+    'dwave/optimization/src/fraction.cpp',
     'dwave/optimization/src/graph.cpp',
     'dwave/optimization/src/simplex.cpp',
-    'dwave/optimization/src/utils.cpp',
 ]
 
 if host_machine.system() == 'windows'
@@ -72,6 +77,18 @@ else
     )
 endif
 
+# We build the limited API when we have Python>=3.12, which is the lowest
+# version that Cython makes use of vectorcall.
+# See https://cython.readthedocs.io/en/stable/src/userguide/limited_api.html
+# By default this will do nothing unless the user overrides the
+# python.allow_limited_api=false we specify above, which we do when building
+# with cibuildwheel
+if py.version().version_compare('>=3.12')
+    limited_api = '3.12'
+else
+    limited_api = ''  # i.e. no limited api
+endif
+
 py.extension_module(
     '_model',
     'dwave/optimization/_model.pyx',
@@ -82,6 +99,7 @@ py.extension_module(
     override_options : ['cython_language=cpp'],
     cython_args : ['-Xfreethreading_compatible=True'],
     subdir: 'dwave/optimization/',
+    limited_api: limited_api,
 )
 
 py.extension_module(
@@ -94,6 +112,7 @@ py.extension_module(
     override_options : ['cython_language=cpp'],
     cython_args : ['-Xfreethreading_compatible=True'],
     subdir: 'dwave/optimization/',
+    limited_api: limited_api,
 )
 
 py.extension_module(
@@ -106,6 +125,7 @@ py.extension_module(
     override_options : ['cython_language=cpp'],
     cython_args : ['-Xfreethreading_compatible=True'],
     subdir: 'dwave/optimization/',
+    limited_api: limited_api,
 )
 
 py.extension_module(
@@ -117,6 +137,7 @@ py.extension_module(
     override_options : ['cython_language=cpp'],
     cython_args : ['-Xfreethreading_compatible=True'],
     subdir: 'dwave/optimization/',
+    limited_api: limited_api,
 )
 
 install_subdir('dwave/optimization', install_dir: py.get_install_dir(pure: false) / 'dwave')

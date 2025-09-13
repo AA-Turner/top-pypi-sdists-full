@@ -75,7 +75,6 @@ class RawV2Client:
         logprobs: typing.Optional[bool] = OMIT,
         tool_choice: typing.Optional[V2ChatStreamRequestToolChoice] = OMIT,
         thinking: typing.Optional[Thinking] = OMIT,
-        raw_prompting: typing.Optional[bool] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> typing.Iterator[HttpResponse[typing.Iterator[V2ChatStreamResponse]]]:
         """
@@ -168,12 +167,6 @@ class RawV2Client:
 
         thinking : typing.Optional[Thinking]
 
-        raw_prompting : typing.Optional[bool]
-            When enabled, the user's prompt will be sent to the model without
-            any pre-processing.
-
-            Compatible Deployments: Cohere Platform, Azure, AWS Sagemaker/Bedrock, Private Deployments
-
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -217,7 +210,6 @@ class RawV2Client:
                 "thinking": convert_and_respect_annotation_metadata(
                     object_=thinking, annotation=Thinking, direction="write"
                 ),
-                "raw_prompting": raw_prompting,
                 "stream": True,
             },
             headers={
@@ -413,7 +405,6 @@ class RawV2Client:
         logprobs: typing.Optional[bool] = OMIT,
         tool_choice: typing.Optional[V2ChatRequestToolChoice] = OMIT,
         thinking: typing.Optional[Thinking] = OMIT,
-        raw_prompting: typing.Optional[bool] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[V2ChatResponse]:
         """
@@ -506,12 +497,6 @@ class RawV2Client:
 
         thinking : typing.Optional[Thinking]
 
-        raw_prompting : typing.Optional[bool]
-            When enabled, the user's prompt will be sent to the model without
-            any pre-processing.
-
-            Compatible Deployments: Cohere Platform, Azure, AWS Sagemaker/Bedrock, Private Deployments
-
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -555,7 +540,6 @@ class RawV2Client:
                 "thinking": convert_and_respect_annotation_metadata(
                     object_=thinking, annotation=Thinking, direction="write"
                 ),
-                "raw_prompting": raw_prompting,
                 "stream": False,
             },
             headers={
@@ -767,6 +751,7 @@ class RawV2Client:
             * `"uint8"`: Use this when you want to get back unsigned int8 embeddings. Supported with Embed v3.0 and newer Embed models.
             * `"binary"`: Use this when you want to get back signed binary embeddings. Supported with Embed v3.0 and newer Embed models.
             * `"ubinary"`: Use this when you want to get back unsigned binary embeddings. Supported with Embed v3.0 and newer Embed models.
+            * `"base64"`: Use this when you want to get back base64 embeddings. Supported with Embed v3.0 and newer Embed models.
 
         truncate : typing.Optional[V2EmbedRequestTruncate]
             One of `NONE|START|END` to specify how the API will handle inputs longer than the maximum token length.
@@ -1186,7 +1171,6 @@ class AsyncRawV2Client:
         logprobs: typing.Optional[bool] = OMIT,
         tool_choice: typing.Optional[V2ChatStreamRequestToolChoice] = OMIT,
         thinking: typing.Optional[Thinking] = OMIT,
-        raw_prompting: typing.Optional[bool] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> typing.AsyncIterator[AsyncHttpResponse[typing.AsyncIterator[V2ChatStreamResponse]]]:
         """
@@ -1279,12 +1263,6 @@ class AsyncRawV2Client:
 
         thinking : typing.Optional[Thinking]
 
-        raw_prompting : typing.Optional[bool]
-            When enabled, the user's prompt will be sent to the model without
-            any pre-processing.
-
-            Compatible Deployments: Cohere Platform, Azure, AWS Sagemaker/Bedrock, Private Deployments
-
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -1328,7 +1306,6 @@ class AsyncRawV2Client:
                 "thinking": convert_and_respect_annotation_metadata(
                     object_=thinking, annotation=Thinking, direction="write"
                 ),
-                "raw_prompting": raw_prompting,
                 "stream": True,
             },
             headers={
@@ -1524,7 +1501,6 @@ class AsyncRawV2Client:
         logprobs: typing.Optional[bool] = OMIT,
         tool_choice: typing.Optional[V2ChatRequestToolChoice] = OMIT,
         thinking: typing.Optional[Thinking] = OMIT,
-        raw_prompting: typing.Optional[bool] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[V2ChatResponse]:
         """
@@ -1617,12 +1593,6 @@ class AsyncRawV2Client:
 
         thinking : typing.Optional[Thinking]
 
-        raw_prompting : typing.Optional[bool]
-            When enabled, the user's prompt will be sent to the model without
-            any pre-processing.
-
-            Compatible Deployments: Cohere Platform, Azure, AWS Sagemaker/Bedrock, Private Deployments
-
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -1666,7 +1636,6 @@ class AsyncRawV2Client:
                 "thinking": convert_and_respect_annotation_metadata(
                     object_=thinking, annotation=Thinking, direction="write"
                 ),
-                "raw_prompting": raw_prompting,
                 "stream": False,
             },
             headers={
@@ -1878,6 +1847,7 @@ class AsyncRawV2Client:
             * `"uint8"`: Use this when you want to get back unsigned int8 embeddings. Supported with Embed v3.0 and newer Embed models.
             * `"binary"`: Use this when you want to get back signed binary embeddings. Supported with Embed v3.0 and newer Embed models.
             * `"ubinary"`: Use this when you want to get back unsigned binary embeddings. Supported with Embed v3.0 and newer Embed models.
+            * `"base64"`: Use this when you want to get back base64 embeddings. Supported with Embed v3.0 and newer Embed models.
 
         truncate : typing.Optional[V2EmbedRequestTruncate]
             One of `NONE|START|END` to specify how the API will handle inputs longer than the maximum token length.

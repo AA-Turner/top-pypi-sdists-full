@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: vulners
-Version: 3.1.0
+Version: 3.1.1
 Summary: Python library and command-line utility for Vulners (https://vulners.com)
 Keywords: security,network,vulners,vulnerability,CVE
 Author: Vulners Team

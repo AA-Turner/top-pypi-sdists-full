@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: zope.tales
-Version: 6.1
+Version: 7.0
 Summary: Zope Template Application Language Expression Syntax (TALES)
 Home-page: https://github.com/zopefoundation/zope.tales
 Author: Zope Foundation and Contributors
@@ -34,13 +34,26 @@ Requires-Dist: setuptools
 Requires-Dist: zope.interface
 Provides-Extra: test
 Requires-Dist: zope.testing; extra == "test"
-Requires-Dist: zope.testrunner; extra == "test"
+Requires-Dist: zope.testrunner>=6.4; extra == "test"
 Provides-Extra: tal
 Requires-Dist: zope.tal; extra == "tal"
 Provides-Extra: docs
 Requires-Dist: Sphinx; extra == "docs"
 Requires-Dist: repoze.sphinx.autointerface; extra == "docs"
 Requires-Dist: zope.tal; extra == "docs"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: project-url
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 ============
  zope.tales
@@ -81,6 +94,12 @@ https://zopetales.readthedocs.io/
 =========
  Changes
 =========
+
+7.0 (2025-09-12)
+================
+
+- Replace ``pkg_resources`` namespace with PEP 420 native namespace.
+
 
 6.1 (2025-02-14)
 ================

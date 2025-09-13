@@ -1,11 +1,11 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: zope.container
-Version: 6.1
+Version: 7.0
 Summary: Zope Container
 Home-page: https://github.com/zopefoundation/zope.container
 Author: Zope Foundation and Contributors
-Author-email: zope-dev@zope.org
-License: ZPL 2.1
+Author-email: zope-dev@zope.dev
+License: ZPL-2.1
 Project-URL: Documentation, https://zopecontainer.readthedocs.io
 Project-URL: Issue Tracker, https://github.com/zopefoundation/zope.container/issues
 Project-URL: Sources, https://github.com/zopefoundation/zope.container
@@ -16,7 +16,6 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Zope Public License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -28,7 +27,7 @@ Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Framework :: Zope :: 3
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 License-File: LICENSE.txt
 Requires-Dist: BTrees
 Requires-Dist: persistent>=4.1.0
@@ -55,7 +54,7 @@ Requires-Dist: repoze.sphinx.autointerface; extra == "docs"
 Requires-Dist: sphinx_rtd_theme; extra == "docs"
 Provides-Extra: test
 Requires-Dist: zope.testing; extra == "test"
-Requires-Dist: zope.testrunner; extra == "test"
+Requires-Dist: zope.testrunner>=6.4; extra == "test"
 Requires-Dist: ZODB>=3.10; extra == "test"
 Requires-Dist: zope.component[zcml]; extra == "test"
 Requires-Dist: zope.configuration; extra == "test"
@@ -66,6 +65,19 @@ Requires-Dist: zope.configuration; extra == "zcml"
 Requires-Dist: zope.security[zcml]>=4.0.0a3; extra == "zcml"
 Provides-Extra: zodb
 Requires-Dist: ZODB>=3.10; extra == "zodb"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: project-url
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 ====================
  ``zope.container``
@@ -101,6 +113,18 @@ Documentation is hosted at https://zopecontainer.readthedocs.io
 =========
  Changes
 =========
+
+7.0 (2025-09-12)
+================
+
+- Replace ``pkg_resources`` namespace with PEP 420 native namespace.
+
+- Drop support for Python 3.8.
+
+- Add preliminary support for Python 3.14.
+
+- Update docs config to ``Sphinx >=8``.
+
 
 6.1 (2024-09-18)
 ================

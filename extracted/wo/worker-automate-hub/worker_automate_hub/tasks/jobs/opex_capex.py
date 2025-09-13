@@ -87,7 +87,7 @@ async def get_ultimo_item():
 
 async def opex_capex(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
     """
-    Processo que realiza entrada de notas no ERP EMSys(Linx).
+    Processo que realiza entrada de notas no ERP EMSys(Linx ).
 
     """
     try:

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zope.contentprovider
-Version: 6.1
+Version: 7.0
 Summary: Content Provider Framework for Zope Templates
 Home-page: https://github.com/zopefoundation/zope.contentprovider
 Author: Zope Foundation and Contributors
@@ -37,7 +37,7 @@ Requires-Dist: zope.tales
 Provides-Extra: test
 Requires-Dist: zope.browserpage>=3.12; extra == "test"
 Requires-Dist: zope.testing; extra == "test"
-Requires-Dist: zope.testrunner; extra == "test"
+Requires-Dist: zope.testrunner>=6.4; extra == "test"
 Provides-Extra: docs
 Requires-Dist: Sphinx; extra == "docs"
 Requires-Dist: repoze.sphinx.autointerface; extra == "docs"
@@ -88,6 +88,12 @@ Detailed documentation is available at https://zopecontentprovider.readthedocs.i
 =========
  Changes
 =========
+
+7.0 (2025-09-12)
+================
+
+- Replace ``pkg_resources`` namespace with PEP 420 native namespace.
+
 
 6.1 (2025-07-23)
 ================

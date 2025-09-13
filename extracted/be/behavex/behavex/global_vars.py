@@ -2,8 +2,10 @@
 import os
 import time
 
+from behavex.execution_singleton import ExecutionSingleton
 
-class GlobalVars:
+
+class GlobalVars(metaclass=ExecutionSingleton):
     def __init__(self):
         # Ensure BEHAVEX_PATH is set if not already
         if 'BEHAVEX_PATH' not in os.environ:
@@ -31,6 +33,12 @@ class GlobalVars:
         self._progress_bar_instance = None
         self._execution_start_time = time.time()
         self._execution_end_time = None
+
+        # Behave version detection (lazy loaded)
+        self._behave_version = None
+
+        # Tag expression version detection (lazy loaded)
+        self._tag_expression_version = None
 
 
     @property
@@ -98,6 +106,103 @@ class GlobalVars:
         if not self._execution_end_time:
             self._execution_end_time = time.time()
         return self._execution_end_time
+
+    @property
+    def behave_version(self):
+        """
+        Get the Behave version (lazy loaded, calculated only once).
+
+        Returns:
+            tuple: Version tuple (major, minor, patch)
+        """
+        if self._behave_version is None:
+            self._behave_version = _detect_behave_version()
+        return self._behave_version
+
+    @property
+    def tag_expression_version(self):
+        """
+        Get the tag expression version (lazy loaded, calculated only once).
+
+        Analyzes all tag arguments to determine if they use v1 (legacy) or v2 (Behave 1.3.0+) syntax.
+
+        Returns:
+            str: 'v1' for legacy format, 'v2' for Behave 1.3.0+ format, 'v1' as default
+        """
+        if self._tag_expression_version is None:
+            self._tag_expression_version = _detect_tag_expression_version()
+        return self._tag_expression_version
+
+
+def _detect_behave_version():
+    """
+    Detect the installed Behave version.
+
+    Returns:
+        tuple: Version tuple (major, minor, patch) or (0, 0, 0) if not available
+    """
+    try:
+        import behave
+        version_str = behave.__version__
+        version_parts = version_str.split('.')
+        major = int(version_parts[0])
+        minor = int(version_parts[1]) if len(version_parts) > 1 else 0
+        patch = int(version_parts[2]) if len(version_parts) > 2 else 0
+        return (major, minor, patch)
+    except (ImportError, AttributeError, ValueError, IndexError):
+        return (0, 0, 0)
+
+
+def _detect_tag_expression_version():
+    """
+    Detect tag expression version by analyzing all tag arguments.
+
+    Simple but efficient algorithm that checks for v2 syntax patterns:
+    - Keywords: 'and', 'or', 'not' (case-insensitive)
+    - Parentheses for grouping: '(', ')'
+
+    If any v2 patterns are found, returns 'v2', otherwise 'v1'.
+
+    Returns:
+        str: 'v1' for legacy format, 'v2' for Behave 1.3.0+ format
+    """
+    try:
+        # Import here to avoid circular imports
+        from behavex.conf_mgr import get_env
+
+        # Get all tag expressions from environment
+        tags_env = get_env('tags')
+        if not tags_env:
+            return 'v1'  # Default to v1 if no tags
+
+        # Combine all tag arguments into a single string for analysis
+        all_tags = tags_env.replace(';', ' ').lower()
+
+        # v2 syntax indicators (case-insensitive)
+        v2_patterns = [
+            ' and ',     # Boolean AND operator
+            ' or ',      # Boolean OR operator
+            ' not ',     # Boolean NOT operator
+            '(',         # Grouping with parentheses
+            ')',         # Grouping with parentheses
+            '*',         # Wildcard matching (v2 feature)
+        ]
+
+        # Check for v2 patterns
+        for pattern in v2_patterns:
+            if pattern in all_tags:
+                return 'v2'
+
+        # Additional check: if it starts with 'not ' (beginning of string)
+        if all_tags.strip().startswith('not '):
+            return 'v2'
+
+        # If no v2 patterns found, it's v1 (legacy)
+        return 'v1'
+
+    except Exception:
+        # If any error occurs, default to v1 (safe fallback)
+        return 'v1'
 
 
 

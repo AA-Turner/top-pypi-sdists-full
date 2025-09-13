@@ -336,6 +336,38 @@ class Library(bpy.types.ID):
         :rtype: typing.Any
         """
 
+class Light(bpy.types.ID):
+    bl_rna: typing.Any
+    id_data: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        :rtype: bpy.types.Struct
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        :rtype: typing.Any
+        """
+
+    def cycles(self, *args, **kwargs) -> None:
+        """Intermediate storage for properties before registration.
+
+        :param args:
+        :param kwargs:
+        """
+
+    def inline_shader_nodes(self) -> None:
+        """Get the inlined shader nodes of this light. This preprocesses the node tree
+        to remove nested groups, repeat zones and more.
+
+                :return: The inlined shader nodes.
+        """
+
 class Macro:
     bl_rna: typing.Any
     id_data: typing.Any
@@ -362,6 +394,38 @@ class Macro:
         :type operator: str
         :return: The operator macro for property access.
         :rtype: bpy.types.OperatorMacro
+        """
+
+class Material(bpy.types.ID):
+    bl_rna: typing.Any
+    id_data: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        :rtype: bpy.types.Struct
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        :rtype: typing.Any
+        """
+
+    def cycles(self, *args, **kwargs) -> None:
+        """Intermediate storage for properties before registration.
+
+        :param args:
+        :param kwargs:
+        """
+
+    def inline_shader_nodes(self) -> None:
+        """Get the inlined shader nodes of this material. This preprocesses the node tree
+        to remove nested groups, repeat zones and more.
+
+                :return: The inlined shader nodes.
         """
 
 class Mesh(bpy.types.ID):
@@ -1079,6 +1143,45 @@ class WorkSpace(bpy.types.ID):
 
                 :param args:
                 :param kwargs:
+        """
+
+class World(bpy.types.ID):
+    bl_rna: typing.Any
+    id_data: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        :rtype: bpy.types.Struct
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        :rtype: typing.Any
+        """
+
+    def cycles(self, *args, **kwargs) -> None:
+        """Intermediate storage for properties before registration.
+
+        :param args:
+        :param kwargs:
+        """
+
+    def cycles_visibility(self, *args, **kwargs) -> None:
+        """Intermediate storage for properties before registration.
+
+        :param args:
+        :param kwargs:
+        """
+
+    def inline_shader_nodes(self) -> None:
+        """Get the inlined shader nodes of this world. This preprocesses the node tree
+        to remove nested groups, repeat zones and more.
+
+                :return: The inlined shader nodes.
         """
 
 class _RNAMeta:

@@ -36,6 +36,8 @@ from chalk._gen.chalk.server.v1.builder_pb2 import (
     DeleteKarpenterNodepoolResponse,
     DeleteNodepoolRequest,
     DeleteNodepoolResponse,
+    DeleteTelemetryDeploymentRequest,
+    DeleteTelemetryDeploymentResponse,
     DeployKubeComponentsRequest,
     DeployKubeComponentsResponse,
     GetBranchProfileRequest,
@@ -50,6 +52,8 @@ from chalk._gen.chalk.server.v1.builder_pb2 import (
     GetClusterTimescaleDBResponse,
     GetClusterTimescaleDefaultRequest,
     GetClusterTimescaleDefaultResponse,
+    GetDeploymentDependenciesRequest,
+    GetDeploymentDependenciesResponse,
     GetDeploymentLogsRequest,
     GetDeploymentLogsResponse,
     GetDeploymentStepsRequest,
@@ -152,6 +156,10 @@ class BuilderServiceStub:
     GetDeploymentLogs: UnaryUnaryMultiCallable[
         GetDeploymentLogsRequest,
         GetDeploymentLogsResponse,
+    ]
+    GetDeploymentDependencies: UnaryUnaryMultiCallable[
+        GetDeploymentDependenciesRequest,
+        GetDeploymentDependenciesResponse,
     ]
     GetClusterTimescaleDB: UnaryUnaryMultiCallable[
         GetClusterTimescaleDBRequest,
@@ -273,6 +281,10 @@ class BuilderServiceStub:
         CreateTelemetryDeploymentRequest,
         CreateTelemetryDeploymentResponse,
     ]
+    DeleteTelemetryDeployment: UnaryUnaryMultiCallable[
+        DeleteTelemetryDeploymentRequest,
+        DeleteTelemetryDeploymentResponse,
+    ]
 
 class BuilderServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -346,6 +358,12 @@ class BuilderServiceServicer(metaclass=ABCMeta):
         request: GetDeploymentLogsRequest,
         context: ServicerContext,
     ) -> GetDeploymentLogsResponse: ...
+    @abstractmethod
+    def GetDeploymentDependencies(
+        self,
+        request: GetDeploymentDependenciesRequest,
+        context: ServicerContext,
+    ) -> GetDeploymentDependenciesResponse: ...
     @abstractmethod
     def GetClusterTimescaleDB(
         self,
@@ -526,6 +544,12 @@ class BuilderServiceServicer(metaclass=ABCMeta):
         request: CreateTelemetryDeploymentRequest,
         context: ServicerContext,
     ) -> CreateTelemetryDeploymentResponse: ...
+    @abstractmethod
+    def DeleteTelemetryDeployment(
+        self,
+        request: DeleteTelemetryDeploymentRequest,
+        context: ServicerContext,
+    ) -> DeleteTelemetryDeploymentResponse: ...
 
 def add_BuilderServiceServicer_to_server(servicer: BuilderServiceServicer, server: Server) -> None: ...
 

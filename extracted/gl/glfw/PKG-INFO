@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: glfw
-Version: 2.9.0
+Version: 2.10.0
 Summary: A ctypes-based wrapper for GLFW3.
 Home-page: https://github.com/FlorianRhiem/pyGLFW
 Author: Florian Rhiem

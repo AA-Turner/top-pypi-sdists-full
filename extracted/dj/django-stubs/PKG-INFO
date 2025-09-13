@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-stubs
-Version: 5.2.2
+Version: 5.2.5
 Summary: Mypy stubs for Django
 Project-URL: Homepage, https://github.com/typeddjango/django-stubs
 Project-URL: Funding, https://github.com/sponsors/typeddjango
@@ -26,7 +26,7 @@ Requires-Dist: tomli; python_version < '3.11'
 Requires-Dist: types-pyyaml
 Requires-Dist: typing-extensions>=4.11.0
 Provides-Extra: compatible-mypy
-Requires-Dist: mypy<1.18,>=1.13; extra == 'compatible-mypy'
+Requires-Dist: mypy<1.19,>=1.13; extra == 'compatible-mypy'
 Provides-Extra: oracle
 Requires-Dist: oracledb; extra == 'oracle'
 Provides-Extra: redis
@@ -84,6 +84,9 @@ We rely on different `django` and `mypy` versions:
 
 | django-stubs   | Mypy version | Django version | Django partial support | Python version |
 |----------------|--------------|----------------|------------------------|----------------|
+| 5.2.5          | 1.13 - 1.18  | 5.2            | 5.1, 5.0               | 3.10 - 3.13    |
+| 5.2.4          | 1.13 - 1.18  | 5.2            | 5.1, 5.0               | 3.10 - 3.13    |
+| 5.2.3          | 1.13 - 1.18  | 5.2            | 5.1, 5.0               | 3.10 - 3.13    |
 | 5.2.2          | 1.13 - 1.17  | 5.2            | 5.1, 5.0               | 3.10 - 3.13    |
 | 5.2.1          | 1.13 - 1.16  | 5.2            | 5.1, 5.0               | 3.10 - 3.13    |
 | 5.2.0          | 1.13+        | 5.2            | 5.1, 5.0               | 3.10 - 3.13    |
@@ -114,6 +117,10 @@ https://github.com/typeddjango/django-stubs/discussions/2101#discussioncomment-9
 ## Features
 
 ### Type checking of Model Meta attributes
+
+> [!NOTE]
+> If you are using the mypy plugin and have `django_stub_ext` installed, your model `Meta` classes
+> will be automatically type-checked without further changes.
 
 By inheriting from the `TypedModelMeta` class, you can ensure you're using correct types for
 attributes:

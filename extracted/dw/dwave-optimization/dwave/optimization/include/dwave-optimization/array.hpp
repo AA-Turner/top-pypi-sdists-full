@@ -30,10 +30,11 @@
 #include <utility>
 #include <vector>
 
+#include "dwave-optimization/common.hpp"
+#include "dwave-optimization/fraction.hpp"
 #include "dwave-optimization/iterators.hpp"
 #include "dwave-optimization/state.hpp"
 #include "dwave-optimization/typing.hpp"
-#include "dwave-optimization/utils.hpp"
 
 namespace dwave::optimization {
 
@@ -69,6 +70,30 @@ struct SizeInfo {
 
     std::optional<ssize_t> min;
     std::optional<ssize_t> max;
+};
+
+/// Struct for the common use case of saving statistics about an ArrayNode's output values
+struct ValuesInfo {
+    ValuesInfo() = delete;
+    ValuesInfo(double min, double max, bool integral) : min(min), max(max), integral(integral) {}
+    /// Copy the min/max/integral from the array
+    ValuesInfo(const Array* array_ptr);
+
+    /// These constructors take the min of the mins, etc for all the arrays
+    ValuesInfo(std::initializer_list<const Array*> array_ptrs);
+
+    // Unfortunately it seems we still need this span constructor for GCC11 which doesn't
+    // like a vector being passed to the viewable_range constructor
+    ValuesInfo(std::span<const Array* const> array_ptrs);
+
+    template <std::ranges::viewable_range R>
+    ValuesInfo(R&& array_ptrs);
+
+    static ValuesInfo logical_output() { return {false, true, true}; };
+
+    double min;
+    double max;
+    bool integral;
 };
 
 // A slice represents a set of indices specified by range(start, stop, step).
@@ -257,10 +282,10 @@ class Array {
     /// A std::random_access_iterator over the values in the array.
     using const_iterator = BufferIterator<double, double, true>;
 
-    template<class T>
+    template <class T>
     using cache_type = std::unordered_map<const Array*, T>;
 
-    template<class T>
+    template <class T>
     using optional_cache_type = std::optional<std::reference_wrapper<cache_type<T>>>;
 
     using View = std::ranges::subrange<const_iterator>;
@@ -343,20 +368,10 @@ class Array {
     virtual SizeInfo sizeinfo() const { return dynamic() ? SizeInfo(this) : SizeInfo(size()); }
 
     /// The minimum value that elements in the array may take.
-    double min() const {
-        cache_type<std::pair<double, double>> cache;
-        return minmax(cache).first;
-    }
+    virtual double min() const = 0;
 
     /// The maximum value that elements in the array may take.
-    double max() const {
-        cache_type<std::pair<double, double>> cache;
-        return minmax(cache).second;
-    }
-
-    /// The smallest and largest values that elements in the array may take.
-    virtual std::pair<double, double> minmax(
-            optional_cache_type<std::pair<double, double>> cache = std::nullopt) const;
+    virtual double max() const = 0;
 
     /// Whether the values in the array can be interpreted as integers.
     virtual bool integral() const { return false; }
@@ -406,35 +421,6 @@ class Array {
         }
 
         return true;
-    }
-
-    // Return a cached value if available, and otherwise return the value returned
-    // by ``func()``.
-    // If the ``cache.has_value()`` returns ``false``, then the cache is ignored
-    // entirely.
-    template <class T, class Func>
-    requires (std::same_as<std::invoke_result_t<Func>, T>)
-    T memoize(optional_cache_type<T> cache, Func&& func) const {
-        // If there is no cache, then just evaluate the function
-        if (!cache.has_value()) return func();
-
-        cache_type<T>& cache_ = cache->get();
-
-        // Otherwise, check if we've already cached a value and return it if so
-        if (auto it = cache_.find(this); it != cache_.end()) {
-            return it->second;
-        }
-
-        // Finally, if we have a cache but we haven't already cached anything, call
-        // the function and cache the output.
-        auto [it, _] = cache_.emplace(this, func());
-        return it->second;
-    }
-    template <class T>
-    T memoize(optional_cache_type<T> cache, T value) const {
-        if (!cache.has_value()) return value;
-        auto [it, _] = cache->get().emplace(this, value);
-        return it->second;
     }
 
     // Determine the size by the shape. For a node with a fixed size, it is simply
@@ -618,8 +604,8 @@ std::vector<ssize_t> broadcast_shape(std::initializer_list<ssize_t> lhs,
 void deduplicate_diff(std::vector<Update>& diff);
 
 template <std::ranges::range V>
-requires(std::same_as<std::ranges::range_value_t<V>, Update>)
-class deduplicate_diff_view : public std::ranges::view_interface<deduplicate_diff_view<V>> {
+requires(std::same_as<std::ranges::range_value_t<V>, Update>) class deduplicate_diff_view
+        : public std::ranges::view_interface<deduplicate_diff_view<V>> {
  public:
     explicit deduplicate_diff_view(const V& diff) : diff_(diff.begin(), diff.end()) {
         deduplicate_diff(diff_);
@@ -637,6 +623,9 @@ class deduplicate_diff_view : public std::ranges::view_interface<deduplicate_dif
 // todo: In C++23 once we have std::ranges::range_adaptor_closure, we should
 // make this work with a range adaptor.
 
+// Return whether the given double encodes an integer.
+bool is_integer(const double& value);
+
 /// Convert a multi index to a flat index
 /// The behavior of out-of-bounds indices is undefined. Bounds are enforced via asserts.
 ssize_t ravel_multi_index(std::initializer_list<ssize_t> multi_index,
@@ -649,5 +638,14 @@ std::vector<ssize_t> unravel_index(ssize_t index, std::span<const ssize_t> shape
 
 // Represent a shape (or strides) as a string in NumPy-style format.
 std::string shape_to_string(const std::span<const ssize_t> shape);
+
+template <std::ranges::viewable_range R>
+ValuesInfo::ValuesInfo(R&& array_ptrs)
+        : min(std::ranges::min(array_ptrs |
+                               std::views::transform([](const Array* ptr) { return ptr->min(); }))),
+          max(std::ranges::max(array_ptrs |
+                               std::views::transform([](const Array* ptr) { return ptr->max(); }))),
+          integral(std::ranges::all_of(array_ptrs,
+                                       [](const Array* ptr) { return ptr->integral(); })) {}
 
 }  // namespace dwave::optimization

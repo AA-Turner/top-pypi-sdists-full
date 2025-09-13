@@ -19,7 +19,6 @@
 
 import os
 
-from setuptools import find_packages
 from setuptools import setup
 
 
@@ -29,7 +28,7 @@ def read(*rnames):
 
 
 setup(name='zope.configuration',
-      version='6.0',
+      version='7.0',
       author='Zope Foundation and Contributors',
       author_email='zope-dev@zope.dev',
       description='Zope Configuration Markup Language (ZCML)',
@@ -46,7 +45,6 @@ setup(name='zope.configuration',
           'License :: OSI Approved :: Zope Public License',
           'Programming Language :: Python',
           'Programming Language :: Python :: 3',
-          'Programming Language :: Python :: 3.8',
           'Programming Language :: Python :: 3.9',
           'Programming Language :: Python :: 3.10',
           'Programming Language :: Python :: 3.11',
@@ -60,14 +58,11 @@ setup(name='zope.configuration',
           'Framework :: Zope :: 3',
       ],
       url='https://github.com/zopefoundation/zope.configuration',
-      license='ZPL 2.1',
-      packages=find_packages('src'),
-      package_dir={'': 'src'},
-      namespace_packages=['zope'],
-      python_requires='>=3.8',
+      license='ZPL-2.1',
+      python_requires='>=3.9',
       extras_require={
           'docs': ['Sphinx', 'repoze.sphinx.autointerface'],
-          'test': ['zope.testing', 'zope.testrunner']
+          'test': ['zope.testing', 'zope.testrunner >= 6.4']
       },
       install_requires=[
           'setuptools',

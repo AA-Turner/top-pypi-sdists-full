@@ -1,7 +1,7 @@
 r'''
 # `google_firebase_app_hosting_traffic`
 
-Refer to the Terraform Registry for docs: [`google_firebase_app_hosting_traffic`](https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/firebase_app_hosting_traffic).
+Refer to the Terraform Registry for docs: [`google_firebase_app_hosting_traffic`](https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/firebase_app_hosting_traffic).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class FirebaseAppHostingTraffic(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.firebaseAppHostingTraffic.FirebaseAppHostingTraffic",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/firebase_app_hosting_traffic google_firebase_app_hosting_traffic}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/firebase_app_hosting_traffic google_firebase_app_hosting_traffic}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class FirebaseAppHostingTraffic(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/firebase_app_hosting_traffic google_firebase_app_hosting_traffic} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/firebase_app_hosting_traffic google_firebase_app_hosting_traffic} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param backend: Id of the backend that this Traffic config applies to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/firebase_app_hosting_traffic#backend FirebaseAppHostingTraffic#backend}
-        :param location: The location the Backend that this Traffic config applies to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/firebase_app_hosting_traffic#location FirebaseAppHostingTraffic#location}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/firebase_app_hosting_traffic#id FirebaseAppHostingTraffic#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/firebase_app_hosting_traffic#project FirebaseAppHostingTraffic#project}.
-        :param rollout_policy: rollout_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/firebase_app_hosting_traffic#rollout_policy FirebaseAppHostingTraffic#rollout_policy}
-        :param target: target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/firebase_app_hosting_traffic#target FirebaseAppHostingTraffic#target}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/firebase_app_hosting_traffic#timeouts FirebaseAppHostingTraffic#timeouts}
+        :param backend: Id of the backend that this Traffic config applies to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/firebase_app_hosting_traffic#backend FirebaseAppHostingTraffic#backend}
+        :param location: The location the Backend that this Traffic config applies to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/firebase_app_hosting_traffic#location FirebaseAppHostingTraffic#location}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/firebase_app_hosting_traffic#id FirebaseAppHostingTraffic#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/firebase_app_hosting_traffic#project FirebaseAppHostingTraffic#project}.
+        :param rollout_policy: rollout_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/firebase_app_hosting_traffic#rollout_policy FirebaseAppHostingTraffic#rollout_policy}
+        :param target: target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/firebase_app_hosting_traffic#target FirebaseAppHostingTraffic#target}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/firebase_app_hosting_traffic#timeouts FirebaseAppHostingTraffic#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class FirebaseAppHostingTraffic(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the FirebaseAppHostingTraffic to import.
-        :param import_from_id: The id of the existing FirebaseAppHostingTraffic that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/firebase_app_hosting_traffic#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing FirebaseAppHostingTraffic that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/firebase_app_hosting_traffic#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the FirebaseAppHostingTraffic to import is found.
         '''
         if __debug__:
@@ -140,8 +140,8 @@ class FirebaseAppHostingTraffic(
         disabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param codebase_branch: Specifies a branch that triggers a new build to be started with this policy. If not set, no automatic rollouts will happen. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/firebase_app_hosting_traffic#codebase_branch FirebaseAppHostingTraffic#codebase_branch}
-        :param disabled: A flag that, if true, prevents rollouts from being created via this RolloutPolicy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/firebase_app_hosting_traffic#disabled FirebaseAppHostingTraffic#disabled}
+        :param codebase_branch: Specifies a branch that triggers a new build to be started with this policy. If not set, no automatic rollouts will happen. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/firebase_app_hosting_traffic#codebase_branch FirebaseAppHostingTraffic#codebase_branch}
+        :param disabled: A flag that, if true, prevents rollouts from being created via this RolloutPolicy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/firebase_app_hosting_traffic#disabled FirebaseAppHostingTraffic#disabled}
         '''
         value = FirebaseAppHostingTrafficRolloutPolicy(
             codebase_branch=codebase_branch, disabled=disabled
@@ -156,7 +156,7 @@ class FirebaseAppHostingTraffic(
         splits: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["FirebaseAppHostingTrafficTargetSplits", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param splits: splits block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/firebase_app_hosting_traffic#splits FirebaseAppHostingTraffic#splits}
+        :param splits: splits block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/firebase_app_hosting_traffic#splits FirebaseAppHostingTraffic#splits}
         '''
         value = FirebaseAppHostingTrafficTarget(splits=splits)
 
@@ -171,9 +171,9 @@ class FirebaseAppHostingTraffic(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/firebase_app_hosting_traffic#create FirebaseAppHostingTraffic#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/firebase_app_hosting_traffic#delete FirebaseAppHostingTraffic#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/firebase_app_hosting_traffic#update FirebaseAppHostingTraffic#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/firebase_app_hosting_traffic#create FirebaseAppHostingTraffic#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/firebase_app_hosting_traffic#delete FirebaseAppHostingTraffic#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/firebase_app_hosting_traffic#update FirebaseAppHostingTraffic#update}.
         '''
         value = FirebaseAppHostingTrafficTimeouts(
             create=create, delete=delete, update=update
@@ -399,13 +399,13 @@ class FirebaseAppHostingTrafficConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param backend: Id of the backend that this Traffic config applies to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/firebase_app_hosting_traffic#backend FirebaseAppHostingTraffic#backend}
-        :param location: The location the Backend that this Traffic config applies to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/firebase_app_hosting_traffic#location FirebaseAppHostingTraffic#location}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/firebase_app_hosting_traffic#id FirebaseAppHostingTraffic#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/firebase_app_hosting_traffic#project FirebaseAppHostingTraffic#project}.
-        :param rollout_policy: rollout_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/firebase_app_hosting_traffic#rollout_policy FirebaseAppHostingTraffic#rollout_policy}
-        :param target: target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/firebase_app_hosting_traffic#target FirebaseAppHostingTraffic#target}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/firebase_app_hosting_traffic#timeouts FirebaseAppHostingTraffic#timeouts}
+        :param backend: Id of the backend that this Traffic config applies to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/firebase_app_hosting_traffic#backend FirebaseAppHostingTraffic#backend}
+        :param location: The location the Backend that this Traffic config applies to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/firebase_app_hosting_traffic#location FirebaseAppHostingTraffic#location}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/firebase_app_hosting_traffic#id FirebaseAppHostingTraffic#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/firebase_app_hosting_traffic#project FirebaseAppHostingTraffic#project}.
+        :param rollout_policy: rollout_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/firebase_app_hosting_traffic#rollout_policy FirebaseAppHostingTraffic#rollout_policy}
+        :param target: target block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/firebase_app_hosting_traffic#target FirebaseAppHostingTraffic#target}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/firebase_app_hosting_traffic#timeouts FirebaseAppHostingTraffic#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -528,7 +528,7 @@ class FirebaseAppHostingTrafficConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def backend(self) -> builtins.str:
         '''Id of the backend that this Traffic config applies to.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/firebase_app_hosting_traffic#backend FirebaseAppHostingTraffic#backend}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/firebase_app_hosting_traffic#backend FirebaseAppHostingTraffic#backend}
         '''
         result = self._values.get("backend")
         assert result is not None, "Required property 'backend' is missing"
@@ -538,7 +538,7 @@ class FirebaseAppHostingTrafficConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''The location the Backend that this Traffic config applies to.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/firebase_app_hosting_traffic#location FirebaseAppHostingTraffic#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/firebase_app_hosting_traffic#location FirebaseAppHostingTraffic#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -546,7 +546,7 @@ class FirebaseAppHostingTrafficConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/firebase_app_hosting_traffic#id FirebaseAppHostingTraffic#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/firebase_app_hosting_traffic#id FirebaseAppHostingTraffic#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -556,7 +556,7 @@ class FirebaseAppHostingTrafficConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/firebase_app_hosting_traffic#project FirebaseAppHostingTraffic#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/firebase_app_hosting_traffic#project FirebaseAppHostingTraffic#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -566,7 +566,7 @@ class FirebaseAppHostingTrafficConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["FirebaseAppHostingTrafficRolloutPolicy"]:
         '''rollout_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/firebase_app_hosting_traffic#rollout_policy FirebaseAppHostingTraffic#rollout_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/firebase_app_hosting_traffic#rollout_policy FirebaseAppHostingTraffic#rollout_policy}
         '''
         result = self._values.get("rollout_policy")
         return typing.cast(typing.Optional["FirebaseAppHostingTrafficRolloutPolicy"], result)
@@ -575,7 +575,7 @@ class FirebaseAppHostingTrafficConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def target(self) -> typing.Optional["FirebaseAppHostingTrafficTarget"]:
         '''target block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/firebase_app_hosting_traffic#target FirebaseAppHostingTraffic#target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/firebase_app_hosting_traffic#target FirebaseAppHostingTraffic#target}
         '''
         result = self._values.get("target")
         return typing.cast(typing.Optional["FirebaseAppHostingTrafficTarget"], result)
@@ -584,7 +584,7 @@ class FirebaseAppHostingTrafficConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["FirebaseAppHostingTrafficTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/firebase_app_hosting_traffic#timeouts FirebaseAppHostingTraffic#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/firebase_app_hosting_traffic#timeouts FirebaseAppHostingTraffic#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["FirebaseAppHostingTrafficTimeouts"], result)
@@ -907,8 +907,8 @@ class FirebaseAppHostingTrafficRolloutPolicy:
         disabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param codebase_branch: Specifies a branch that triggers a new build to be started with this policy. If not set, no automatic rollouts will happen. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/firebase_app_hosting_traffic#codebase_branch FirebaseAppHostingTraffic#codebase_branch}
-        :param disabled: A flag that, if true, prevents rollouts from being created via this RolloutPolicy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/firebase_app_hosting_traffic#disabled FirebaseAppHostingTraffic#disabled}
+        :param codebase_branch: Specifies a branch that triggers a new build to be started with this policy. If not set, no automatic rollouts will happen. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/firebase_app_hosting_traffic#codebase_branch FirebaseAppHostingTraffic#codebase_branch}
+        :param disabled: A flag that, if true, prevents rollouts from being created via this RolloutPolicy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/firebase_app_hosting_traffic#disabled FirebaseAppHostingTraffic#disabled}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__84680334b652952edcf42417f2a6ec90663ae0613cd0444aae9926b933ee259a)
@@ -926,7 +926,7 @@ class FirebaseAppHostingTrafficRolloutPolicy:
 
         If not set, no automatic rollouts will happen.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/firebase_app_hosting_traffic#codebase_branch FirebaseAppHostingTraffic#codebase_branch}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/firebase_app_hosting_traffic#codebase_branch FirebaseAppHostingTraffic#codebase_branch}
         '''
         result = self._values.get("codebase_branch")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -937,7 +937,7 @@ class FirebaseAppHostingTrafficRolloutPolicy:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''A flag that, if true, prevents rollouts from being created via this RolloutPolicy.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/firebase_app_hosting_traffic#disabled FirebaseAppHostingTraffic#disabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/firebase_app_hosting_traffic#disabled FirebaseAppHostingTraffic#disabled}
         '''
         result = self._values.get("disabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1054,7 +1054,7 @@ class FirebaseAppHostingTrafficTarget:
         splits: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["FirebaseAppHostingTrafficTargetSplits", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param splits: splits block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/firebase_app_hosting_traffic#splits FirebaseAppHostingTraffic#splits}
+        :param splits: splits block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/firebase_app_hosting_traffic#splits FirebaseAppHostingTraffic#splits}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5d1814bef3e391df9c0e95ec56579244ff2d766f7dd5a20a70a5b65d6b63a763)
@@ -1069,7 +1069,7 @@ class FirebaseAppHostingTrafficTarget:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["FirebaseAppHostingTrafficTargetSplits"]]:
         '''splits block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/firebase_app_hosting_traffic#splits FirebaseAppHostingTraffic#splits}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/firebase_app_hosting_traffic#splits FirebaseAppHostingTraffic#splits}
         '''
         result = self._values.get("splits")
         assert result is not None, "Required property 'splits' is missing"
@@ -1156,8 +1156,8 @@ class FirebaseAppHostingTrafficTargetOutputReference(
 class FirebaseAppHostingTrafficTargetSplits:
     def __init__(self, *, build_attribute: builtins.str, percent: jsii.Number) -> None:
         '''
-        :param build_attribute: The build that traffic is being routed to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/firebase_app_hosting_traffic#build FirebaseAppHostingTraffic#build}
-        :param percent: The percentage of traffic to send to the build. Currently must be 100 or 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/firebase_app_hosting_traffic#percent FirebaseAppHostingTraffic#percent}
+        :param build_attribute: The build that traffic is being routed to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/firebase_app_hosting_traffic#build FirebaseAppHostingTraffic#build}
+        :param percent: The percentage of traffic to send to the build. Currently must be 100 or 0. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/firebase_app_hosting_traffic#percent FirebaseAppHostingTraffic#percent}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8404fbb11763d1e670a5aa7305b9ba994930f8c4e0597fffe4d95ff045f96eba)
@@ -1172,7 +1172,7 @@ class FirebaseAppHostingTrafficTargetSplits:
     def build_attribute(self) -> builtins.str:
         '''The build that traffic is being routed to.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/firebase_app_hosting_traffic#build FirebaseAppHostingTraffic#build}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/firebase_app_hosting_traffic#build FirebaseAppHostingTraffic#build}
         '''
         result = self._values.get("build_attribute")
         assert result is not None, "Required property 'build_attribute' is missing"
@@ -1182,7 +1182,7 @@ class FirebaseAppHostingTrafficTargetSplits:
     def percent(self) -> jsii.Number:
         '''The percentage of traffic to send to the build. Currently must be 100 or 0.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/firebase_app_hosting_traffic#percent FirebaseAppHostingTraffic#percent}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/firebase_app_hosting_traffic#percent FirebaseAppHostingTraffic#percent}
         '''
         result = self._values.get("percent")
         assert result is not None, "Required property 'percent' is missing"
@@ -1385,9 +1385,9 @@ class FirebaseAppHostingTrafficTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/firebase_app_hosting_traffic#create FirebaseAppHostingTraffic#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/firebase_app_hosting_traffic#delete FirebaseAppHostingTraffic#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/firebase_app_hosting_traffic#update FirebaseAppHostingTraffic#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/firebase_app_hosting_traffic#create FirebaseAppHostingTraffic#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/firebase_app_hosting_traffic#delete FirebaseAppHostingTraffic#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/firebase_app_hosting_traffic#update FirebaseAppHostingTraffic#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f87961e98fa4065ae91a69db124f0c92f4317db66cbee97233ea0e3668b716e8)
@@ -1404,19 +1404,19 @@ class FirebaseAppHostingTrafficTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/firebase_app_hosting_traffic#create FirebaseAppHostingTraffic#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/firebase_app_hosting_traffic#create FirebaseAppHostingTraffic#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/firebase_app_hosting_traffic#delete FirebaseAppHostingTraffic#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/firebase_app_hosting_traffic#delete FirebaseAppHostingTraffic#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/firebase_app_hosting_traffic#update FirebaseAppHostingTraffic#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/firebase_app_hosting_traffic#update FirebaseAppHostingTraffic#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

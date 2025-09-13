@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: zope.cachedescriptors
-Version: 5.1
+Version: 6.0
 Summary: Method and property caching decorators
 Home-page: http://github.com/zopefoundation/zope.cachedescriptors
 Author: Zope Foundation and Contributors
@@ -26,6 +26,18 @@ Requires-Python: >=3.9
 License-File: LICENSE.txt
 Requires-Dist: setuptools
 Provides-Extra: test
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 ===========================
  ``zope.cachedescriptors``
@@ -554,6 +566,12 @@ Now the cache is a MyDict instance:
 =========
  Changes
 =========
+
+6.0 (2025-09-12)
+================
+
+- Replace ``pkg_resources`` namespace with PEP 420 native namespace.
+
 
 5.1 (2025-02-14)
 ================

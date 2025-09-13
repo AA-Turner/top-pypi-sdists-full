@@ -33,13 +33,13 @@ requires-python = ">=3.9"
 dependencies = [
     "asn1crypto>=1.5.1",
     "tzlocal>=4.3",
-    "pyhanko-certvalidator>=0.28.0,<0.29",
+    "pyhanko-certvalidator>=0.29.0,<0.30",
     "requests>=2.31.0",
     "pyyaml>=6.0",
     "cryptography>=43.0.3",
     "lxml>=5.4.0",
 ]
-version = "0.30.0"
+version = "0.31.0"
 
 
 [project.readme]
@@ -48,8 +48,8 @@ content-type = "text/markdown"
 
 [project.urls]
 Homepage = "https://github.com/MatthiasValvekens/pyHanko"
-Documentation = "https://pyhanko.readthedocs.io/"
-Changes = "https://pyhanko.readthedocs.io/en/latest/changelog.html"
+Documentation = "https://docs.pyhanko.eu/"
+Changes = "https://docs.pyhanko.eu/en/latest/changelog.html"
 "Source Code" = "https://github.com/MatthiasValvekens/pyHanko"
 "Issue Tracker" = "https://github.com/MatthiasValvekens/pyHanko/issues"
 
@@ -78,8 +78,8 @@ testing-base = [
     "requests-mock>=1.8.0",
     "freezegun>=1.1.0",
     "certomancer>=0.13.0,<0.14",
-    "pytest-cov>=4.0,<6.3",
-    "pytest-asyncio==0.26.0",
+    "pytest-cov>=4.0,<7.1",
+    "pytest-asyncio>=1.1.0,<2.0",
 ]
 testing-aiohttp = [
     "aiohttp>=3.9,<3.13",

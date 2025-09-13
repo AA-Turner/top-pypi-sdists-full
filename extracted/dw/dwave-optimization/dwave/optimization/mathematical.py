@@ -16,14 +16,18 @@ import collections
 import functools
 import typing
 
+import numpy as np
+
 from dwave.optimization._model import ArraySymbol
 from dwave.optimization.symbols import (
     Add,
     And,
     ARange,
     ArgSort,
+    BroadcastTo,
     BSpline,
     Concatenate,
+    Cos,
     Divide,
     Exp,
     Expit,
@@ -49,6 +53,8 @@ from dwave.optimization.symbols import (
     Resize,
     Rint,
     SafeDivide,
+    Sin,
+    SoftMax,
     SquareRoot,
     Where,
     Xor,
@@ -61,8 +67,11 @@ __all__ = [
     "arange",
     "atleast_1d",
     "atleast_2d",
+    "broadcast_symbols",
+    "broadcast_to",
     "bspline",
     "concatenate",
+    "cos",
     "divide",
     "exp",
     "expit",
@@ -84,6 +93,8 @@ __all__ = [
     "resize",
     "rint",
     "safe_divide",
+    "sin",
+    "softmax",
     "sqrt",
     "stack",
     "vstack",
@@ -352,6 +363,91 @@ def atleast_2d(*arrays):
     return tuple(result)
 
 
+def broadcast_symbols(*args: ArraySymbol) -> tuple[ArraySymbol, ...]:
+    """Broadcast array symbols to the same shape.
+
+    See NumPy's `broadcasting <https://numpy.org/doc/stable/user/basics.broadcasting.html>`_
+    documentation for more information about broadcasting.
+
+    Args:
+        *args: Array symbols.
+
+    Returns:
+        A tuple of array symbols, all with the same shape.
+        If any given symbol already has the desired shape, then it is returned.
+        Otherwise a new :class:`~dwave.optimization.symbols.BroadcastTo` symbol
+        is returned.
+
+    Examples:
+        >>> from dwave.optimization import broadcast_symbols, Model
+        ...
+        >>> model = Model()
+        >>> x = model.integer(3)  # shape = (3,)
+        >>> y = model.constant([[0], [1]])  # shape = (2, 1)
+        >>> xb, yb = broadcast_symbols(x, y)
+        >>> xb.shape()
+        (2, 3)
+        >>> yb.shape()
+        (2, 3)
+
+    See Also:
+        :func:`numpy.broadcast_shapes`
+
+        :func:`~dwave.optimization.mathematical.broadcast_to`
+
+    .. versionadded:: 0.6.5
+    """
+    shape = np.broadcast_shapes(*(x.shape() for x in args))
+    return tuple(broadcast_to(x, shape) for x in args)
+
+
+def broadcast_to(x: ArraySymbol, shape: typing.Union[int, tuple[int, ...]]) -> ArraySymbol:
+    """Broadcast an array symbol to a new shape.
+
+    See NumPy's `broadcasting <https://numpy.org/doc/stable/user/basics.broadcasting.html>`_
+    documentation for more information about broadcasting.
+
+    Args:
+        x: An array symbol.
+        shape: The desired shape. A single integer ``i`` is interpreted as ``(i,)``.
+
+    Returns:
+        If ``x`` already has the desired shape, then ``x`` is returned.
+        Otherwise a new :class:`~dwave.optimization.symbols.BroadcastTo` symbol
+        is returned.
+
+    Examples:
+        >>> from dwave.optimization import broadcast_to, Model
+        ...
+        >>> model = Model()
+        >>> x = model.constant([0, 1, 2, 3, 4])
+        >>> x.shape()
+        (5,)
+        >>> y = broadcast_to(x, (2, 5))
+        >>> y.shape()
+        (2, 5)
+        >>> model.states.resize(1)
+        >>> with model.lock():
+        ...     y.state()
+        array([[0., 1., 2., 3., 4.], 
+               [0., 1., 2., 3., 4.]])
+
+    See Also:
+        :class:`~dwave.optimization.symbols.BroadcastTo`: equivalent symbol.
+
+        :func:`numpy.broadcast_shapes`
+
+        :func:`~dwave.optimization.mathematical.broadcast_symbols`
+
+    .. versionadded:: 0.6.5
+    """
+    # We only create a new symbol if necessary
+    if x.shape() == shape or (isinstance(shape, int) and x.shape() == (shape,)):
+        return x
+
+    return BroadcastTo(x, shape)
+
+
 def bspline(x: ArraySymbol, k: int, t: list, c: list) -> ArraySymbol:
     """Return an array symbol with bspline values corresponding to x.
 
@@ -411,6 +507,36 @@ def concatenate(arrays: typing.Sequence[ArraySymbol],
     .. versionadded:: 0.4.3
     """
     return Concatenate(arrays, axis=axis)
+
+
+def cos(x) -> Cos:
+    """Return an element-wise trigonometric cosine on the given symbol.
+
+    Args:
+        x: Array giving the angles, in radians.
+
+    Returns:
+        A symbol that propagates the trigonometric cosine of the values in ``x``.
+
+    See Also:
+        :class:`~dwave.optimization.symbols.Cos`: equivalent symbol.
+
+    Examples:
+        >>> import numpy as np
+        >>> from dwave.optimization import Model, cos
+        ...
+        >>> model = Model()
+        >>> x = model.constant([0, np.pi / 2])
+        >>> y = cos(x)
+        ...
+        >>> model.states.resize(1)
+        >>> with model.lock():
+        ...     print(y.state())
+        [1.000000e+00 6.123234e-17]
+
+    .. versionadded:: 0.6.5
+    """
+    return Cos(x)
 
 
 def divide(x1: ArraySymbol, x2: ArraySymbol) -> Divide:
@@ -1270,6 +1396,69 @@ def safe_divide(x1: ArraySymbol, x2: ArraySymbol) -> SafeDivide:
     .. versionadded:: 0.6.2
     """
     return SafeDivide(x1, x2)
+
+
+def sin(x) -> Sin:
+    """Return an element-wise trigonometric sine on the given symbol.
+
+    Args:
+        x: Array giving the angles, in radians.
+
+    Returns:
+        A symbol that propagates the trigonometric sine of the values in ``x``.
+
+    See Also:
+        :class:`~dwave.optimization.symbols.Sin`: equivalent symbol.
+
+    Examples:
+        >>> import numpy as np
+        >>> from dwave.optimization import Model, sin
+        ...
+        >>> model = Model()
+        >>> x = model.constant([0, np.pi / 2])
+        >>> y = sin(x)
+        ...
+        >>> model.states.resize(1)
+        >>> with model.lock():
+        ...     print(y.state())
+        [0. 1.]
+
+    .. versionadded:: 0.6.5
+    """
+    return Sin(x)
+
+
+def softmax(array: ArraySymbol) -> SoftMax:
+    """Return softmax of a given symbol. Given a flattened array 
+    x: [x_1, x_2, ..., x_n], softmax(x) returns an array [y_1, y_2, ..., y_n] 
+    such that y_i = exp(x_i) / (exp(x_1) + exp(x_2) + ... + exp(x_n)).
+
+    Args:
+        array: Input array symbol.
+
+    Example:
+        This example computes the softmax of one symbol.
+
+        >>> from dwave.optimization import Model
+        >>> from dwave.optimization.mathematical import softmax
+        >>> import numpy as np
+        ...
+        >>> model = Model()
+        >>> i = model.integer(3)
+        >>> sm = softmax(i)
+        >>> expected = np.array([0.0900305731703, 0.6652409557748, 0.244728471054])
+        >>> with model.lock():
+        ...     model.states.resize(1)
+        ...     i.set_state(0, [1, 3, 2])
+        ...     print(np.isclose(sm.state(), expected).all())
+        True
+
+    See Also:
+        :class:`~dwave.optimization.symbols.SoftMax`: equivalent symbol.
+
+    .. versionadded:: 0.6.5
+    """
+    return SoftMax(array)
 
 
 def sqrt(x: ArraySymbol) -> SquareRoot:

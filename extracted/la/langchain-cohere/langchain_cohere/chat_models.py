@@ -1089,7 +1089,7 @@ class ChatCohere(BaseChatModel, BaseCohere):
                 if response.message.content[0].type == "text":
                     generation_info["content"] = response.message.content[0].text
                 elif response.message.content[0].type == "thinking":
-                    generation_info["content"] = response.message.content[0].value
+                    generation_info["content"] = response.message.content[0].thinking
             if response.message.citations:
                 generation_info["citations"] = response.message.citations
 
@@ -1197,7 +1197,7 @@ class ChatCohere(BaseChatModel, BaseCohere):
             content = response.message.tool_plan if response.message.tool_plan else ""
             tool_calls = [
                 lc_tool_call
-                for tool_call in response.tool_calls
+                for tool_call in response.message.tool_calls
                 if (
                     lc_tool_call := _convert_cohere_v2_tool_call_to_langchain(tool_call)
                 )

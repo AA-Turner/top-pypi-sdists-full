@@ -1,11 +1,11 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: zope.i18nmessageid
-Version: 7.0
+Version: 8.0
 Summary: Message Identifiers for internationalization
 Home-page: https://github.com/zopefoundation/zope.i18nmessageid
 Author: Zope Foundation and Contributors
-Author-email: zope-dev@zope.org
-License: ZPL 2.1
+Author-email: zope-dev@zope.dev
+License: ZPL-2.1
 Keywords: zope i18n message factory
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
@@ -13,7 +13,6 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Zope Public License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -25,18 +24,30 @@ Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Framework :: Zope :: 3
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 License-File: LICENSE.txt
 Requires-Dist: setuptools
 Provides-Extra: testing
-Requires-Dist: zope.testrunner; extra == "testing"
+Requires-Dist: zope.testrunner>=6.4; extra == "testing"
 Requires-Dist: coverage; extra == "testing"
 Provides-Extra: test
-Requires-Dist: zope.testrunner; extra == "test"
+Requires-Dist: zope.testrunner>=6.4; extra == "test"
 Requires-Dist: coverage; extra == "test"
 Provides-Extra: docs
 Requires-Dist: Sphinx; extra == "docs"
 Requires-Dist: sphinx_rtd_theme; extra == "docs"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 ``zope.i18nmessageid``
 ======================
@@ -81,6 +92,18 @@ Please see http://zopei18nmessageid.readthedocs.org/en/latest/ for the documenta
 =========
  Changes
 =========
+
+8.0 (2025-09-12)
+================
+
+- Replace ``pkg_resources`` namespace with PEP 420 native namespace.
+
+- Add preliminary support for Python 3.14 as of 3.14a4.
+
+- Drop support for Python 3.8.
+
+- Fix imports in ``setup.py``.
+  (`#61 <https://github.com/zopefoundation/zope.i18nmessageid/issues/61>`_)
 
 7.0 (2024-09-17)
 ================

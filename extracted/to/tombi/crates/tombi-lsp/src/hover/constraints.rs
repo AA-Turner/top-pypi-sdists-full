@@ -1,5 +1,5 @@
-use tombi_schema_store::TableKeysOrderSpec;
-use tombi_x_keyword::{ArrayValuesOrder, StringFormat};
+use tombi_schema_store::{XTombiArrayValuesOrder, XTombiTableKeysOrder};
+use tombi_x_keyword::{ArrayValuesOrderBy, ArrayValuesOrderGroup, StringFormat};
 
 use super::display_value::DisplayValue;
 
@@ -62,7 +62,7 @@ pub struct ValueConstraints {
     pub min_items: Option<usize>,
     pub max_items: Option<usize>,
     pub unique_items: Option<bool>,
-    pub values_order: Option<ArrayValuesOrder>,
+    pub values_order: Option<XTombiArrayValuesOrder>,
 
     // Table
     pub required_keys: Option<Vec<String>>,
@@ -71,7 +71,8 @@ pub struct ValueConstraints {
     pub key_patterns: Option<Vec<String>>,
     pub additional_keys: Option<bool>,
     pub pattern_keys: bool,
-    pub keys_order: Option<TableKeysOrderSpec>,
+    pub keys_order: Option<XTombiTableKeysOrder>,
+    pub array_values_order_by: Option<ArrayValuesOrderBy>,
 }
 
 impl std::fmt::Display for ValueConstraints {
@@ -145,7 +146,25 @@ impl std::fmt::Display for ValueConstraints {
         }
 
         if let Some(values_order) = &self.values_order {
-            write!(f, "Values Order: `{values_order}`\n\n")?;
+            match values_order {
+                XTombiArrayValuesOrder::All(values_order) => {
+                    write!(f, "Values Order: `{values_order}`\n\n")?
+                }
+                XTombiArrayValuesOrder::Groups(values_order) => match values_order {
+                    ArrayValuesOrderGroup::OneOf(values_order) => {
+                        write!(f, "Values Order: `oneOf`\n\n")?;
+                        for value in values_order.iter() {
+                            write!(f, "  - `{value}`\n\n")?;
+                        }
+                    }
+                    ArrayValuesOrderGroup::AnyOf(values_order) => {
+                        write!(f, "Values Order: `anyOf`\n\n")?;
+                        for value in values_order.iter() {
+                            write!(f, "  - `{value}`\n\n")?;
+                        }
+                    }
+                },
+            }
         }
 
         if let Some(required_keys) = &self.required_keys {
@@ -180,14 +199,20 @@ impl std::fmt::Display for ValueConstraints {
 
         if let Some(keys_order) = &self.keys_order {
             match keys_order {
-                TableKeysOrderSpec::All(keys_order) => write!(f, "Keys Order: `{keys_order}`\n\n")?,
-                TableKeysOrderSpec::Groups(keys_order) => {
+                XTombiTableKeysOrder::All(keys_order) => {
+                    write!(f, "Keys Order: `{keys_order}`\n\n")?
+                }
+                XTombiTableKeysOrder::Groups(keys_order) => {
                     write!(f, "Keys Order:\n\n")?;
                     for key in keys_order.iter() {
                         write!(f, "  - {}: `{}`\n\n", key.target, key.order)?;
                     }
                 }
             }
+        }
+
+        if let Some(array_values_order_by) = &self.array_values_order_by {
+            write!(f, "Array Values Order By: `{array_values_order_by}`\n\n")?;
         }
 
         Ok(())

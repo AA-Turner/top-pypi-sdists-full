@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "cdktf-cdktf-provider-google",
-    "version": "16.11.2",
+    "version": "16.11.3",
     "description": "Prebuilt google Provider for Terraform CDK (cdktf)",
     "license": "MPL-2.0",
     "url": "https://github.com/cdktf/cdktf-provider-google.git",
@@ -1496,7 +1496,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "cdktf_cdktf_provider_google._jsii": [
-            "provider-google@16.11.2.jsii.tgz"
+            "provider-google@16.11.3.jsii.tgz"
         ],
         "cdktf_cdktf_provider_google": [
             "py.typed"
@@ -1506,7 +1506,7 @@ kwargs = json.loads(
     "install_requires": [
         "cdktf>=0.21.0, <0.22.0",
         "constructs>=10.4.2, <11.0.0",
-        "jsii>=1.113.0, <2.0.0",
+        "jsii>=1.114.1, <2.0.0",
         "publication>=0.0.3",
         "typeguard>=2.13.3,<4.3.0"
     ],

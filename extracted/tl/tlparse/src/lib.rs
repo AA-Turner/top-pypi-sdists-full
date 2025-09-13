@@ -966,7 +966,15 @@ pub fn parse_path(path: &PathBuf, config: &ParseConfig) -> anyhow::Result<ParseO
         }
 
         if let Some(_) = e.chromium_event {
-            chromium_events.push(serde_json::from_str(&payload)?);
+            // Skip bad json in chromium event. This can happen if log lines are dropped.
+            match serde_json::from_str(&payload) {
+                Ok(event) => chromium_events.push(event),
+                Err(_) => {
+                    // Continue processing instead of crashing
+                    // If json line is dropped, we should see fail_payload_md5 in result because the
+                    // payload doesn't match the md5.
+                }
+            }
         }
 
         if let Some(specialization) = e.symbolic_shape_specialization {
@@ -2157,7 +2165,7 @@ fn convert_node_mappings_to_line_numbers(
         // - If kernel_name not found: map to all lines with pure_kernel_name
         for kernel_name in kernel_names {
             // Get pure kernel name before ':' if it exists
-            let pure_kernel_name = if let Some(idx) = kernel_name.find(':') {
+            let pure_kernel_name = if let Some(idx) = kernel_name.rfind(':') {
                 &kernel_name[..idx]
             } else {
                 kernel_name
@@ -2174,7 +2182,7 @@ fn convert_node_mappings_to_line_numbers(
                         let next_line = content
                             .lines()
                             .skip(i + 1)
-                            .position(|l| l.contains(pure_kernel_name))
+                            .position(|l| l.contains(pure_kernel_name) && !l.contains("_xnumel = "))
                             .map(|pos| i + pos + 2);
 
                         if let Some(line_num) = next_line {

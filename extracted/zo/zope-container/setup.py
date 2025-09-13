@@ -21,11 +21,10 @@
 import os
 
 from setuptools import Extension
-from setuptools import find_packages
 from setuptools import setup
 
 
-version = '6.1'
+version = '7.0'
 
 
 def read(*rnames):
@@ -52,7 +51,7 @@ extras = {
     ],
     'test': [
         'zope.testing',
-        'zope.testrunner',
+        'zope.testrunner >= 6.4',
     ],
     'zcml': [
         'zope.component[zcml]',
@@ -70,7 +69,7 @@ extras['test'] += (extras['zodb'] + extras['zcml'])
 setup(name='zope.container',
       version=version,
       author='Zope Foundation and Contributors',
-      author_email='zope-dev@zope.org',
+      author_email='zope-dev@zope.dev',
       description='Zope Container',
       long_description=(
           read('README.rst')
@@ -85,7 +84,6 @@ setup(name='zope.container',
           'License :: OSI Approved :: Zope Public License',
           'Programming Language :: Python',
           'Programming Language :: Python :: 3',
-          'Programming Language :: Python :: 3.8',
           'Programming Language :: Python :: 3.9',
           'Programming Language :: Python :: 3.10',
           'Programming Language :: Python :: 3.11',
@@ -105,10 +103,11 @@ setup(name='zope.container',
                             '/zope.container/issues'),
           'Sources': 'https://github.com/zopefoundation/zope.container',
       },
-      license='ZPL 2.1',
-      packages=find_packages('src'),
+      license='ZPL-2.1',
+      # we need the following two parameters because we compile C code,
+      # otherwise only the shared library is installed:
       package_dir={'': 'src'},
-      namespace_packages=['zope'],
+      packages=['zope.container'],
       ext_modules=ext_modules,
       install_requires=[
           'BTrees',
@@ -134,5 +133,5 @@ setup(name='zope.container',
       extras_require=extras,
       include_package_data=True,
       zip_safe=False,
-      python_requires='>=3.8',
+      python_requires='>=3.9',
       )

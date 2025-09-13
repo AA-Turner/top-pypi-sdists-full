@@ -65,7 +65,7 @@ jobs:
 
   publish-docs:
     docker:
-      - image: python:3.8.6
+      - image: python:3.12.4
 
     steps:
       - checkout
@@ -75,7 +75,7 @@ jobs:
             apt-get update -y
             apt-get install -yq build-essential zip less python3-sphinx python3-distutils
             pip install -U pip
-            pip install virtualenv==20.26.1
+            pip install virtualenv
             curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
             unzip awscliv2.zip
             ./aws/install

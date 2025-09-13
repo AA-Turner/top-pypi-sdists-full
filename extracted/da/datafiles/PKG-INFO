@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: datafiles
-Version: 2.3.3
+Version: 2.3.4
 Summary: File-based ORM for dataclasses.
 License: MIT
 Keywords: dataclasses,serialization,type-annotations,object-relational mapping,YAML,JSON,JSON5,TOML
@@ -26,7 +26,7 @@ Requires-Dist: classproperties (>=0.2,<0.3)
 Requires-Dist: json-five (>=1.1.2,<2.0.0)
 Requires-Dist: minilog (>=2.3,<3.0)
 Requires-Dist: parse (>=1.12,<2.0)
-Requires-Dist: ruamel.yaml (>=0.17.21,<0.18.0)
+Requires-Dist: ruamel.yaml (>=0.18.10,<0.19.0)
 Requires-Dist: tomlkit (>=0.10.1,<0.11.0)
 Project-URL: Documentation, https://datafiles.readthedocs.io
 Project-URL: Homepage, https://pypi.org/project/datafiles

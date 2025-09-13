@@ -22,15 +22,20 @@
 import os
 import platform
 import sys
+
+from setuptools import Extension
+from setuptools import setup
+
+
+# isort: off
+# See https://github.com/zopefoundation/zope.i18nmessageid/issues/61
+
 from distutils.command.build_ext import build_ext
 from distutils.errors import CCompilerError
 from distutils.errors import DistutilsExecError
 from distutils.errors import DistutilsPlatformError
 
-from setuptools import Extension
-from setuptools import find_packages
-from setuptools import setup
-
+# isort: on
 
 py_impl = getattr(platform, 'python_implementation', lambda: None)
 is_pypy = py_impl() == 'PyPy'
@@ -54,7 +59,7 @@ if not is_pypy and not is_jython:
 
 
 tests_require = [
-    'zope.testrunner',
+    'zope.testrunner >= 6.4',
     'coverage',
 ]
 
@@ -96,9 +101,9 @@ class optional_build_ext(build_ext):
 
 setup(
     name='zope.i18nmessageid',
-    version='7.0',
+    version='8.0',
     author='Zope Foundation and Contributors',
-    author_email='zope-dev@zope.org',
+    author_email='zope-dev@zope.dev',
     description='Message Identifiers for internationalization',
     long_description=(
         read('README.rst')
@@ -113,7 +118,6 @@ setup(
         'License :: OSI Approved :: Zope Public License',
         'Programming Language :: Python',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10',
         'Programming Language :: Python :: 3.11',
@@ -126,13 +130,14 @@ setup(
         'Topic :: Internet :: WWW/HTTP',
         'Framework :: Zope :: 3',
     ],
-    license='ZPL 2.1',
+    license='ZPL-2.1',
     url='https://github.com/zopefoundation/zope.i18nmessageid',
-    packages=find_packages('src'),
+    # we need the following two parameters because we compile C code,
+    # otherwise only the shared library is installed:
     package_dir={'': 'src'},
-    namespace_packages=['zope'],
+    packages=['zope.i18nmessageid'],
     install_requires=['setuptools'],
-    python_requires='>=3.8',
+    python_requires='>=3.9',
     include_package_data=True,
     zip_safe=False,
     cmdclass={'build_ext': optional_build_ext},

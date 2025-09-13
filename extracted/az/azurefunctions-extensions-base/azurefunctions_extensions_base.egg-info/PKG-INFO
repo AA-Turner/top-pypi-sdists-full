@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: azurefunctions-extensions-base
-Version: 1.0.0
+Version: 1.1.0
 Summary: Base Python worker extension for Azure Functions.
 Author-email: "Azure Functions team at Microsoft Corp." <azurefunctions@microsoft.com>
 License: MIT License

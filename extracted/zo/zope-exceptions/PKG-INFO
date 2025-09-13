@@ -1,11 +1,11 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: zope.exceptions
-Version: 5.2
+Version: 6.0
 Summary: Zope Exceptions
 Home-page: https://github.com/zopefoundation/zope.exceptions
 Author: Zope Foundation and Contributors
 Author-email: zope-dev@zope.dev
-License: ZPL 2.1
+License: ZPL-2.1
 Project-URL: Issue Tracker, https://github.com/zopefoundation/zope.exceptions/issues
 Project-URL: Sources, https://github.com/zopefoundation/zope.exceptions
 Keywords: zope exceptions
@@ -15,7 +15,6 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Zope Public License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -27,7 +26,7 @@ Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Framework :: Zope :: 3
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 License-File: LICENSE.txt
 Requires-Dist: setuptools
 Requires-Dist: zope.interface
@@ -35,7 +34,20 @@ Provides-Extra: docs
 Requires-Dist: Sphinx; extra == "docs"
 Requires-Dist: repoze.sphinx.autointerface; extra == "docs"
 Provides-Extra: test
-Requires-Dist: zope.testrunner; extra == "test"
+Requires-Dist: zope.testrunner>=6.4; extra == "test"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: project-url
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 =================
  zope.exceptions
@@ -68,6 +80,14 @@ Please see https://zopeexceptions.readthedocs.io/ for the documentation.
 ===========================
  zope.exceptions Changelog
 ===========================
+
+6.0 (2025-09-12)
+================
+
+- Replace ``pkg_resources`` namespace with PEP 420 native namespace.
+
+- Drop support for Python 3.8.
+
 
 5.2 (2024-10-30)
 ================

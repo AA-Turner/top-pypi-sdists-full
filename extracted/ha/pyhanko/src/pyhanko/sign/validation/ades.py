@@ -34,12 +34,10 @@ from typing import (
 )
 
 import tzlocal
-from asn1crypto import cms, keys
+from asn1crypto import cms, keys, tsp, x509
 from asn1crypto import pdf as asn1_pdf
-from asn1crypto import tsp, x509
 from asn1crypto.crl import CertificateList
 from asn1crypto.ocsp import OCSPResponse
-
 from pyhanko.pdf_utils.reader import HistoricalResolver, PdfFileReader
 from pyhanko.sign.ades.report import (
     AdESFailure,
@@ -128,15 +126,15 @@ from .qualified.tsp import TSPTrustManager
 from .utils import CMSAlgorithmUsagePolicy
 
 __all__ = [
+    'AdESBasicValidationResult',
+    'AdESLTAValidationResult',
+    'AdESWithTimeValidationResult',
     'ades_basic_validation',
-    'ades_with_time_validation',
     'ades_lta_validation',
     'ades_timestamp_validation',
-    'simulate_future_ades_lta_validation',
-    'AdESBasicValidationResult',
-    'AdESWithTimeValidationResult',
-    'AdESLTAValidationResult',
+    'ades_with_time_validation',
     'derive_validation_object_identifier',
+    'simulate_future_ades_lta_validation',
 ]
 
 logger = logging.getLogger(__name__)
@@ -2176,13 +2174,13 @@ async def ades_lta_validation(
                 init_control_time=timing_info.validation_time,
                 is_timestamp=False,
             )
-            if (
-                updated_api_status is not None
-                and not updated_api_status.validation_path
-            ):
+            if updated_api_status is not None:
                 updated_api_status = dataclasses.replace(
                     updated_api_status,
-                    validation_path=past_validation_path,
+                    validation_path=(
+                        updated_api_status.validation_path
+                        or past_validation_path
+                    ),
                     trust_problem_indic=None,
                 )
             updated_poe_manager = past_sig_poe_manager

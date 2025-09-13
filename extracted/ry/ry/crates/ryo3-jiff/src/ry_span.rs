@@ -4,17 +4,18 @@ use crate::into_span_arithmetic::IntoSpanArithmetic;
 use crate::ry_signed_duration::RySignedDuration;
 use crate::span_relative_to::RySpanRelativeTo;
 use crate::{JiffRoundMode, JiffSpan, JiffUnit, RyDate, RyDateTime, RyZoned, timespan};
-use jiff::{Span, SpanArithmetic, SpanRelativeTo, SpanRound};
+use jiff::{SignedDuration, Span, SpanArithmetic, SpanRelativeTo, SpanRound};
+use pyo3::IntoPyObjectExt;
 use pyo3::prelude::*;
-use pyo3::types::{PyDelta, PyDict, PyTuple};
-use pyo3::{IntoPyObjectExt, intern};
+use pyo3::types::{PyDelta, PyDict, PyFloat, PyInt, PyTuple};
+use ryo3_macro_rules::{any_repr, py_overflow_error, py_type_err, py_value_error};
 use std::fmt::Display;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::str::FromStr;
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[cfg_attr(feature = "serde", serde(transparent))]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 #[pyclass(name = "TimeSpan", module = "ry.ryo3", frozen)]
 pub struct RySpan(pub(crate) Span);
 
@@ -29,6 +30,7 @@ impl RySpan {
         }
     }
 }
+
 impl PartialEq for RySpan {
     fn eq(&self, other: &Self) -> bool {
         let self_fieldwise = self.0.fieldwise();
@@ -88,7 +90,7 @@ impl RySpan {
 
     fn __getnewargs_ex__<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
         let args = PyTuple::empty(py).into_bound_py_any(py)?;
-        let kwargs = self.asdict(py)?.into_bound_py_any(py)?;
+        let kwargs = self.to_dict(py)?.into_bound_py_any(py)?;
         PyTuple::new(py, vec![args, kwargs])
     }
 
@@ -143,10 +145,12 @@ impl RySpan {
         Self(delta)
     }
 
+    #[expect(clippy::wrong_self_convention)]
     fn to_py<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDelta>> {
         self.to_pytimedelta(py)
     }
 
+    #[expect(clippy::wrong_self_convention)]
     fn to_pytimedelta<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDelta>> {
         let jiff_span = JiffSpan(self.0);
         jiff_span.into_pyobject(py)
@@ -170,46 +174,6 @@ impl RySpan {
     #[staticmethod]
     fn parse(input: &str) -> PyResult<Self> {
         Self::from_str(input)
-    }
-
-    fn _years(&self, n: i64) -> PyResult<Self> {
-        self.try_years(n)
-    }
-
-    fn _months(&self, n: i64) -> PyResult<Self> {
-        self.try_months(n)
-    }
-
-    fn _weeks(&self, n: i64) -> PyResult<Self> {
-        self.try_weeks(n)
-    }
-
-    fn _days(&self, n: i64) -> PyResult<Self> {
-        self.try_days(n)
-    }
-
-    fn _hours(&self, n: i64) -> PyResult<Self> {
-        self.try_hours(n)
-    }
-
-    fn _minutes(&self, n: i64) -> PyResult<Self> {
-        self.try_minutes(n)
-    }
-
-    fn _seconds(&self, n: i64) -> PyResult<Self> {
-        self.try_seconds(n)
-    }
-
-    fn _milliseconds(&self, n: i64) -> PyResult<Self> {
-        self.try_milliseconds(n)
-    }
-
-    fn _microseconds(&self, n: i64) -> PyResult<Self> {
-        self.try_microseconds(n)
-    }
-
-    fn _nanoseconds(&self, n: i64) -> PyResult<Self> {
-        self.try_nanoseconds(n)
     }
 
     #[expect(clippy::too_many_arguments)]
@@ -251,74 +215,74 @@ impl RySpan {
         )
     }
 
-    fn try_years(&self, n: i64) -> PyResult<Self> {
-        self.0.try_years(n).map(Self::from).map_err(|e| {
-            PyErr::new::<pyo3::exceptions::PyOverflowError, _>(format!("Failed at try_years: {e}"))
-        })
+    fn _years(&self, n: i64) -> PyResult<Self> {
+        self.0
+            .try_years(n)
+            .map(Self::from)
+            .map_err(|e| py_overflow_error!("Failed at try_years: {e}"))
     }
 
-    fn try_months(&self, n: i64) -> PyResult<Self> {
-        self.0.try_months(n).map(Self::from).map_err(|e| {
-            PyErr::new::<pyo3::exceptions::PyOverflowError, _>(format!("Failed at try_months: {e}"))
-        })
+    fn _months(&self, n: i64) -> PyResult<Self> {
+        self.0
+            .try_months(n)
+            .map(Self::from)
+            .map_err(|e| py_overflow_error!("Failed at try_months: {e}"))
     }
 
-    fn try_weeks(&self, n: i64) -> PyResult<Self> {
-        self.0.try_weeks(n).map(Self::from).map_err(|e| {
-            PyErr::new::<pyo3::exceptions::PyOverflowError, _>(format!("Failed at try_weeks: {e}"))
-        })
+    fn _weeks(&self, n: i64) -> PyResult<Self> {
+        self.0
+            .try_weeks(n)
+            .map(Self::from)
+            .map_err(|e| py_overflow_error!("Failed at try_weeks: {e}"))
     }
 
-    fn try_days(&self, n: i64) -> PyResult<Self> {
-        self.0.try_days(n).map(Self::from).map_err(|e| {
-            PyErr::new::<pyo3::exceptions::PyOverflowError, _>(format!("Failed at try_days: {e}"))
-        })
+    fn _days(&self, n: i64) -> PyResult<Self> {
+        self.0
+            .try_days(n)
+            .map(Self::from)
+            .map_err(|e| py_overflow_error!("Failed at try_days: {e}"))
     }
 
-    fn try_hours(&self, n: i64) -> PyResult<Self> {
-        self.0.try_hours(n).map(Self::from).map_err(|e| {
-            PyErr::new::<pyo3::exceptions::PyOverflowError, _>(format!("Failed at try_hours: {e}"))
-        })
+    fn _hours(&self, n: i64) -> PyResult<Self> {
+        self.0
+            .try_hours(n)
+            .map(Self::from)
+            .map_err(|e| py_overflow_error!("Failed at try_hours: {e}"))
     }
 
-    fn try_minutes(&self, n: i64) -> PyResult<Self> {
-        self.0.try_minutes(n).map(Self::from).map_err(|e| {
-            PyErr::new::<pyo3::exceptions::PyOverflowError, _>(format!(
-                "Failed at try_minutes: {e}"
-            ))
-        })
+    fn _minutes(&self, n: i64) -> PyResult<Self> {
+        self.0
+            .try_minutes(n)
+            .map(Self::from)
+            .map_err(|e| py_overflow_error!("Failed at try_minutes: {e}"))
     }
 
-    fn try_seconds(&self, n: i64) -> PyResult<Self> {
-        self.0.try_seconds(n).map(Self::from).map_err(|e| {
-            PyErr::new::<pyo3::exceptions::PyOverflowError, _>(format!(
-                "Failed at try_seconds: {e}"
-            ))
-        })
+    fn _seconds(&self, n: i64) -> PyResult<Self> {
+        self.0
+            .try_seconds(n)
+            .map(Self::from)
+            .map_err(|e| py_overflow_error!("Failed at try_seconds: {e}"))
     }
 
-    fn try_milliseconds(&self, n: i64) -> PyResult<Self> {
-        self.0.try_milliseconds(n).map(Self::from).map_err(|e| {
-            PyErr::new::<pyo3::exceptions::PyOverflowError, _>(format!(
-                "Failed at try_milliseconds: {e}"
-            ))
-        })
+    fn _milliseconds(&self, n: i64) -> PyResult<Self> {
+        self.0
+            .try_milliseconds(n)
+            .map(Self::from)
+            .map_err(|e| py_overflow_error!("Failed at try_milliseconds: {e}"))
     }
 
-    fn try_microseconds(&self, n: i64) -> PyResult<Self> {
-        self.0.try_microseconds(n).map(Self::from).map_err(|e| {
-            PyErr::new::<pyo3::exceptions::PyOverflowError, _>(format!(
-                "Failed at try_microseconds: {e}"
-            ))
-        })
+    fn _microseconds(&self, n: i64) -> PyResult<Self> {
+        self.0
+            .try_microseconds(n)
+            .map(Self::from)
+            .map_err(|e| py_overflow_error!("Failed at try_microseconds: {e}"))
     }
 
-    fn try_nanoseconds(&self, n: i64) -> PyResult<Self> {
-        self.0.try_nanoseconds(n).map(Self::from).map_err(|e| {
-            PyErr::new::<pyo3::exceptions::PyOverflowError, _>(format!(
-                "Failed at try_nanoseconds: {e}"
-            ))
-        })
+    fn _nanoseconds(&self, n: i64) -> PyResult<Self> {
+        self.0
+            .try_nanoseconds(n)
+            .map(Self::from)
+            .map_err(|e| py_overflow_error!("Failed at try_nanoseconds: {e}"))
     }
 
     fn __repr__(&self) -> String {
@@ -350,28 +314,32 @@ impl RySpan {
         hasher.finish()
     }
 
-    fn asdict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+    #[expect(clippy::wrong_self_convention)]
+    fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+        use crate::interns;
         let dict = PyDict::new(py);
-        dict.set_item(intern!(py, "years"), self.0.get_years())?;
-        dict.set_item(intern!(py, "months"), self.0.get_months())?;
-        dict.set_item(intern!(py, "weeks"), self.0.get_weeks())?;
-        dict.set_item(intern!(py, "days"), self.0.get_days())?;
-        dict.set_item(intern!(py, "hours"), self.0.get_hours())?;
-        dict.set_item(intern!(py, "minutes"), self.0.get_minutes())?;
-        dict.set_item(intern!(py, "seconds"), self.0.get_seconds())?;
-        dict.set_item(intern!(py, "milliseconds"), self.0.get_milliseconds())?;
-        dict.set_item(intern!(py, "microseconds"), self.0.get_microseconds())?;
-        dict.set_item(intern!(py, "nanoseconds"), self.0.get_nanoseconds())?;
+        dict.set_item(interns::years(py), self.0.get_years())?;
+        dict.set_item(interns::months(py), self.0.get_months())?;
+        dict.set_item(interns::weeks(py), self.0.get_weeks())?;
+        dict.set_item(interns::days(py), self.0.get_days())?;
+        dict.set_item(interns::hours(py), self.0.get_hours())?;
+        dict.set_item(interns::minutes(py), self.0.get_minutes())?;
+        dict.set_item(interns::seconds(py), self.0.get_seconds())?;
+        dict.set_item(interns::milliseconds(py), self.0.get_milliseconds())?;
+        dict.set_item(interns::microseconds(py), self.0.get_microseconds())?;
+        dict.set_item(interns::nanoseconds(py), self.0.get_nanoseconds())?;
         Ok(dict)
     }
 
+    // TODO fix and allow relative
     fn total_seconds(&self) -> PyResult<f64> {
         self.0
-            .total(jiff::Unit::Second)
-            .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("{e}")))
+            .total(jiff::SpanTotal::from(jiff::Unit::Second).days_are_24_hours())
+            .map_err(map_py_value_err)
     }
 
     #[pyo3(signature = (relative = None))]
+    #[expect(clippy::wrong_self_convention)]
     fn to_signed_duration(&self, relative: Option<RySpanRelativeTo>) -> PyResult<RySignedDuration> {
         if let Some(r) = relative {
             match r {
@@ -692,46 +660,159 @@ impl RySpan {
             }
         }
     }
+
+    #[staticmethod]
+    fn from_any<'py>(value: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
+        let py = value.py();
+        if let Ok(pystr) = value.downcast::<pyo3::types::PyString>() {
+            let s = pystr.extract::<&str>()?;
+            Self::from_str(s).map(|dt| dt.into_bound_py_any(py).map(Bound::into_any))?
+        } else if let Ok(pybytes) = value.downcast::<pyo3::types::PyBytes>() {
+            let s = String::from_utf8_lossy(pybytes.as_bytes());
+            Self::from_str(&s).map(|dt| dt.into_bound_py_any(py).map(Bound::into_any))?
+        } else if value.is_exact_instance_of::<Self>() {
+            value.into_bound_py_any(py)
+        } else if let Ok(v) = value.downcast_exact::<PyFloat>() {
+            let f = v.extract::<f64>()?;
+            if f.is_nan() || f.is_infinite() {
+                return Err(py_value_error!(
+                    "Cannot convert NaN or infinite float to SignedDuration"
+                ));
+            }
+            let sd = RySignedDuration::py_try_from_secs_f64(f)?;
+            let span = jiff::Span::try_from(sd.0).map_err(map_py_overflow_err)?;
+            Self::from(span).into_bound_py_any(py)
+        } else if let Ok(v) = value.downcast_exact::<PyInt>() {
+            let i = v.extract::<i64>()?;
+            let sd = SignedDuration::from_secs(i);
+            Span::try_from(sd)
+                .map(Self::from)
+                .map_err(map_py_overflow_err)
+                .and_then(|dt| dt.into_bound_py_any(py))
+        } else if let Ok(d) = value.extract::<Span>() {
+            Self::from(d).into_bound_py_any(py)
+        } else {
+            let valtype = any_repr!(value);
+            py_type_err!("TimeSpan conversion error: {valtype}")
+        }
+    }
+    // ========================================================================
+    // PYDANTIC
+    // ========================================================================
+
+    #[cfg(feature = "pydantic")]
+    #[staticmethod]
+    fn _pydantic_validate<'py>(
+        value: &Bound<'py, PyAny>,
+        _handler: &Bound<'py, PyAny>,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        Self::from_any(value).map_err(map_py_value_err)
+    }
+
+    #[cfg(feature = "pydantic")]
+    #[classmethod]
+    fn __get_pydantic_core_schema__<'py>(
+        cls: &Bound<'py, ::pyo3::types::PyType>,
+        source: &Bound<'py, PyAny>,
+        handler: &Bound<'py, PyAny>,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        use ryo3_pydantic::GetPydanticCoreSchemaCls;
+        Self::get_pydantic_core_schema(cls, source, handler)
+    }
 }
 
 impl Display for RySpan {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // TODO: FIX THIS TO NOT DO THE JOIN
         f.write_str("TimeSpan(")?;
-        let mut parts = vec![];
-        if self.0.get_years() != 0 {
-            parts.push(format!("years={}", self.0.get_years()));
-        }
-        if self.0.get_months() != 0 {
-            parts.push(format!("months={}", self.0.get_months()));
-        }
-        if self.0.get_weeks() != 0 {
-            parts.push(format!("weeks={}", self.0.get_weeks()));
-        }
-        if self.0.get_days() != 0 {
-            parts.push(format!("days={}", self.0.get_days()));
-        }
-        if self.0.get_hours() != 0 {
-            parts.push(format!("hours={}", self.0.get_hours()));
-        }
-        if self.0.get_minutes() != 0 {
-            parts.push(format!("minutes={}", self.0.get_minutes()));
-        }
-        if self.0.get_seconds() != 0 {
-            parts.push(format!("seconds={}", self.0.get_seconds()));
-        }
-        if self.0.get_milliseconds() != 0 {
-            parts.push(format!("milliseconds={}", self.0.get_milliseconds()));
-        }
-        if self.0.get_microseconds() != 0 {
-            parts.push(format!("microseconds={}", self.0.get_microseconds()));
-        }
-        if self.0.get_nanoseconds() != 0 {
-            parts.push(format!("nanoseconds={}", self.0.get_nanoseconds()));
-        }
-        write!(f, "{}", parts.join(", "))?;
+        let mut write_sep = false;
 
-        write!(f, ")")
+        let years = self.0.get_years();
+        if years != 0 {
+            write!(f, "years={years}")?;
+            write_sep = true;
+        }
+
+        let months = self.0.get_months();
+        if months != 0 {
+            if write_sep {
+                f.write_str(", ")?;
+            }
+            write!(f, "months={months}")?;
+            write_sep = true;
+        }
+
+        let weeks = self.0.get_weeks();
+        if weeks != 0 {
+            if write_sep {
+                f.write_str(", ")?;
+            }
+            write!(f, "weeks={weeks}")?;
+            write_sep = true;
+        }
+
+        let days = self.0.get_days();
+        if days != 0 {
+            if write_sep {
+                f.write_str(", ")?;
+            }
+            write!(f, "days={days}")?;
+            write_sep = true;
+        }
+
+        let hours = self.0.get_hours();
+        if hours != 0 {
+            if write_sep {
+                f.write_str(", ")?;
+            }
+            write!(f, "hours={hours}")?;
+            write_sep = true;
+        }
+
+        let minutes = self.0.get_minutes();
+        if minutes != 0 {
+            if write_sep {
+                f.write_str(", ")?;
+            }
+            write!(f, "minutes={minutes}")?;
+            write_sep = true;
+        }
+
+        let seconds = self.0.get_seconds();
+        if seconds != 0 {
+            if write_sep {
+                f.write_str(", ")?;
+            }
+            write!(f, "seconds={seconds}")?;
+            write_sep = true;
+        }
+
+        let milliseconds = self.0.get_milliseconds();
+        if milliseconds != 0 {
+            if write_sep {
+                f.write_str(", ")?;
+            }
+            write!(f, "milliseconds={milliseconds}")?;
+            write_sep = true;
+        }
+
+        let microseconds = self.0.get_microseconds();
+        if microseconds != 0 {
+            if write_sep {
+                f.write_str(", ")?;
+            }
+            write!(f, "microseconds={microseconds}")?;
+            write_sep = true;
+        }
+
+        let nanoseconds = self.0.get_nanoseconds();
+        if nanoseconds != 0 {
+            if write_sep {
+                f.write_str(", ")?;
+            }
+            write!(f, "nanoseconds={nanoseconds}")?;
+        }
+
+        f.write_str(")")
     }
 }
 
@@ -744,6 +825,16 @@ impl From<Span> for RySpan {
 impl From<JiffSpan> for RySpan {
     fn from(span: JiffSpan) -> Self {
         Self(span.0)
+    }
+}
+
+impl TryFrom<SignedDuration> for RySpan {
+    type Error = PyErr;
+
+    fn try_from(value: SignedDuration) -> Result<Self, Self::Error> {
+        Span::try_from(value)
+            .map(Self::from)
+            .map_err(map_py_overflow_err)
     }
 }
 

@@ -21,7 +21,7 @@ from chalk._gen.chalk.graph.v1 import graph_pb2
 from chalk._gen.chalk.graph.v1 import graph_pb2 as pb
 from chalk._gen.chalk.graph.v1.graph_pb2 import CronFilterWithFeatureArgs, SourceFileReference
 from chalk._gen.chalk.graph.v2 import sources_pb2 as sources_pb
-from chalk._gen.chalk.lsp.v1.lsp_pb2 import Position, Range
+from chalk._gen.chalk.lsp.v1.lsp_pb2 import Location, Position, Range
 from chalk._validation.feature_validation import FeatureValidation
 from chalk.features import (
     CacheStrategy,
@@ -125,6 +125,21 @@ class ToProtoConverter:
             return v._to_proto()  # pyright: ignore[reportPrivateUsage]
         else:
             return convert_value_to_proto_expr(v)
+
+    @classmethod
+    def convert_expression_definition_location(cls, v: Union[Underscore, TPrimitive]) -> Location | None:
+        if isinstance(v, Underscore):
+            if (dl := v.definition_location()) is None:
+                return None
+            # TODO: Dominic - see if we can maintain more specific line range info
+            return Location(
+                uri=dl.file,
+                range=Range(
+                    start=Position(line=dl.line, character=dl.column), end=Position(line=dl.line, character=dl.column)
+                ),
+            )
+        else:
+            return None
 
     @staticmethod
     def _convert_stream_source(source: StreamSource) -> sources_pb.StreamSource:
@@ -973,6 +988,11 @@ class ToProtoConverter:
                 ),
                 validations=ToProtoConverter.convert_validations(f.all_validations),
                 expression=ToProtoConverter.convert_underscore(f.underscore_expression)
+                if f.underscore_expression is not None
+                else None,
+                expression_definition_location=ToProtoConverter.convert_expression_definition_location(
+                    f.underscore_expression
+                )
                 if f.underscore_expression is not None
                 else None,
                 no_display=f.no_display,

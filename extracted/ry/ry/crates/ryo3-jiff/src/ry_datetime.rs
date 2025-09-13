@@ -1,6 +1,6 @@
+use crate::difference::{DateTimeDifferenceArg, RyDateTimeDifference};
 use crate::errors::{map_py_overflow_err, map_py_value_err};
 use crate::isoformat::{ISOFORMAT_PRINTER, ISOFORMAT_PRINTER_NO_MICROS};
-use crate::ry_datetime_difference::{DateTimeDifferenceArg, RyDateTimeDifference};
 use crate::ry_iso_week_date::RyISOWeekDate;
 use crate::ry_signed_duration::RySignedDuration;
 use crate::ry_span::RySpan;
@@ -9,13 +9,19 @@ use crate::ry_timezone::RyTimeZone;
 use crate::ry_zoned::RyZoned;
 use crate::series::RyDateTimeSeries;
 use crate::spanish::Spanish;
-use crate::{JiffEra, JiffEraYear, JiffRoundMode, JiffUnit, JiffWeekday, RyDate, RyDateTimeRound};
+use crate::{
+    JiffDateTime, JiffEra, JiffEraYear, JiffRoundMode, JiffUnit, JiffWeekday, RyDate,
+    RyDateTimeRound, RyTimestamp,
+};
 use jiff::Zoned;
 use jiff::civil::{Date, DateTime, DateTimeRound, Time, Weekday};
+use jiff::tz::TimeZone;
+use pyo3::IntoPyObjectExt;
 use pyo3::basic::CompareOp;
+use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyTuple};
-use pyo3::{IntoPyObjectExt, intern};
+use ryo3_macro_rules::{any_repr, py_type_err};
 use std::fmt::Display;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::ops::Sub;
@@ -23,7 +29,7 @@ use std::str::FromStr;
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[cfg_attr(feature = "serde", serde(transparent))]
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 #[pyclass(name = "DateTime", module = "ry.ryo3", frozen)]
 pub struct RyDateTime(pub(crate) DateTime);
 
@@ -56,7 +62,7 @@ impl RyDateTime {
             subsec_nanosecond.unwrap_or(0),
         )
         .map(Self::from)
-        .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("{e}")))
+        .map_err(map_py_value_err)
     }
 
     fn __getnewargs__<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
@@ -98,10 +104,23 @@ impl RyDateTime {
     }
 
     #[staticmethod]
+    fn today() -> Self {
+        Self::from(DateTime::from(Zoned::now()))
+    }
+
+    #[staticmethod]
     fn from_str(s: &str) -> PyResult<Self> {
-        DateTime::from_str(s)
-            .map(Self::from)
-            .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("{e}")))
+        // if ends with 'Z', parse via timezone...
+        if s.ends_with('Z') {
+            jiff::Timestamp::from_str(s)
+                .map(|ts| ts.to_zoned(TimeZone::UTC).datetime())
+                .map(Self::from)
+                .map_err(map_py_value_err)
+        } else {
+            DateTime::from_str(s)
+                .map(Self::from)
+                .map_err(map_py_value_err)
+        }
     }
 
     #[staticmethod]
@@ -230,11 +249,11 @@ impl RyDateTime {
         Ok(Self::from(self.0.saturating_sub(spanish)))
     }
 
-    fn time(&self) -> RyTime {
+    pub(crate) fn time(&self) -> RyTime {
         RyTime::from(self.0.time())
     }
 
-    fn date(&self) -> RyDate {
+    pub(crate) fn date(&self) -> RyDate {
         RyDate::from(self.0.date())
     }
 
@@ -242,7 +261,7 @@ impl RyDateTime {
         self.0
             .in_tz(tz)
             .map(RyZoned::from)
-            .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("{e}")))
+            .map_err(map_py_value_err)
     }
 
     #[pyo3(
@@ -268,32 +287,38 @@ impl RyDateTime {
         RyISOWeekDate::from(self.0.iso_week_date())
     }
 
+    #[expect(clippy::wrong_self_convention)]
     fn to_zoned(&self, tz: &RyTimeZone) -> PyResult<RyZoned> {
         self.0
             .to_zoned(tz.into())
             .map(RyZoned::from)
-            .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("{e}")))
+            .map_err(map_py_value_err)
     }
 
     fn first_of_month(&self) -> Self {
         Self::from(self.0.first_of_month())
     }
+
     fn last_of_month(&self) -> Self {
         Self::from(self.0.last_of_month())
     }
 
+    #[expect(clippy::wrong_self_convention)]
     fn to_py(&self) -> DateTime {
         self.to_pydatetime()
     }
 
+    #[expect(clippy::wrong_self_convention)]
     fn to_pydatetime(&self) -> DateTime {
         self.0
     }
 
+    #[expect(clippy::wrong_self_convention)]
     fn to_pydate(&self) -> Date {
         self.0.date()
     }
 
+    #[expect(clippy::wrong_self_convention)]
     fn to_pytime(&self) -> Time {
         self.0.time()
     }
@@ -309,15 +334,17 @@ impl RyDateTime {
         Ok(RyDateTimeSeries::from(s))
     }
 
-    fn asdict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+    #[expect(clippy::wrong_self_convention)]
+    fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+        use crate::interns;
         let dict = PyDict::new(py);
-        dict.set_item(intern!(py, "year"), self.0.year())?;
-        dict.set_item(intern!(py, "month"), self.0.month())?;
-        dict.set_item(intern!(py, "day"), self.0.day())?;
-        dict.set_item(intern!(py, "hour"), self.0.hour())?;
-        dict.set_item(intern!(py, "minute"), self.0.minute())?;
-        dict.set_item(intern!(py, "second"), self.0.second())?;
-        dict.set_item(intern!(py, "nanosecond"), self.0.subsec_nanosecond())?;
+        dict.set_item(interns::year(py), self.0.year())?;
+        dict.set_item(interns::month(py), self.0.month())?;
+        dict.set_item(interns::day(py), self.0.day())?;
+        dict.set_item(interns::hour(py), self.0.hour())?;
+        dict.set_item(interns::minute(py), self.0.minute())?;
+        dict.set_item(interns::second(py), self.0.second())?;
+        dict.set_item(interns::nanosecond(py), self.0.subsec_nanosecond())?;
         Ok(dict)
     }
 
@@ -375,7 +402,7 @@ impl RyDateTime {
                 let time = time.extract::<RyTime>()?;
                 builder = builder.time(time.0);
             } else {
-                return Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(format!(
+                return Err(PyErr::new::<PyTypeError, _>(format!(
                     "obj must be a Date or Time; given: {obj}",
                 )));
             }
@@ -451,7 +478,7 @@ impl RyDateTime {
         self.0
             .round(dt_round)
             .map(Self::from)
-            .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("{e}")))
+            .map_err(map_py_value_err)
     }
 
     fn _round(&self, dt_round: &RyDateTimeRound) -> PyResult<Self> {
@@ -524,7 +551,7 @@ impl RyDateTime {
     fn strptime(s: &str, fmt: &str) -> PyResult<Self> {
         DateTime::strptime(fmt, s)
             .map(Self::from)
-            .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("{e}")))
+            .map_err(map_py_value_err)
     }
 
     #[pyo3(
@@ -564,14 +591,14 @@ impl RyDateTime {
 
     fn _since(&self, other: &RyDateTimeDifference) -> PyResult<RySpan> {
         self.0
-            .since(other.0)
+            .since(other.diff)
             .map(RySpan::from)
             .map_err(map_py_value_err)
     }
 
     fn _until(&self, other: &RyDateTimeDifference) -> PyResult<RySpan> {
         self.0
-            .until(other.0)
+            .until(other.diff)
             .map(RySpan::from)
             .map_err(map_py_value_err)
     }
@@ -609,6 +636,53 @@ impl RyDateTime {
             Weekday::Saturday => 6,
             Weekday::Sunday => 7,
         }
+    }
+
+    #[staticmethod]
+    fn from_any<'py>(value: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
+        let py = value.py();
+        if let Ok(pystr) = value.downcast::<pyo3::types::PyString>() {
+            let s = pystr.extract::<&str>()?;
+            Self::from_str(s).map(|dt| dt.into_bound_py_any(py).map(Bound::into_any))?
+        } else if let Ok(pybytes) = value.downcast::<pyo3::types::PyBytes>() {
+            let s = String::from_utf8_lossy(pybytes.as_bytes());
+            Self::from_str(&s).map(|dt| dt.into_bound_py_any(py).map(Bound::into_any))?
+        } else if value.is_exact_instance_of::<Self>() {
+            value.into_bound_py_any(py)
+        } else if let Ok(d) = value.downcast_exact::<RyZoned>() {
+            let dt = d.get().time();
+            dt.into_bound_py_any(py)
+        } else if let Ok(d) = value.downcast_exact::<RyTimestamp>() {
+            let dt = d.get().time();
+            dt.into_bound_py_any(py)
+        } else if let Ok(d) = value.extract::<JiffDateTime>() {
+            Self::from(d.0).into_bound_py_any(py)
+        } else {
+            let valtype = any_repr!(value);
+            py_type_err!("DateTime conversion error: {valtype}",)
+        }
+    }
+    // ========================================================================
+    // PYDANTIC
+    // ========================================================================
+    #[cfg(feature = "pydantic")]
+    #[staticmethod]
+    fn _pydantic_validate<'py>(
+        value: &Bound<'py, PyAny>,
+        _handler: &Bound<'py, PyAny>,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        Self::from_any(value).map_err(map_py_value_err)
+    }
+
+    #[cfg(feature = "pydantic")]
+    #[classmethod]
+    fn __get_pydantic_core_schema__<'py>(
+        cls: &Bound<'py, ::pyo3::types::PyType>,
+        source: &Bound<'py, PyAny>,
+        handler: &Bound<'py, PyAny>,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        use ryo3_pydantic::GetPydanticCoreSchemaCls;
+        Self::get_pydantic_core_schema(cls, source, handler)
     }
 }
 

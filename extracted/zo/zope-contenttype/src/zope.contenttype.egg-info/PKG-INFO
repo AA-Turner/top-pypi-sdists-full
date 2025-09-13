@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: zope.contenttype
-Version: 5.2
+Version: 6.0
 Summary: Zope contenttype
 Home-page: http://github.com/zopefoundation/zope.contenttype
 Author: Zope Foundation and Contributors
@@ -25,10 +25,21 @@ Requires-Python: >=3.9
 License-File: LICENSE.txt
 Requires-Dist: setuptools
 Provides-Extra: test
-Requires-Dist: zope.testrunner; extra == "test"
+Requires-Dist: zope.testrunner>=6.4; extra == "test"
 Provides-Extra: docs
 Requires-Dist: Sphinx; extra == "docs"
 Requires-Dist: sphinx_rtd_theme; extra == "docs"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 ======================
  ``zope.contenttype``
@@ -65,6 +76,12 @@ Documentation is hosted at https://zopecontenttype.readthedocs.io/en/latest/
 ================
  Change History
 ================
+
+6.0 (2025-09-12)
+================
+
+- Replace ``pkg_resources`` namespace with PEP 420 native namespace.
+
 
 5.2 (2025-02-14)
 ================

@@ -240,7 +240,7 @@ setup_doc = """{
 }"""
 
 
-def get_ongoing_doc(ecr=True, custom_bucket_prefix=None) -> str:
+def get_ongoing_doc(ecr=True, package_sync_bucket_prefix=None) -> str:
     optional_permissions = []
 
     if ecr:
@@ -266,7 +266,7 @@ def get_ongoing_doc(ecr=True, custom_bucket_prefix=None) -> str:
             ],
         })
 
-    if custom_bucket_prefix:
+    if package_sync_bucket_prefix:
         optional_permissions.extend([
             {
                 "Sid": "OngoingPackageSyncBucketCreate",
@@ -277,7 +277,7 @@ def get_ongoing_doc(ecr=True, custom_bucket_prefix=None) -> str:
                     "s3:PutBucketOwnershipControls",
                     "s3:PutBucketPolicy",
                 ],
-                "Resource": [f"arn:*:s3:::{custom_bucket_prefix}-*"],
+                "Resource": [f"arn:*:s3:::{package_sync_bucket_prefix}-*"],
             },
             {
                 "Sid": "OngoingPackageSyncEnvUploadDownload",
@@ -286,9 +286,33 @@ def get_ongoing_doc(ecr=True, custom_bucket_prefix=None) -> str:
                     "s3:PutObject",
                     "s3:GetObject",
                 ],
-                "Resource": [f"arn:*:s3:::{custom_bucket_prefix}-*/*"],
+                "Resource": [f"arn:*:s3:::{package_sync_bucket_prefix}-*/*"],
             },
         ])
+
+    # TODO should this be configurable?
+    optional_permissions.extend([
+        {
+            "Sid": "OngoingPersistentDataBuckets",
+            "Effect": "Allow",
+            "Action": [
+                "s3:CreateBucket",
+                "s3:ListBucket",
+                "s3:PutBucketOwnershipControls",
+                "s3:PutBucketPolicy",
+            ],
+            "Resource": ["arn:*:s3:::coiled-data-*"],
+        },
+        {
+            "Sid": "OngoingPersistentDataObjects",
+            "Effect": "Allow",
+            "Action": [
+                "s3:PutObject",
+                "s3:GetObject",
+            ],
+            "Resource": ["arn:*:s3:::coiled-data-*/*"],
+        },
+    ])
 
     ongoing_policy_statement = {
         "Statement": [
@@ -1393,7 +1417,7 @@ def do_setup(
         user_name = slug
         setup_name = setup_name or f"{slug}-setup"
         ongoing_name = ongoing_name or f"{slug}-ongoing"
-        ongoing_doc = get_ongoing_doc(custom_bucket_prefix=custom_s3_bucket_prefix)
+        ongoing_doc = get_ongoing_doc(package_sync_bucket_prefix=custom_s3_bucket_prefix)
 
         try:
             aws_account = do_intro(sts, iam, region=region, coiled_account=coiled_account)
@@ -1508,25 +1532,26 @@ def check_local_aws_creds():
         return False
 
 
-def update_instance_profile_policy(iam, aws_account, yes):
-    policy_name = "CoiledInstancePolicy"
-    policy_doc = """{
+INSTANCE_POLICY_DOCUMENT = """{
     "Version": "2012-10-17",
     "Statement": [
         {
-            "Sid": "CoiledEC2Policy",
+            "Sid": "CoiledEC2LogPolicy",
             "Effect": "Allow",
             "Action": [
                 "logs:CreateLogGroup",
                 "logs:CreateLogStream",
-                "logs:PutLogEvents",
-                "cloudwatch:PutMetricData",
-                "aps:RemoteWrite"
+                "logs:PutLogEvents"
             ],
             "Resource": "*"
         }
     ]
 }"""
+
+
+def update_instance_profile_policy(iam, aws_account, yes):
+    policy_name = "CoiledInstancePolicy"
+    policy_doc = INSTANCE_POLICY_DOCUMENT
 
     # Check for existing policy
     policy_arn, policy_diff = get_policy_diff(iam, aws_account, policy_name, policy_doc)

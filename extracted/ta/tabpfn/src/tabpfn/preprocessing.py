@@ -6,17 +6,16 @@ different members.
 
 from __future__ import annotations
 
-import warnings
 from collections.abc import Callable, Iterable, Iterator, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from functools import partial
 from itertools import chain, product, repeat
 from typing import TYPE_CHECKING, Literal, TypeVar
 from typing_extensions import override
 
-import joblib
 import numpy as np
 import torch
+from sklearn.utils.validation import joblib
 from torch.utils.data import Dataset
 
 from tabpfn.architectures.base.bar_distribution import FullSupportBarDistribution
@@ -72,33 +71,7 @@ class ClassifierDatasetConfig(BaseDatasetConfig):
 class RegressorDatasetConfig(BaseDatasetConfig):
     """Regression Dataset + Model Configuration class."""
 
-    znorm_space_bardist_: FullSupportBarDistribution | None = field(default=None)
-
-    @property
-    def bardist_(self) -> FullSupportBarDistribution:
-        """DEPRECATED: Accessing `bardist_` is deprecated.
-        Use `znorm_space_bardist_` instead.
-        """
-        warnings.warn(
-            "`bardist_` is deprecated and will be removed in a future version. "
-            "Please use `znorm_space_bardist_` instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self.znorm_space_bardist_
-
-    @bardist_.setter
-    def bardist_(self, value: FullSupportBarDistribution) -> None:
-        """DEPRECATED: Setting `bardist_` is deprecated.
-        Use `znorm_space_bardist_`.
-        """
-        warnings.warn(
-            "`bardist_` is deprecated and will be removed in a future version. "
-            "Please use `znorm_space_bardist_` instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        self.znorm_space_bardist_ = value
+    bardist_: FullSupportBarDistribution
 
 
 @dataclass(frozen=True, eq=True)
@@ -797,7 +770,7 @@ class DatasetCollectionWithPreprocessing(Dataset):
             Each object must hold the raw data (`X_raw`, `y_raw`), categorical feature
             indices (`cat_ix`), and the specific preprocessing configurations
             (`config`) for that dataset. Regression configs require additional
-            fields (`znorm_space_bardist_`).
+            fields (`y_full_standardised`, `normalized_bardist_`).
         n_workers (int, optional): The number of workers to use for potentially
             parallelized preprocessing steps (passed to `fit_preprocessing`).
             Defaults to 1.
@@ -874,12 +847,10 @@ class DatasetCollectionWithPreprocessing(Dataset):
                 * `cat_ixs` (List[Optional[List[int]]]): List of categorical feature
                   indices corresponding to each preprocessed X_train/X_test.
                 * `conf` (List): The list of preprocessing configurations used.
-                * `raw_space_bardist_` (FullSupportBarDistribution): Binning class
-                  for target variable (specific to the regression config). The
-                  calculations will be on raw data in raw space.
-                * `znorm_space_bardist_` (FullSupportBarDistribution): Binning class for
-                  target variable (specific to the regression config). The calculations
-                  will be on standardized data in znorm space.
+                * `normalized_bardist_` (FullSupportBarDistribution): Binning class
+                  for target variable (specific to the regression config).
+                * `bardist_` (FullSupportBarDistribution): Binning class for
+                  target variable (specific to the regression config).
                 * `x_test_raw` (torch.Tensor): Original, unprocessed test feature
                   tensor.
                 * `y_test_raw` (torch.Tensor): Original, unprocessed test target
@@ -904,7 +875,7 @@ class DatasetCollectionWithPreprocessing(Dataset):
             x_full_raw = config.X_raw
             y_full_raw = config.y_raw
             cat_ix = config.cat_ix
-            znorm_space_bardist_ = config.znorm_space_bardist_
+            bardist_ = config.bardist_
         elif isinstance(config, ClassifierDatasetConfig):
             conf = config.config
             x_full_raw = config.X_raw
@@ -921,7 +892,7 @@ class DatasetCollectionWithPreprocessing(Dataset):
 
         # Compute target variable Z-transform standardization
         # based on statistics of training set
-        # Note: Since we compute raw_space_bardist_ here,
+        # Note: Since we compute normalized_bardist_ here,
         # it is not set as an attribute of the Regressor class
         # This however makes also sense when considering that
         # this attribute changes on every dataset
@@ -930,9 +901,8 @@ class DatasetCollectionWithPreprocessing(Dataset):
             train_std = np.std(y_train_raw)
             y_test_standardized = (y_test_raw - train_mean) / train_std
             y_train_standardized = (y_train_raw - train_mean) / train_std
-            raw_space_bardist_ = FullSupportBarDistribution(
-                znorm_space_bardist_.borders * train_std
-                + train_mean  # Inverse normalization back to raw space
+            normalized_bardist_ = FullSupportBarDistribution(
+                bardist_.borders * train_std + train_mean
             ).float()
 
         y_train = y_train_standardized if regression_task else y_train_raw
@@ -991,7 +961,7 @@ class DatasetCollectionWithPreprocessing(Dataset):
         # Also return raw_target variable because of flexiblity
         # in optimisation space -> see examples/
         # Also return corresponding target variable binning
-        # classes raw_space_bardist_ and znorm_space_bardist_
+        # classes normalized_bardist_ and bardist_
         if regression_task:
             return (
                 X_trains_preprocessed,
@@ -1000,8 +970,8 @@ class DatasetCollectionWithPreprocessing(Dataset):
                 y_test_standardized,
                 cat_ixs,
                 conf,
-                raw_space_bardist_,
-                znorm_space_bardist_,
+                normalized_bardist_,
+                bardist_,
                 x_test_raw,
                 y_test_raw,
             )

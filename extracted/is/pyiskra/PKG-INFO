@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyiskra
-Version: 0.1.26
+Version: 0.1.27
 Summary: Python Iskra devices interface
 Author-email: "Iskra d.o.o." <razvoj.mis@iskra.eu>
 Maintainer-email: Iskra <razvoj.mis@iskra.eu>
@@ -16,8 +16,10 @@ Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Classifier: Topic :: Home Automation
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
+License-File: LICENSE
 Requires-Dist: aiohttp
-Requires-Dist: pymodbus==3.11.1
+Requires-Dist: pymodbus>=3.11.1
+Dynamic: license-file
 
 # PyIskra
 

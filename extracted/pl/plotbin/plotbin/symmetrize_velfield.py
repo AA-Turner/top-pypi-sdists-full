@@ -53,10 +53,8 @@ from scipy import interpolate
 #     Michele cappellari, Paranal, 10 November 2013
 
 def _rotate_points(x, y, ang):
-    """
-    Rotates points counter-clockwise by an angle ANG-90 in degrees.
-    
-    """    
+    """Rotates points counter-clockwise by an angle ANG-90 in degrees."""    
+
     theta = np.radians(ang - 90.)
     xNew = x*np.cos(theta) - y*np.sin(theta)
     yNew = x*np.sin(theta) + y*np.cos(theta)
@@ -72,8 +70,7 @@ def symmetrize_velfield(xbin, ybin, vel_bin, sym=2, pa=90.):
     PA: is the angle in degrees, measured counter-clockwise,
       from the vertical axis (Y axis) to the galaxy major axis.
     SYM: by-simmetry: is 1 for (V, h3, h5) and 2 for (sigma, h4, h6)
-      point-simmetry: is 3 for (V, h3, h5) and 4 for (sigma, h4, h6)
-    
+      point-simmetry: is 3 for (V, h3, h5) and 4 for (sigma, h4, h6)    
     """        
     xbin, ybin, vel_bin = map(np.asarray, [xbin, ybin, vel_bin])
 
@@ -95,7 +92,7 @@ def symmetrize_velfield(xbin, ybin, vel_bin, sym=2, pa=90.):
         vel_out = interpolate.griddata((xbin, ybin), vel_bin, (-xbin, -ybin))
         if sym == 3:
             vel_out = -vel_out
-        vel_out = np.row_stack([vel_bin, vel_out])
+        vel_out = np.vstack([vel_bin, vel_out])
 
     vel_sym = np.nanmean(vel_out, axis=0)
     

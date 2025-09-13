@@ -1,6 +1,6 @@
 [project]
 name = "bluetooth-adapters"
-version = "2.1.0"
+version = "2.1.1"
 license = "Apache-2.0"
 description = "Tools to enumerate and find Bluetooth Adapters"
 authors = [{ name = "J. Nick Koston", email = "nick@koston.org" }]
@@ -49,7 +49,7 @@ docs = [
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.4"
-pytest-cov = "^6.0"
+pytest-cov = "^6.3"
 pytest-asyncio = "^1.1.0"
 
 [tool.semantic_release]

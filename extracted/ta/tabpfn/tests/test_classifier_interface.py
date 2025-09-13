@@ -24,7 +24,7 @@ from tabpfn import TabPFNClassifier
 from tabpfn.base import ClassifierModelSpecs, initialize_tabpfn_model
 from tabpfn.model_loading import ModelSource
 from tabpfn.preprocessing import PreprocessorConfig
-from tabpfn.utils import infer_devices
+from tabpfn.utils import infer_device_and_type
 
 from .utils import check_cpu_float16_support, get_pytest_devices
 
@@ -52,7 +52,7 @@ estimators = [1, 2]
 
 model_paths = ModelSource.get_classifier_v2().filenames
 primary_model = ModelSource.get_classifier_v2().default_filename
-other_models = [model_path for model_path in model_paths if model_path != primary_model]
+other_models = set(model_paths) - {primary_model}
 
 # --- Build parameter combinations ---
 # Full grid for the first (primary) model path
@@ -84,15 +84,18 @@ all_combinations = list(_full_grid) + list(_smoke_grid)
 
 @pytest.fixture(scope="module")
 def X_y() -> tuple[np.ndarray, np.ndarray]:
-    n_classes = 3
-    return sklearn.datasets.make_classification(
-        n_samples=20 * n_classes,
-        n_classes=n_classes,
-        n_features=5,
-        n_informative=5,
-        n_redundant=0,
-        random_state=0,
-    )
+    X, y = sklearn.datasets.load_iris(return_X_y=True)
+    # Take 20 samples from class 0, 20 from class 1, 20 from class 2
+    # This ensures all 3 classes are present
+    X_diverse = np.vstack([X[y == 0][:20], X[y == 1][:20], X[y == 2][:20]])
+    y_diverse = np.hstack([y[y == 0][:20], y[y == 1][:20], y[y == 2][:20]])
+
+    # Shuffle to mix them up, otherwise training data would be ordered by class
+    indices = np.arange(len(y_diverse))
+    rng = np.random.default_rng(42)
+    rng.shuffle(indices)
+
+    return X_diverse[indices].astype(np.float32), y_diverse[indices].astype(np.int64)
 
 
 @pytest.mark.parametrize(
@@ -339,9 +342,7 @@ def test_balance_probabilities_alters_proba_output(
     ), "Probabilities did not change when balance_probabilities was toggled."
 
 
-@pytest.mark.skip(
-    reason="The result is actually different depending on the fitting mode."
-)
+@pytest.mark.skip(reason="No longer passes now dataset has been shrunk.")
 def test_fit_modes_all_return_equal_results(
     X_y: tuple[np.ndarray, np.ndarray],
 ) -> None:
@@ -380,8 +381,8 @@ def test_sklearn_compatible_estimator(
     estimator: TabPFNClassifier,
     check: Callable[[TabPFNClassifier], None],
 ) -> None:
-    _auto_devices = infer_devices(devices="auto")
-    if any(device.type == "mps" for device in _auto_devices):
+    _auto_device = infer_device_and_type(device="auto")
+    if _auto_device.type == "mps":
         pytest.skip("MPS does not support float64, which is required for this check.")
 
     if check.func.__name__ in (  # type: ignore
@@ -625,9 +626,14 @@ def test_get_embeddings(X_y: tuple[np.ndarray, np.ndarray], data_source: str) ->
     assert embeddings.shape[2] == encoder_shape
 
 
-def test_pandas_output_config(X_y: tuple[np.ndarray, np.ndarray]):
+def test_pandas_output_config():
     """Test compatibility with sklearn's output configuration settings."""
-    X, y = X_y
+    # Generate synthetic classification data
+    X, y = sklearn.datasets.make_classification(
+        n_samples=50,
+        n_features=10,
+        random_state=19,
+    )
 
     # Initialize TabPFN
     model = TabPFNClassifier(n_estimators=1, random_state=42)

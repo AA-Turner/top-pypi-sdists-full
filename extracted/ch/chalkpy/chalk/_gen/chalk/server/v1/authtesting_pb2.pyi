@@ -34,6 +34,10 @@ class GetOwnerTestEndpointRequest(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
 
+class GetAuthServiceManagerTestEndpointRequest(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
 class GetFeatureFlagTestEndpointRequest(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
@@ -63,6 +67,10 @@ class GetAdminTestEndpointResponse(_message.Message):
     def __init__(self) -> None: ...
 
 class GetOwnerTestEndpointResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class GetAuthServiceManagerTestEndpointResponse(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
 

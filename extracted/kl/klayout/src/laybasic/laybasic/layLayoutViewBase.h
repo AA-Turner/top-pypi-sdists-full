@@ -157,8 +157,8 @@ struct LAYBASIC_PUBLIC LayerDisplayProperties
  *  It manages the layer display list, bookmark list etc.
  */
 class LAYBASIC_PUBLIC LayoutViewBase :
-    public lay::Editables,
-    public lay::Dispatcher
+    public lay::Dispatcher,   //  needs to be first as it is the GSI base class
+    public lay::Editables
 {
 public:
   typedef lay::CellView::unspecific_cell_path_type cell_path_type;
@@ -294,6 +294,11 @@ public:
    *  @brief Display a status message
    */
   virtual void message (const std::string &s = "", int timeout = 10);
+
+  /**
+   *  @brief Sets the keyboard focus to the view
+   */
+  virtual void set_focus ();
 
   /**
    *  @brief The "dirty" flag indicates that one of the layout has been modified
@@ -510,18 +515,12 @@ public:
   /**
    *  @brief Clear the given layer view list
    */
-  void clear_layers (unsigned int index)
-  {
-    set_properties (index, LayerPropertiesList ());
-  }
+  void clear_layers (unsigned int index);
 
   /**
    *  @brief Clear the current layer view list
    */
-  void clear_layers ()
-  {
-    set_properties (LayerPropertiesList ());
-  }
+  void clear_layers ();
 
   /**
    *  @brief Access the current layer properties list
@@ -601,6 +600,13 @@ public:
    *  This method returns a null iterator, if no layer is active.
    */
   virtual lay::LayerPropertiesConstIterator current_layer () const;
+
+  /**
+   *  @brief Finds the first layer by layer properties and cell view index
+   *
+   *  Returns a null iterator if the layer is not found in the list.
+   */
+  virtual lay::LayerPropertiesConstIterator find_layer (unsigned int cv_index, const db::LayerProperties &properties) const;
 
   /**
    *  @brief Return the layers that are selected in the layer browser
@@ -1675,9 +1681,25 @@ public:
   std::set< std::pair<db::DCplxTrans, int> > cv_transform_variants () const;
   
   /**
+   *  @brief Get a list of cellview index and transform variants including empty cellviews
+   *
+   *  This version delivers a unit-transformation variant for cell views for which
+   *  no layer is present. This version is used for instance box drawing.
+   */
+  std::set< std::pair<db::DCplxTrans, int> > cv_transform_variants_with_empty () const;
+
+  /**
    *  @brief Get the global transform variants for a given cellview index
    */
   std::vector<db::DCplxTrans> cv_transform_variants (int cv_index) const;
+
+  /**
+   *  @brief Get the global transform variants for a given cellview index including empty cellviews
+   *
+   *  This version delivers a unit-transformation variant for cell views for which
+   *  no layer is present. This version is used for instance box drawing.
+   */
+  std::vector<db::DCplxTrans> cv_transform_variants_with_empty (int cv_index) const;
 
   /**
    *  @brief Get the global transform variants for a given cellview index and layer

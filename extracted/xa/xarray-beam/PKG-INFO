@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xarray-beam
-Version: 0.9.1
+Version: 0.9.2
 Summary: Distributed Xarray with Apache Beam
 Author-email: Google LLC <noreply@google.com>
 Requires-Python: >=3.10

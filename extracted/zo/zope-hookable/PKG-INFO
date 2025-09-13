@@ -1,11 +1,11 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: zope.hookable
-Version: 7.0
+Version: 8.0
 Summary: Zope hookable
 Home-page: http://github.com/zopefoundation/zope.hookable
 Author: Zope Foundation and Contributors
-Author-email: zope-dev@zope.org
-License: ZPL 2.1
+Author-email: zope-dev@zope.dev
+License: ZPL-2.1
 Keywords: function hook replacement loose coupled
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
@@ -13,7 +13,6 @@ Classifier: License :: OSI Approved :: Zope Public License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -23,7 +22,7 @@ Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Framework :: Zope :: 3
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 License-File: LICENSE.txt
 Requires-Dist: setuptools
 Provides-Extra: docs
@@ -31,11 +30,23 @@ Requires-Dist: Sphinx; extra == "docs"
 Requires-Dist: sphinx_rtd_theme; extra == "docs"
 Provides-Extra: testing
 Requires-Dist: zope.testing; extra == "testing"
-Requires-Dist: zope.testrunner; extra == "testing"
+Requires-Dist: zope.testrunner>=6.4; extra == "testing"
 Requires-Dist: coverage; extra == "testing"
 Provides-Extra: test
 Requires-Dist: zope.testing; extra == "test"
-Requires-Dist: zope.testrunner; extra == "test"
+Requires-Dist: zope.testrunner>=6.4; extra == "test"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 ===============
  zope.hookable
@@ -75,6 +86,15 @@ Documentation is hosted at https://zopehookable.readthedocs.io
  Changes
 =========
 
+8.0 (2025-09-12)
+================
+
+- Replace ``pkg_resources`` namespace with PEP 420 native namespace.
+
+- Drop support for Python 3.8.
+
+- Add preliminary support for Python 3.14.
+
 7.0 (2024-09-17)
 ================
 
@@ -88,6 +108,7 @@ Documentation is hosted at https://zopehookable.readthedocs.io
 - Add support for Python 3.13.
 
 - Build windows wheels on GHA.
+
 
 6.0 (2023-10-05)
 ================

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: proto-schema-parser
-Version: 1.6.0
+Version: 1.6.1
 Summary: A Pure Python Protobuf .proto Parser
 Author-Email: Chris Riccomini <criccomini@apache.org>
 License: MIT

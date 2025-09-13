@@ -451,13 +451,17 @@ class BnCUi:
 							if ct < 1:
 								print(f"{Fore.light_red}Nothing in the Bank!{Style.reset}")
 							else:
-								for num,r in enumerate(results):
-									msg=std_colorize(r,num,ct)
-									print(msg)
-								which=Prompt.__init2__(self,func=self.mkint,ptext=f"{self.cashpoolTotal()}Which CashPool Item?",helpText=f"type a number between [0-{ct-1}]",data={'default':0})
-								if which in [None,]:
-									return
-								
+								while True:
+									for num,r in enumerate(results):
+										msg=std_colorize(r,num,ct)
+										print(msg)
+									which=Prompt.__init2__(self,func=self.mkint,ptext=f"{self.cashpoolTotal()}Which CashPool Item?",helpText=f"type a number between [0-{ct-1}]",data={'default':0})
+									if which in [None,]:
+										return
+									if index_inList(which,results):
+										break
+									else:
+										print(f"{Fore.orange_red_1}Not a valid index! RETRY!!!{Style.reset}")
 								selected=results[which]
 								print(selected)
 								if delete:

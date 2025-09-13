@@ -12,9 +12,10 @@ from arpakitlib.ar_dict_util import combine_dicts
 from arpakitlib.ar_exception_util import exception_to_traceback_str
 from arpakitlib.ar_func_util import raise_if_not_async_func, is_async_func, is_sync_func
 from project.api.api_error_codes import APIErrorCodes
-from project.api.exception import APIException
+from project.api.api_exception import APIException
 from project.api.response import APIJSONResponse
 from project.api.schema.out.common.error import ErrorCommonSO
+from project.business_service.exception import BaseBusinessServiceException
 from project.sqlalchemy_db_.sqlalchemy_db import get_cached_sqlalchemy_db
 from project.sqlalchemy_db_.sqlalchemy_model import StoryLogDBM
 
@@ -56,6 +57,12 @@ def create_api_exception_handler(
             old_error_data = error_common_so.error_data
             error_common_so = exception.error_common_so
             error_common_so.error_data = combine_dicts(old_error_data, error_common_so.error_data)
+
+        elif isinstance(exception, BaseBusinessServiceException):
+            if exception.data_api_error_status_code is not None:
+                status_code = exception.data_api_error_status_code
+            if exception.data_api_error_common_so is not None:
+                error_common_so = exception.data_api_error_common_so
 
         elif (
                 isinstance(exception, fastapi.exceptions.HTTPException)

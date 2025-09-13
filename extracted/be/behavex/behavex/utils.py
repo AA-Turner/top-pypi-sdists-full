@@ -427,12 +427,29 @@ def len_scenarios(feature_file):
     amount_scenarios = 0
     scenarios_instances = get_scenarios_instances(feature.scenarios)
     for scenario in scenarios_instances:
+        # Using enhanced tag matching with version-aware v1/v2 tag expression support
+        # (match_for_execution includes both v1 and v2 implementations internally)
         if match_for_execution(get_scenario_tags(scenario)):
             amount_scenarios += 1
     return amount_scenarios
 
 
+
 def set_behave_tags():
+    """
+    Create behave.tags file for tag filtering.
+
+    Uses the legacy tag processing implementation which is compatible with all Behave versions.
+    """
+    # Use the legacy implementation directly since we no longer use external libraries
+    set_behave_tags_legacy()
+
+
+def set_behave_tags_legacy():
+    """
+    Legacy tag processing implementation.
+    Uses the original complex string manipulation approach.
+    """
     behave_tags = os.path.join(get_env('OUTPUT'), 'behave', 'behave.tags')
     tags = []
     # Check for tags passed as arguments
@@ -459,6 +476,7 @@ def set_behave_tags():
     retry_file_operation(
         behave_tags, execution=get_save_function(behave_tags, tags_line)
     )
+
 
 
 def get_scenario_tags(scenario, include_outline_example_tags=True):

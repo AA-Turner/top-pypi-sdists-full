@@ -1,7 +1,7 @@
 r'''
 # `google_apihub_plugin`
 
-Refer to the Terraform Registry for docs: [`google_apihub_plugin`](https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin).
+Refer to the Terraform Registry for docs: [`google_apihub_plugin`](https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ApihubPlugin(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.apihubPlugin.ApihubPlugin",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin google_apihub_plugin}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin google_apihub_plugin}.'''
 
     def __init__(
         self,
@@ -71,22 +71,22 @@ class ApihubPlugin(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin google_apihub_plugin} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin google_apihub_plugin} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param display_name: The display name of the plugin. Max length is 50 characters (Unicode code points). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#display_name ApihubPlugin#display_name}
-        :param location: Resource ID segment making up resource 'name'. It identifies the resource within its parent collection as described in https://google.aip.dev/122. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#location ApihubPlugin#location}
-        :param plugin_id: The ID to use for the Plugin resource, which will become the final component of the Plugin's resource name. This field is optional. - If provided, the same will be used. The service will throw an error if the specified id is already used by another Plugin resource in the API hub instance. - If not provided, a system generated id will be used. This value should be 4-63 characters, overall resource name which will be of format 'projects/{project}/locations/{location}/plugins/{plugin}', its length is limited to 1000 characters and valid characters are /a-z[0-9]-_/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#plugin_id ApihubPlugin#plugin_id}
-        :param actions_config: actions_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#actions_config ApihubPlugin#actions_config}
-        :param config_template: config_template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#config_template ApihubPlugin#config_template}
-        :param description: The plugin description. Max length is 2000 characters (Unicode code points). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#description ApihubPlugin#description}
-        :param documentation: documentation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#documentation ApihubPlugin#documentation}
-        :param hosting_service: hosting_service block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#hosting_service ApihubPlugin#hosting_service}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#id ApihubPlugin#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param plugin_category: Possible values: PLUGIN_CATEGORY_UNSPECIFIED API_GATEWAY API_PRODUCER. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#plugin_category ApihubPlugin#plugin_category}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#project ApihubPlugin#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#timeouts ApihubPlugin#timeouts}
+        :param display_name: The display name of the plugin. Max length is 50 characters (Unicode code points). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#display_name ApihubPlugin#display_name}
+        :param location: Resource ID segment making up resource 'name'. It identifies the resource within its parent collection as described in https://google.aip.dev/122. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#location ApihubPlugin#location}
+        :param plugin_id: The ID to use for the Plugin resource, which will become the final component of the Plugin's resource name. This field is optional. - If provided, the same will be used. The service will throw an error if the specified id is already used by another Plugin resource in the API hub instance. - If not provided, a system generated id will be used. This value should be 4-63 characters, overall resource name which will be of format 'projects/{project}/locations/{location}/plugins/{plugin}', its length is limited to 1000 characters and valid characters are /a-z[0-9]-_/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#plugin_id ApihubPlugin#plugin_id}
+        :param actions_config: actions_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#actions_config ApihubPlugin#actions_config}
+        :param config_template: config_template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#config_template ApihubPlugin#config_template}
+        :param description: The plugin description. Max length is 2000 characters (Unicode code points). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#description ApihubPlugin#description}
+        :param documentation: documentation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#documentation ApihubPlugin#documentation}
+        :param hosting_service: hosting_service block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#hosting_service ApihubPlugin#hosting_service}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#id ApihubPlugin#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param plugin_category: Possible values: PLUGIN_CATEGORY_UNSPECIFIED API_GATEWAY API_PRODUCER. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#plugin_category ApihubPlugin#plugin_category}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#project ApihubPlugin#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#timeouts ApihubPlugin#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -136,7 +136,7 @@ class ApihubPlugin(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ApihubPlugin to import.
-        :param import_from_id: The id of the existing ApihubPlugin that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ApihubPlugin that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ApihubPlugin to import is found.
         '''
         if __debug__:
@@ -168,8 +168,8 @@ class ApihubPlugin(
         auth_config_template: typing.Optional[typing.Union["ApihubPluginConfigTemplateAuthConfigTemplate", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param additional_config_template: additional_config_template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#additional_config_template ApihubPlugin#additional_config_template}
-        :param auth_config_template: auth_config_template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#auth_config_template ApihubPlugin#auth_config_template}
+        :param additional_config_template: additional_config_template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#additional_config_template ApihubPlugin#additional_config_template}
+        :param auth_config_template: auth_config_template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#auth_config_template ApihubPlugin#auth_config_template}
         '''
         value = ApihubPluginConfigTemplate(
             additional_config_template=additional_config_template,
@@ -185,7 +185,7 @@ class ApihubPlugin(
         external_uri: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param external_uri: The uri of the externally hosted documentation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#external_uri ApihubPlugin#external_uri}
+        :param external_uri: The uri of the externally hosted documentation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#external_uri ApihubPlugin#external_uri}
         '''
         value = ApihubPluginDocumentation(external_uri=external_uri)
 
@@ -198,7 +198,7 @@ class ApihubPlugin(
         service_uri: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param service_uri: The URI of the service implemented by the plugin developer, used to invoke the plugin's functionality. This information is only required for user defined plugins. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#service_uri ApihubPlugin#service_uri}
+        :param service_uri: The URI of the service implemented by the plugin developer, used to invoke the plugin's functionality. This information is only required for user defined plugins. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#service_uri ApihubPlugin#service_uri}
         '''
         value = ApihubPluginHostingService(service_uri=service_uri)
 
@@ -212,8 +212,8 @@ class ApihubPlugin(
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#create ApihubPlugin#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#delete ApihubPlugin#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#create ApihubPlugin#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#delete ApihubPlugin#delete}.
         '''
         value = ApihubPluginTimeouts(create=create, delete=delete)
 
@@ -487,10 +487,10 @@ class ApihubPluginActionsConfig:
         trigger_mode: builtins.str,
     ) -> None:
         '''
-        :param description: The description of the operation performed by the action. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#description ApihubPlugin#description}
-        :param display_name: The display name of the action. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#display_name ApihubPlugin#display_name}
-        :param id: The id of the action. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#id ApihubPlugin#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param trigger_mode: The trigger mode supported by the action. Possible values: TRIGGER_MODE_UNSPECIFIED API_HUB_ON_DEMAND_TRIGGER API_HUB_SCHEDULE_TRIGGER NON_API_HUB_MANAGED. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#trigger_mode ApihubPlugin#trigger_mode}
+        :param description: The description of the operation performed by the action. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#description ApihubPlugin#description}
+        :param display_name: The display name of the action. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#display_name ApihubPlugin#display_name}
+        :param id: The id of the action. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#id ApihubPlugin#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param trigger_mode: The trigger mode supported by the action. Possible values: TRIGGER_MODE_UNSPECIFIED API_HUB_ON_DEMAND_TRIGGER API_HUB_SCHEDULE_TRIGGER NON_API_HUB_MANAGED. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#trigger_mode ApihubPlugin#trigger_mode}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2ee6e4673175caeb489a36ea014b36def0f0f757a4d596be7c6d5ffe4cbec695)
@@ -509,7 +509,7 @@ class ApihubPluginActionsConfig:
     def description(self) -> builtins.str:
         '''The description of the operation performed by the action.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#description ApihubPlugin#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#description ApihubPlugin#description}
         '''
         result = self._values.get("description")
         assert result is not None, "Required property 'description' is missing"
@@ -519,7 +519,7 @@ class ApihubPluginActionsConfig:
     def display_name(self) -> builtins.str:
         '''The display name of the action.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#display_name ApihubPlugin#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#display_name ApihubPlugin#display_name}
         '''
         result = self._values.get("display_name")
         assert result is not None, "Required property 'display_name' is missing"
@@ -529,7 +529,7 @@ class ApihubPluginActionsConfig:
     def id(self) -> builtins.str:
         '''The id of the action.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#id ApihubPlugin#id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#id ApihubPlugin#id}
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -542,7 +542,7 @@ class ApihubPluginActionsConfig:
     def trigger_mode(self) -> builtins.str:
         '''The trigger mode supported by the action. Possible values: TRIGGER_MODE_UNSPECIFIED API_HUB_ON_DEMAND_TRIGGER API_HUB_SCHEDULE_TRIGGER NON_API_HUB_MANAGED.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#trigger_mode ApihubPlugin#trigger_mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#trigger_mode ApihubPlugin#trigger_mode}
         '''
         result = self._values.get("trigger_mode")
         assert result is not None, "Required property 'trigger_mode' is missing"
@@ -819,18 +819,18 @@ class ApihubPluginConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param display_name: The display name of the plugin. Max length is 50 characters (Unicode code points). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#display_name ApihubPlugin#display_name}
-        :param location: Resource ID segment making up resource 'name'. It identifies the resource within its parent collection as described in https://google.aip.dev/122. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#location ApihubPlugin#location}
-        :param plugin_id: The ID to use for the Plugin resource, which will become the final component of the Plugin's resource name. This field is optional. - If provided, the same will be used. The service will throw an error if the specified id is already used by another Plugin resource in the API hub instance. - If not provided, a system generated id will be used. This value should be 4-63 characters, overall resource name which will be of format 'projects/{project}/locations/{location}/plugins/{plugin}', its length is limited to 1000 characters and valid characters are /a-z[0-9]-_/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#plugin_id ApihubPlugin#plugin_id}
-        :param actions_config: actions_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#actions_config ApihubPlugin#actions_config}
-        :param config_template: config_template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#config_template ApihubPlugin#config_template}
-        :param description: The plugin description. Max length is 2000 characters (Unicode code points). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#description ApihubPlugin#description}
-        :param documentation: documentation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#documentation ApihubPlugin#documentation}
-        :param hosting_service: hosting_service block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#hosting_service ApihubPlugin#hosting_service}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#id ApihubPlugin#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param plugin_category: Possible values: PLUGIN_CATEGORY_UNSPECIFIED API_GATEWAY API_PRODUCER. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#plugin_category ApihubPlugin#plugin_category}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#project ApihubPlugin#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#timeouts ApihubPlugin#timeouts}
+        :param display_name: The display name of the plugin. Max length is 50 characters (Unicode code points). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#display_name ApihubPlugin#display_name}
+        :param location: Resource ID segment making up resource 'name'. It identifies the resource within its parent collection as described in https://google.aip.dev/122. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#location ApihubPlugin#location}
+        :param plugin_id: The ID to use for the Plugin resource, which will become the final component of the Plugin's resource name. This field is optional. - If provided, the same will be used. The service will throw an error if the specified id is already used by another Plugin resource in the API hub instance. - If not provided, a system generated id will be used. This value should be 4-63 characters, overall resource name which will be of format 'projects/{project}/locations/{location}/plugins/{plugin}', its length is limited to 1000 characters and valid characters are /a-z[0-9]-_/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#plugin_id ApihubPlugin#plugin_id}
+        :param actions_config: actions_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#actions_config ApihubPlugin#actions_config}
+        :param config_template: config_template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#config_template ApihubPlugin#config_template}
+        :param description: The plugin description. Max length is 2000 characters (Unicode code points). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#description ApihubPlugin#description}
+        :param documentation: documentation block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#documentation ApihubPlugin#documentation}
+        :param hosting_service: hosting_service block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#hosting_service ApihubPlugin#hosting_service}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#id ApihubPlugin#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param plugin_category: Possible values: PLUGIN_CATEGORY_UNSPECIFIED API_GATEWAY API_PRODUCER. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#plugin_category ApihubPlugin#plugin_category}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#project ApihubPlugin#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#timeouts ApihubPlugin#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -969,7 +969,7 @@ class ApihubPluginConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def display_name(self) -> builtins.str:
         '''The display name of the plugin. Max length is 50 characters (Unicode code points).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#display_name ApihubPlugin#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#display_name ApihubPlugin#display_name}
         '''
         result = self._values.get("display_name")
         assert result is not None, "Required property 'display_name' is missing"
@@ -979,7 +979,7 @@ class ApihubPluginConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''Resource ID segment making up resource 'name'. It identifies the resource within its parent collection as described in https://google.aip.dev/122.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#location ApihubPlugin#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#location ApihubPlugin#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -1002,7 +1002,7 @@ class ApihubPluginConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         its length is limited to 1000 characters and valid characters are
         /a-z[0-9]-_/.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#plugin_id ApihubPlugin#plugin_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#plugin_id ApihubPlugin#plugin_id}
         '''
         result = self._values.get("plugin_id")
         assert result is not None, "Required property 'plugin_id' is missing"
@@ -1014,7 +1014,7 @@ class ApihubPluginConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[ApihubPluginActionsConfig]]]:
         '''actions_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#actions_config ApihubPlugin#actions_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#actions_config ApihubPlugin#actions_config}
         '''
         result = self._values.get("actions_config")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[ApihubPluginActionsConfig]]], result)
@@ -1023,7 +1023,7 @@ class ApihubPluginConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def config_template(self) -> typing.Optional["ApihubPluginConfigTemplate"]:
         '''config_template block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#config_template ApihubPlugin#config_template}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#config_template ApihubPlugin#config_template}
         '''
         result = self._values.get("config_template")
         return typing.cast(typing.Optional["ApihubPluginConfigTemplate"], result)
@@ -1032,7 +1032,7 @@ class ApihubPluginConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''The plugin description. Max length is 2000 characters (Unicode code points).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#description ApihubPlugin#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#description ApihubPlugin#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1041,7 +1041,7 @@ class ApihubPluginConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def documentation(self) -> typing.Optional["ApihubPluginDocumentation"]:
         '''documentation block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#documentation ApihubPlugin#documentation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#documentation ApihubPlugin#documentation}
         '''
         result = self._values.get("documentation")
         return typing.cast(typing.Optional["ApihubPluginDocumentation"], result)
@@ -1050,14 +1050,14 @@ class ApihubPluginConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def hosting_service(self) -> typing.Optional["ApihubPluginHostingService"]:
         '''hosting_service block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#hosting_service ApihubPlugin#hosting_service}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#hosting_service ApihubPlugin#hosting_service}
         '''
         result = self._values.get("hosting_service")
         return typing.cast(typing.Optional["ApihubPluginHostingService"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#id ApihubPlugin#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#id ApihubPlugin#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1069,14 +1069,14 @@ class ApihubPluginConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def plugin_category(self) -> typing.Optional[builtins.str]:
         '''Possible values: PLUGIN_CATEGORY_UNSPECIFIED API_GATEWAY API_PRODUCER.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#plugin_category ApihubPlugin#plugin_category}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#plugin_category ApihubPlugin#plugin_category}
         '''
         result = self._values.get("plugin_category")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#project ApihubPlugin#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#project ApihubPlugin#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1084,7 +1084,7 @@ class ApihubPluginConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ApihubPluginTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#timeouts ApihubPlugin#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#timeouts ApihubPlugin#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ApihubPluginTimeouts"], result)
@@ -1117,8 +1117,8 @@ class ApihubPluginConfigTemplate:
         auth_config_template: typing.Optional[typing.Union["ApihubPluginConfigTemplateAuthConfigTemplate", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param additional_config_template: additional_config_template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#additional_config_template ApihubPlugin#additional_config_template}
-        :param auth_config_template: auth_config_template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#auth_config_template ApihubPlugin#auth_config_template}
+        :param additional_config_template: additional_config_template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#additional_config_template ApihubPlugin#additional_config_template}
+        :param auth_config_template: auth_config_template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#auth_config_template ApihubPlugin#auth_config_template}
         '''
         if isinstance(auth_config_template, dict):
             auth_config_template = ApihubPluginConfigTemplateAuthConfigTemplate(**auth_config_template)
@@ -1138,7 +1138,7 @@ class ApihubPluginConfigTemplate:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApihubPluginConfigTemplateAdditionalConfigTemplate"]]]:
         '''additional_config_template block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#additional_config_template ApihubPlugin#additional_config_template}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#additional_config_template ApihubPlugin#additional_config_template}
         '''
         result = self._values.get("additional_config_template")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApihubPluginConfigTemplateAdditionalConfigTemplate"]]], result)
@@ -1149,7 +1149,7 @@ class ApihubPluginConfigTemplate:
     ) -> typing.Optional["ApihubPluginConfigTemplateAuthConfigTemplate"]:
         '''auth_config_template block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#auth_config_template ApihubPlugin#auth_config_template}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#auth_config_template ApihubPlugin#auth_config_template}
         '''
         result = self._values.get("auth_config_template")
         return typing.cast(typing.Optional["ApihubPluginConfigTemplateAuthConfigTemplate"], result)
@@ -1192,13 +1192,13 @@ class ApihubPluginConfigTemplateAdditionalConfigTemplate:
         validation_regex: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param id: ID of the config variable. Must be unique within the configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#id ApihubPlugin#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param value_type: Type of the parameter: string, int, bool etc. Possible values: VALUE_TYPE_UNSPECIFIED STRING INT BOOL SECRET ENUM MULTI_SELECT MULTI_STRING MULTI_INT. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#value_type ApihubPlugin#value_type}
-        :param description: Description. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#description ApihubPlugin#description}
-        :param enum_options: enum_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#enum_options ApihubPlugin#enum_options}
-        :param multi_select_options: multi_select_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#multi_select_options ApihubPlugin#multi_select_options}
-        :param required: Flag represents that this 'ConfigVariable' must be provided for a PluginInstance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#required ApihubPlugin#required}
-        :param validation_regex: Regular expression in RE2 syntax used for validating the 'value' of a 'ConfigVariable'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#validation_regex ApihubPlugin#validation_regex}
+        :param id: ID of the config variable. Must be unique within the configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#id ApihubPlugin#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param value_type: Type of the parameter: string, int, bool etc. Possible values: VALUE_TYPE_UNSPECIFIED STRING INT BOOL SECRET ENUM MULTI_SELECT MULTI_STRING MULTI_INT. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#value_type ApihubPlugin#value_type}
+        :param description: Description. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#description ApihubPlugin#description}
+        :param enum_options: enum_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#enum_options ApihubPlugin#enum_options}
+        :param multi_select_options: multi_select_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#multi_select_options ApihubPlugin#multi_select_options}
+        :param required: Flag represents that this 'ConfigVariable' must be provided for a PluginInstance. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#required ApihubPlugin#required}
+        :param validation_regex: Regular expression in RE2 syntax used for validating the 'value' of a 'ConfigVariable'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#validation_regex ApihubPlugin#validation_regex}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6a1cc17b7ddccf268a969fcf562a5a83b13e8776ed6115728ced3a80f2291fe8)
@@ -1228,7 +1228,7 @@ class ApihubPluginConfigTemplateAdditionalConfigTemplate:
     def id(self) -> builtins.str:
         '''ID of the config variable. Must be unique within the configuration.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#id ApihubPlugin#id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#id ApihubPlugin#id}
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1241,7 +1241,7 @@ class ApihubPluginConfigTemplateAdditionalConfigTemplate:
     def value_type(self) -> builtins.str:
         '''Type of the parameter: string, int, bool etc. Possible values: VALUE_TYPE_UNSPECIFIED STRING INT BOOL SECRET ENUM MULTI_SELECT MULTI_STRING MULTI_INT.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#value_type ApihubPlugin#value_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#value_type ApihubPlugin#value_type}
         '''
         result = self._values.get("value_type")
         assert result is not None, "Required property 'value_type' is missing"
@@ -1251,7 +1251,7 @@ class ApihubPluginConfigTemplateAdditionalConfigTemplate:
     def description(self) -> typing.Optional[builtins.str]:
         '''Description.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#description ApihubPlugin#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#description ApihubPlugin#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1262,7 +1262,7 @@ class ApihubPluginConfigTemplateAdditionalConfigTemplate:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApihubPluginConfigTemplateAdditionalConfigTemplateEnumOptions"]]]:
         '''enum_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#enum_options ApihubPlugin#enum_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#enum_options ApihubPlugin#enum_options}
         '''
         result = self._values.get("enum_options")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApihubPluginConfigTemplateAdditionalConfigTemplateEnumOptions"]]], result)
@@ -1273,7 +1273,7 @@ class ApihubPluginConfigTemplateAdditionalConfigTemplate:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApihubPluginConfigTemplateAdditionalConfigTemplateMultiSelectOptions"]]]:
         '''multi_select_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#multi_select_options ApihubPlugin#multi_select_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#multi_select_options ApihubPlugin#multi_select_options}
         '''
         result = self._values.get("multi_select_options")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ApihubPluginConfigTemplateAdditionalConfigTemplateMultiSelectOptions"]]], result)
@@ -1284,7 +1284,7 @@ class ApihubPluginConfigTemplateAdditionalConfigTemplate:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Flag represents that this 'ConfigVariable' must be provided for a PluginInstance.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#required ApihubPlugin#required}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#required ApihubPlugin#required}
         '''
         result = self._values.get("required")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1293,7 +1293,7 @@ class ApihubPluginConfigTemplateAdditionalConfigTemplate:
     def validation_regex(self) -> typing.Optional[builtins.str]:
         '''Regular expression in RE2 syntax used for validating the 'value' of a 'ConfigVariable'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#validation_regex ApihubPlugin#validation_regex}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#validation_regex ApihubPlugin#validation_regex}
         '''
         result = self._values.get("validation_regex")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1328,9 +1328,9 @@ class ApihubPluginConfigTemplateAdditionalConfigTemplateEnumOptions:
         description: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param display_name: Display name of the option. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#display_name ApihubPlugin#display_name}
-        :param id: Id of the option. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#id ApihubPlugin#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param description: Description of the option. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#description ApihubPlugin#description}
+        :param display_name: Display name of the option. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#display_name ApihubPlugin#display_name}
+        :param id: Id of the option. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#id ApihubPlugin#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param description: Description of the option. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#description ApihubPlugin#description}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f680f8fc4291901f3bdb5615d6ee5ca9bf3884cb361eb0acbab86a20ae1a95b7)
@@ -1348,7 +1348,7 @@ class ApihubPluginConfigTemplateAdditionalConfigTemplateEnumOptions:
     def display_name(self) -> builtins.str:
         '''Display name of the option.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#display_name ApihubPlugin#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#display_name ApihubPlugin#display_name}
         '''
         result = self._values.get("display_name")
         assert result is not None, "Required property 'display_name' is missing"
@@ -1358,7 +1358,7 @@ class ApihubPluginConfigTemplateAdditionalConfigTemplateEnumOptions:
     def id(self) -> builtins.str:
         '''Id of the option.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#id ApihubPlugin#id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#id ApihubPlugin#id}
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1371,7 +1371,7 @@ class ApihubPluginConfigTemplateAdditionalConfigTemplateEnumOptions:
     def description(self) -> typing.Optional[builtins.str]:
         '''Description of the option.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#description ApihubPlugin#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#description ApihubPlugin#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1691,9 +1691,9 @@ class ApihubPluginConfigTemplateAdditionalConfigTemplateMultiSelectOptions:
         description: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param display_name: Display name of the option. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#display_name ApihubPlugin#display_name}
-        :param id: Id of the option. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#id ApihubPlugin#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param description: Description of the option. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#description ApihubPlugin#description}
+        :param display_name: Display name of the option. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#display_name ApihubPlugin#display_name}
+        :param id: Id of the option. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#id ApihubPlugin#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param description: Description of the option. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#description ApihubPlugin#description}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__69bb3fa4ffd8b90422dc9dbb0571cd53333112da45922a8c342a662a12123739)
@@ -1711,7 +1711,7 @@ class ApihubPluginConfigTemplateAdditionalConfigTemplateMultiSelectOptions:
     def display_name(self) -> builtins.str:
         '''Display name of the option.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#display_name ApihubPlugin#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#display_name ApihubPlugin#display_name}
         '''
         result = self._values.get("display_name")
         assert result is not None, "Required property 'display_name' is missing"
@@ -1721,7 +1721,7 @@ class ApihubPluginConfigTemplateAdditionalConfigTemplateMultiSelectOptions:
     def id(self) -> builtins.str:
         '''Id of the option.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#id ApihubPlugin#id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#id ApihubPlugin#id}
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1734,7 +1734,7 @@ class ApihubPluginConfigTemplateAdditionalConfigTemplateMultiSelectOptions:
     def description(self) -> typing.Optional[builtins.str]:
         '''Description of the option.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#description ApihubPlugin#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#description ApihubPlugin#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2167,8 +2167,8 @@ class ApihubPluginConfigTemplateAuthConfigTemplate:
         service_account: typing.Optional[typing.Union["ApihubPluginConfigTemplateAuthConfigTemplateServiceAccount", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param supported_auth_types: The list of authentication types supported by the plugin. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#supported_auth_types ApihubPlugin#supported_auth_types}
-        :param service_account: service_account block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#service_account ApihubPlugin#service_account}
+        :param supported_auth_types: The list of authentication types supported by the plugin. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#supported_auth_types ApihubPlugin#supported_auth_types}
+        :param service_account: service_account block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#service_account ApihubPlugin#service_account}
         '''
         if isinstance(service_account, dict):
             service_account = ApihubPluginConfigTemplateAuthConfigTemplateServiceAccount(**service_account)
@@ -2186,7 +2186,7 @@ class ApihubPluginConfigTemplateAuthConfigTemplate:
     def supported_auth_types(self) -> typing.List[builtins.str]:
         '''The list of authentication types supported by the plugin.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#supported_auth_types ApihubPlugin#supported_auth_types}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#supported_auth_types ApihubPlugin#supported_auth_types}
         '''
         result = self._values.get("supported_auth_types")
         assert result is not None, "Required property 'supported_auth_types' is missing"
@@ -2198,7 +2198,7 @@ class ApihubPluginConfigTemplateAuthConfigTemplate:
     ) -> typing.Optional["ApihubPluginConfigTemplateAuthConfigTemplateServiceAccount"]:
         '''service_account block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#service_account ApihubPlugin#service_account}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#service_account ApihubPlugin#service_account}
         '''
         result = self._values.get("service_account")
         return typing.cast(typing.Optional["ApihubPluginConfigTemplateAuthConfigTemplateServiceAccount"], result)
@@ -2238,7 +2238,7 @@ class ApihubPluginConfigTemplateAuthConfigTemplateOutputReference(
     @jsii.member(jsii_name="putServiceAccount")
     def put_service_account(self, *, service_account: builtins.str) -> None:
         '''
-        :param service_account: The service account to be used for authenticating request. The 'iam.serviceAccounts.getAccessToken' permission should be granted on this service account to the impersonator service account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#service_account ApihubPlugin#service_account}
+        :param service_account: The service account to be used for authenticating request. The 'iam.serviceAccounts.getAccessToken' permission should be granted on this service account to the impersonator service account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#service_account ApihubPlugin#service_account}
         '''
         value = ApihubPluginConfigTemplateAuthConfigTemplateServiceAccount(
             service_account=service_account
@@ -2307,7 +2307,7 @@ class ApihubPluginConfigTemplateAuthConfigTemplateOutputReference(
 class ApihubPluginConfigTemplateAuthConfigTemplateServiceAccount:
     def __init__(self, *, service_account: builtins.str) -> None:
         '''
-        :param service_account: The service account to be used for authenticating request. The 'iam.serviceAccounts.getAccessToken' permission should be granted on this service account to the impersonator service account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#service_account ApihubPlugin#service_account}
+        :param service_account: The service account to be used for authenticating request. The 'iam.serviceAccounts.getAccessToken' permission should be granted on this service account to the impersonator service account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#service_account ApihubPlugin#service_account}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__157dae918361baa551d5a4ab8a8468cc48a427894e7d31994dc3a972e7dd5d3d)
@@ -2323,7 +2323,7 @@ class ApihubPluginConfigTemplateAuthConfigTemplateServiceAccount:
         The 'iam.serviceAccounts.getAccessToken' permission should be granted on
         this service account to the impersonator service account.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#service_account ApihubPlugin#service_account}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#service_account ApihubPlugin#service_account}
         '''
         result = self._values.get("service_account")
         assert result is not None, "Required property 'service_account' is missing"
@@ -2437,8 +2437,8 @@ class ApihubPluginConfigTemplateOutputReference(
         service_account: typing.Optional[typing.Union[ApihubPluginConfigTemplateAuthConfigTemplateServiceAccount, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param supported_auth_types: The list of authentication types supported by the plugin. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#supported_auth_types ApihubPlugin#supported_auth_types}
-        :param service_account: service_account block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#service_account ApihubPlugin#service_account}
+        :param supported_auth_types: The list of authentication types supported by the plugin. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#supported_auth_types ApihubPlugin#supported_auth_types}
+        :param service_account: service_account block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#service_account ApihubPlugin#service_account}
         '''
         value = ApihubPluginConfigTemplateAuthConfigTemplate(
             supported_auth_types=supported_auth_types, service_account=service_account
@@ -2506,7 +2506,7 @@ class ApihubPluginConfigTemplateOutputReference(
 class ApihubPluginDocumentation:
     def __init__(self, *, external_uri: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param external_uri: The uri of the externally hosted documentation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#external_uri ApihubPlugin#external_uri}
+        :param external_uri: The uri of the externally hosted documentation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#external_uri ApihubPlugin#external_uri}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d0c0a2f2d3c92352091f75a56096d4291b6b3c22bf68128f61381b9ab220c325)
@@ -2519,7 +2519,7 @@ class ApihubPluginDocumentation:
     def external_uri(self) -> typing.Optional[builtins.str]:
         '''The uri of the externally hosted documentation.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#external_uri ApihubPlugin#external_uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#external_uri ApihubPlugin#external_uri}
         '''
         result = self._values.get("external_uri")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2598,7 +2598,7 @@ class ApihubPluginDocumentationOutputReference(
 class ApihubPluginHostingService:
     def __init__(self, *, service_uri: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param service_uri: The URI of the service implemented by the plugin developer, used to invoke the plugin's functionality. This information is only required for user defined plugins. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#service_uri ApihubPlugin#service_uri}
+        :param service_uri: The URI of the service implemented by the plugin developer, used to invoke the plugin's functionality. This information is only required for user defined plugins. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#service_uri ApihubPlugin#service_uri}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__eda76656782317b99ac286404a9466e678f6595a6cc6520e20a416aedf04b0f0)
@@ -2614,7 +2614,7 @@ class ApihubPluginHostingService:
         This information is only required for
         user defined plugins.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#service_uri ApihubPlugin#service_uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#service_uri ApihubPlugin#service_uri}
         '''
         result = self._values.get("service_uri")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2701,8 +2701,8 @@ class ApihubPluginTimeouts:
         delete: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#create ApihubPlugin#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#delete ApihubPlugin#delete}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#create ApihubPlugin#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#delete ApihubPlugin#delete}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__04fefff5dcd76d427edb9215c61c3f29d59740bcb4e59afca79db62b84fbfee3)
@@ -2716,13 +2716,13 @@ class ApihubPluginTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#create ApihubPlugin#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#create ApihubPlugin#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/apihub_plugin#delete ApihubPlugin#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/apihub_plugin#delete ApihubPlugin#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 

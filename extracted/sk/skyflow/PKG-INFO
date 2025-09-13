@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: skyflow
-Version: 1.15.1
+Version: 1.15.4
 Summary: Skyflow SDK for the Python programming language
 Home-page: https://github.com/skyflowapi/skyflow-python/
 Author: Skyflow
@@ -14,6 +14,15 @@ Requires-Dist: requests
 Requires-Dist: aiohttp
 Requires-Dist: asyncio
 Requires-Dist: cryptography>=3.3.1
+Dynamic: author
+Dynamic: author-email
+Dynamic: description
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 
 =======

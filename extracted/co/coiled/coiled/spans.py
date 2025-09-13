@@ -20,6 +20,8 @@ def span(cluster, name: Optional[str] = None, **kwargs):
     with distributed_span(name or "") as s:
         yield
     t1 = time.time()
+    if not dask.config.get("coiled.analytics.client-spans.transmit", True):
+        return
     data = {
         **kwargs,
         "start": t0,

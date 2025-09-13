@@ -36,7 +36,6 @@ class ExperimentalPanel:
     bl_context: typing.Any
     bl_region_type: typing.Any
     bl_space_type: typing.Any
-    url_prefix: typing.Any
 
     @classmethod
     def poll(cls, _context) -> None:
@@ -569,6 +568,41 @@ class USERPREF_PT_animation_timeline(
         :param layout:
         """
 
+class USERPREF_PT_developer_tools(_bpy_types.Panel):
+    bl_context: typing.Any
+    bl_label: typing.Any
+    bl_region_type: typing.Any
+    bl_rna: typing.Any
+    bl_space_type: typing.Any
+    id_data: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        :rtype: bpy.types.Struct
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        :rtype: typing.Any
+        """
+
+    def draw(self, context) -> None:
+        """
+
+        :param context:
+        """
+
+    @classmethod
+    def poll(cls, context) -> None:
+        """
+
+        :param context:
+        """
+
 class USERPREF_PT_edit_annotations(CenterAlignMixIn, EditingPanel, _bpy_types.Panel):
     """Base class for panels to center align contents with some horizontal margin.
     Deriving classes need to implement a draw_centered(context, layout) function.
@@ -940,42 +974,6 @@ class USERPREF_PT_edit_weight_paint(CenterAlignMixIn, EditingPanel, _bpy_types.P
         :param layout:
         """
 
-class USERPREF_PT_experimental_debugging(ExperimentalPanel, _bpy_types.Panel):
-    bl_context: typing.Any
-    bl_label: typing.Any
-    bl_region_type: typing.Any
-    bl_rna: typing.Any
-    bl_space_type: typing.Any
-    id_data: typing.Any
-    url_prefix: typing.Any
-
-    def bl_rna_get_subclass(self) -> bpy.types.Struct:
-        """
-
-        :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
-        """
-
-    def bl_rna_get_subclass_py(self) -> typing.Any:
-        """
-
-        :return: The class or default when not found.
-        :rtype: typing.Any
-        """
-
-    def draw(self, context) -> None:
-        """
-
-        :param context:
-        """
-
-    @classmethod
-    def poll(cls, _context) -> None:
-        """
-
-        :param _context:
-        """
-
 class USERPREF_PT_experimental_new_features(ExperimentalPanel, _bpy_types.Panel):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -983,7 +981,6 @@ class USERPREF_PT_experimental_new_features(ExperimentalPanel, _bpy_types.Panel)
     bl_rna: typing.Any
     bl_space_type: typing.Any
     id_data: typing.Any
-    url_prefix: typing.Any
 
     def bl_rna_get_subclass(self) -> bpy.types.Struct:
         """
@@ -1012,7 +1009,6 @@ class USERPREF_PT_experimental_prototypes(ExperimentalPanel, _bpy_types.Panel):
     bl_rna: typing.Any
     bl_space_type: typing.Any
     id_data: typing.Any
-    url_prefix: typing.Any
 
     def bl_rna_get_subclass(self) -> bpy.types.Struct:
         """

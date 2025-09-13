@@ -8,6 +8,8 @@ from abc import (
     abstractmethod,
 )
 from chalk._gen.chalk.server.v1.flag_pb2 import (
+    GetFeatureFlagRequest,
+    GetFeatureFlagResponse,
     GetFeatureFlagsRequest,
     GetFeatureFlagsResponse,
     SetFeatureFlagRequest,
@@ -26,6 +28,10 @@ class FeatureFlagServiceStub:
         GetFeatureFlagsRequest,
         GetFeatureFlagsResponse,
     ]
+    GetFeatureFlag: UnaryUnaryMultiCallable[
+        GetFeatureFlagRequest,
+        GetFeatureFlagResponse,
+    ]
     SetFeatureFlag: UnaryUnaryMultiCallable[
         SetFeatureFlagRequest,
         SetFeatureFlagResponse,
@@ -38,6 +44,12 @@ class FeatureFlagServiceServicer(metaclass=ABCMeta):
         request: GetFeatureFlagsRequest,
         context: ServicerContext,
     ) -> GetFeatureFlagsResponse: ...
+    @abstractmethod
+    def GetFeatureFlag(
+        self,
+        request: GetFeatureFlagRequest,
+        context: ServicerContext,
+    ) -> GetFeatureFlagResponse: ...
     @abstractmethod
     def SetFeatureFlag(
         self,

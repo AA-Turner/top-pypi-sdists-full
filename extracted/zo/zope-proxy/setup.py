@@ -30,7 +30,7 @@ from setuptools import setup
 from setuptools.command.build_ext import build_ext
 
 
-version = '6.1'
+version = '7.0'
 
 
 class optional_build_ext(build_ext):
@@ -84,7 +84,7 @@ else:
 setup(name='zope.proxy',
       version=version,
       author='Zope Foundation and Contributors',
-      author_email='zope-dev@zope.org',
+      author_email='zope-dev@zope.dev',
       description='Generic Transparent Proxies',
       long_description=(
           read('README.rst')
@@ -98,14 +98,13 @@ setup(name='zope.proxy',
                            'zope.proxy/issues',
           'Sources': 'https://github.com/zopefoundation/zope.proxy',
       },
-      license='ZPL 2.1',
+      license='ZPL-2.1',
       classifiers=[
           'Development Status :: 5 - Production/Stable',
           'Intended Audience :: Developers',
           'License :: OSI Approved :: Zope Public License',
           'Programming Language :: Python',
           'Programming Language :: Python :: 3',
-          'Programming Language :: Python :: 3.8',
           'Programming Language :: Python :: 3.9',
           'Programming Language :: Python :: 3.10',
           'Programming Language :: Python :: 3.11',
@@ -118,15 +117,16 @@ setup(name='zope.proxy',
           'Operating System :: OS Independent',
       ],
       keywords='proxy generic transparent',
-      packages=['zope', 'zope.proxy'],
+      # we need the following two parameters because we compile C code,
+      # otherwise only the shared library is installed:
       package_dir={'': 'src'},
-      namespace_packages=['zope'],
+      packages=['zope.proxy'],
       cmdclass={
           'build_ext': optional_build_ext,
       },
       headers=headers,
       ext_modules=ext_modules,
-      python_requires='>=3.8',
+      python_requires='>=3.9',
       install_requires=[
           'zope.interface',
           'setuptools',
@@ -135,8 +135,9 @@ setup(name='zope.proxy',
       zip_safe=False,
       extras_require={
           'test': [
-              'zope.security',  # We have a circular dependency for testing
-              'zope.testrunner',
+              # We have a circular dependency with zope.security for testing
+              'zope.security >= 7.3',
+              'zope.testrunner >= 6.4',
           ],
           'docs': [
               'Sphinx',

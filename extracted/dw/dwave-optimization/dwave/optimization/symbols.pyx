@@ -67,10 +67,12 @@ from dwave.optimization.libcpp.nodes cimport (
     ArrayValidationNode as cppArrayValidationNode,
     BasicIndexingNode as cppBasicIndexingNode,
     BinaryNode as cppBinaryNode,
+    BroadcastToNode as cppBroadcastToNode,
     BSplineNode as cppBSplineNode,
     ConcatenateNode as cppConcatenateNode,
     ConstantNode as cppConstantNode,
     CopyNode as cppCopyNode,
+    CosNode as cppCosNode,
     DisjointBitSetNode as cppDisjointBitSetNode,
     DisjointBitSetsNode as cppDisjointBitSetsNode,
     DisjointListNode as cppDisjointListNode,
@@ -116,7 +118,9 @@ from dwave.optimization.libcpp.nodes cimport (
     ResizeNode as cppResizeNode,
     SafeDivideNode as cppSafeDivideNode,
     SetNode as cppSetNode,
+    SinNode as cppSinNode,
     SizeNode as cppSizeNode,
+    SoftMaxNode as cppSoftMaxNode,
     SubtractNode as cppSubtractNode,
     RintNode as cppRintNode,
     SquareNode as cppSquareNode,
@@ -149,10 +153,12 @@ __all__ = [
     "ArgSort",
     "BasicIndexing",
     "BinaryVariable",
+    "BroadcastTo",
     "BSpline",
     "Concatenate",
     "Constant",
     "Copy",
+    "Cos",
     "DisjointBitSets",
     "DisjointBitSet",
     "DisjointLists",
@@ -194,11 +200,13 @@ __all__ = [
     "QuadraticModel",
     "Reshape",
     "Resize",
+    "Sin",
     "Subtract",
     "SetVariable",
     "Size",
     "Rint",
     "SafeDivide",
+    "SoftMax",
     "Square",
     "SquareRoot",
     "Sum",
@@ -1023,6 +1031,43 @@ cdef class BinaryVariable(ArraySymbol):
 _register(BinaryVariable, typeid(cppBinaryNode))
 
 
+cdef class BroadcastTo(ArraySymbol):
+    """BroadcastTo symbol.
+
+    See Also:
+        :func:`~dwave.optimization.mathematical.broadcast_to`: equivalent function.
+
+    .. versionadded:: 0.6.5
+    """
+    def __init__(self, ArraySymbol node, shape):
+        cdef _Graph model = node.model
+
+        cdef cppBroadcastToNode* ptr = model._graph.emplace_node[cppBroadcastToNode](
+            node.array_ptr,
+            as_cppshape(shape, nonnegative=False),
+        )
+
+        self.initialize_arraynode(model, ptr)
+
+    @classmethod
+    def _from_zipfile(cls, zf, directory, _Graph model, predecessors):
+        if len(predecessors) != 1:
+            raise ValueError(f"{cls.__name__} must have exactly one predecessor")
+
+        with zf.open(directory + "shape.json", "r") as f:
+            return BroadcastTo(*predecessors, json.load(f))
+
+    def _into_zipfile(self, zf, directory):
+        encoder = json.JSONEncoder(separators=(',', ':'))
+        zf.writestr(directory + "shape.json", encoder.encode(self.shape()))
+
+    def state_size(self):
+        """Broadcasting symbols are stateless"""
+        return 0
+
+_register(BroadcastTo, typeid(cppBroadcastToNode))
+
+
 cdef class BSpline(ArraySymbol):
     """Bspline node that takes in an array pointer, an integer degree and two vectors for knots and coefficients.
 
@@ -1415,6 +1460,23 @@ cdef class Copy(ArraySymbol):
         self.initialize_arraynode(model, ptr)
 
 _register(Copy, typeid(cppCopyNode))
+
+
+cdef class Cos(ArraySymbol):
+    """Cosine element-wise on a symbol.
+
+    See Also:
+        :func:`~dwave.optimization.mathematical.cos`: equivalent function.
+
+    .. versionadded:: 0.6.5
+    """
+    def __init__(self, ArraySymbol x):
+        cdef _Graph model = x.model
+
+        cdef cppCosNode* ptr = model._graph.emplace_node[cppCosNode](x.array_ptr)
+        self.initialize_arraynode(model, ptr)
+
+_register(Cos, typeid(cppCosNode))
 
 
 cdef class DisjointBitSets(Symbol):
@@ -2998,6 +3060,9 @@ cdef class NaryAdd(ArraySymbol):
         return x
 
     def __iadd__(self, rhs):
+        if not self.node_ptr.successors().empty():
+            return super().__iadd__(rhs)
+
         try:
             rhs = _as_array_symbol(self.model, rhs)
             self.ptr.add_node((<ArraySymbol>rhs).array_ptr)
@@ -3134,6 +3199,9 @@ cdef class NaryMultiply(ArraySymbol):
         return x
 
     def __imul__(self, rhs):
+        if not self.node_ptr.successors().empty():
+            return super().__imul__(rhs)
+
         try:
             rhs = _as_array_symbol(self.model, rhs)
             self.ptr.add_node((<ArraySymbol>rhs).array_ptr)
@@ -3750,15 +3818,10 @@ _register(QuadraticModel, typeid(cppQuadraticModelNode))
 cdef class Reshape(ArraySymbol):
     """Reshaped symbol.
 
-    Examples:
-        This example adds a reshaped binary symbol.
+    See Also:
+        :meth:`ArraySymbol.reshape() <dwave.optimization.model.ArraySymbol.reshape>`: equivalent method.
 
-        >>> from dwave.optimization.model import Model
-        >>> model = Model()
-        >>> x = model.binary((2, 3))
-        >>> x_t = x.reshape((3, 2))
-        >>> type(x_t)
-        <class 'dwave.optimization.symbols.Reshape'>
+    .. versionadded:: 0.5.1
     """
     def __init__(self, ArraySymbol node, shape):
         cdef _Graph model = node.model
@@ -4010,6 +4073,65 @@ cdef class SafeDivide(ArraySymbol):
         self.initialize_arraynode(model, ptr)
 
 _register(SafeDivide, typeid(cppSafeDivideNode))
+
+
+cdef class Sin(ArraySymbol):
+    """Sine element-wise on a symbol.
+
+    See Also:
+        :func:`~dwave.optimization.mathematical.sin`: equivalent function.
+
+    .. versionadded:: 0.6.5
+    """
+    def __init__(self, ArraySymbol x):
+        cdef _Graph model = x.model
+
+        cdef cppSinNode* ptr = model._graph.emplace_node[cppSinNode](x.array_ptr)
+        self.initialize_arraynode(model, ptr)
+
+_register(Sin, typeid(cppSinNode))
+
+
+cdef class SoftMax(ArraySymbol):
+    """Softmax of a symbol.
+
+    Example:
+        These examples compute the softmax of one symbol.
+
+        >>> from dwave.optimization.model import Model
+        >>> from dwave.optimization.symbols import SoftMax
+        >>> import numpy as np
+        ...
+        >>> model = Model()
+        >>> model.states.resize(1)
+        >>> c = model.constant([1, 2, 3])
+        >>> sm = SoftMax(c)
+        >>> expected = np.array([0.09003057, 0.24472847, 0.66524096])
+        >>> with model.lock():
+        ...     print(np.isclose(sm.state(0), expected).all())
+        True
+
+        >>> from dwave.optimization import Model
+        >>> from dwave.optimization.mathematical import softmax
+        ...
+        >>> model = Model()
+        >>> i = model.integer(3)
+        >>> sm = softmax(i)
+        >>> type(sm)
+        <class 'dwave.optimization.symbols.SoftMax'>
+
+    See Also:
+        :meth:`~dwave.optimization.mathematical.softmax`: equivalent method.
+
+    .. versionadded:: 0.6.5
+    """
+    def __init__(self, ArraySymbol arr):
+        cdef _Graph model = arr.model
+
+        cdef cppSoftMaxNode* ptr = model._graph.emplace_node[cppSoftMaxNode](arr.array_ptr)
+        self.initialize_arraynode(model, ptr)
+
+_register(SoftMax, typeid(cppSoftMaxNode))
 
 
 cdef class Square(ArraySymbol):

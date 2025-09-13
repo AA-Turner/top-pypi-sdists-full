@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: apache-sedona
-Version: 1.7.2
+Version: 1.8.0
 Summary: Apache Sedona is a cluster computing system for processing large-scale spatial data
 Home-page: https://sedona.apache.org
 Author: Apache Sedona
@@ -11,7 +11,7 @@ Project-URL: Source code, https://github.com/apache/sedona
 Project-URL: Bug Reports, https://issues.apache.org/jira/projects/SEDONA
 Classifier: Programming Language :: Python :: 3
 Classifier: License :: OSI Approved :: Apache Software License
-Requires-Python: >=3.6
+Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 Requires-Dist: attrs
 Requires-Dist: shapely>=1.7.0
@@ -23,6 +23,10 @@ Requires-Dist: pydeck==0.8.0; extra == "pydeck-map"
 Provides-Extra: kepler-map
 Requires-Dist: geopandas; extra == "kepler-map"
 Requires-Dist: keplergl==0.3.2; extra == "kepler-map"
+Provides-Extra: flink
+Requires-Dist: apache-flink>=1.19.0; extra == "flink"
+Provides-Extra: db
+Requires-Dist: sedonadb[geopandas]; extra == "db"
 Provides-Extra: all
 Requires-Dist: pyspark>=2.3.0; extra == "all"
 Requires-Dist: geopandas; extra == "all"

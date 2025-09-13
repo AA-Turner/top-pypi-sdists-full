@@ -32374,6 +32374,7 @@ class DescribeSQLWebSocketDomainRequest(TeaModel):
     def __init__(
         self,
         dbcluster_id: str = None,
+        module: str = None,
         region_id: str = None,
     ):
         # The cluster ID.
@@ -32382,6 +32383,7 @@ class DescribeSQLWebSocketDomainRequest(TeaModel):
         # 
         # This parameter is required.
         self.dbcluster_id = dbcluster_id
+        self.module = module
         # The region ID
         # 
         # >  You can call the [DescribeRegions](https://help.aliyun.com/document_detail/143074.html) operation to query the most recent region list.
@@ -32400,6 +32402,8 @@ class DescribeSQLWebSocketDomainRequest(TeaModel):
         result = dict()
         if self.dbcluster_id is not None:
             result['DBClusterId'] = self.dbcluster_id
+        if self.module is not None:
+            result['Module'] = self.module
         if self.region_id is not None:
             result['RegionId'] = self.region_id
         return result
@@ -32408,6 +32412,8 @@ class DescribeSQLWebSocketDomainRequest(TeaModel):
         m = m or dict()
         if m.get('DBClusterId') is not None:
             self.dbcluster_id = m.get('DBClusterId')
+        if m.get('Module') is not None:
+            self.module = m.get('Module')
         if m.get('RegionId') is not None:
             self.region_id = m.get('RegionId')
         return self

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: zope.keyreference
-Version: 6.1
+Version: 7.0
 Summary: Key References
 Home-page: https://github.com/zopefoundation/zope.keyreference
 Author: Zope Foundation and Contributors
@@ -35,11 +35,24 @@ Requires-Dist: zope.interface
 Requires-Dist: zope.schema
 Provides-Extra: test
 Requires-Dist: zope.testing; extra == "test"
-Requires-Dist: zope.testrunner; extra == "test"
+Requires-Dist: zope.testrunner>=6.4; extra == "test"
 Provides-Extra: docs
-Requires-Dist: repoze.sphinx.autointerface; extra == "docs"
 Requires-Dist: sphinx_rtd_theme; extra == "docs"
 Requires-Dist: Sphinx; extra == "docs"
+Requires-Dist: repoze.sphinx.autointerface; extra == "docs"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: project-url
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 ===================
  zope.keyreference
@@ -73,6 +86,12 @@ Documentation can be found at https://zopekeyreference.readthedocs.io
 =========
  Changes
 =========
+
+7.0 (2025-09-12)
+================
+
+- Replace ``pkg_resources`` namespace with PEP 420 native namespace.
+
 
 6.1 (2025-02-14)
 ================

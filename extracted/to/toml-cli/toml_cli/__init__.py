@@ -1,7 +1,6 @@
 import json
 import pathlib
 import re
-from typing import Optional
 
 import tomlkit
 import tomlkit.exceptions
@@ -24,9 +23,9 @@ def path_callback(value: pathlib.Path):
 
 @app.command("get")
 def get(
-    key: Optional[str] = typer.Argument(None),
+    key: str | None = typer.Argument(None),
     toml_path: pathlib.Path = typer.Option(DEFAULT_TOML_PATH, callback=path_callback),
-    default: Optional[str] = typer.Option(None),
+    default: str | None = typer.Option(None),
 ):
     """Get a value from a toml file."""
     toml_part = tomlkit.parse(toml_path.read_text())
@@ -65,7 +64,7 @@ def get(
                     typer.echo(f"error: key '{key_part}' not found", err=True)
                     raise typer.Exit(code=1) from err
 
-    typer.echo(toml_part.unwrap())
+    typer.echo(toml_part.unwrap() if hasattr(toml_part, "unwrap") else toml_part)
 
 
 @app.command("set")

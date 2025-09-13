@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zope.dottedname
-Version: 6.1
+Version: 7.0
 Summary: Resolver for Python dotted names.
 Home-page: https://github.com/zopefoundation/zope.dottedname
 Author: Zope Foundation and Contributors
@@ -64,6 +64,12 @@ Resolve strings containing dotted names into the appropriate Python object.
 
 Changes
 =======
+
+7.0 (2025-09-12)
+----------------
+
+- Replace ``pkg_resources`` namespace with PEP 420 native namespace.
+
 
 6.1 (2025-08-11)
 ----------------

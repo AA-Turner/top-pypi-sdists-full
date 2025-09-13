@@ -469,7 +469,7 @@ class NODE_OT_tree_path_parent(_bpy_types.Operator):
         """
 
 class NODE_OT_viewer_shortcut_get(_bpy_types.Operator):
-    """Activate a specific viewer node using 1,2,..,9 keys"""
+    """Toggle a specific viewer node using 1,2,..,9 keys"""
 
     bl_idname: typing.Any
     bl_label: typing.Any

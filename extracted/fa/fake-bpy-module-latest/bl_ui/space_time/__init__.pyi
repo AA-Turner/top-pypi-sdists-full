@@ -111,6 +111,7 @@ class TIME_PT_auto_keyframing(TimelinePanelButtons, _bpy_types.Panel):
         """
 
 class TIME_PT_keyframing_settings(TimelinePanelButtons, _bpy_types.Panel):
+    bl_description: typing.Any
     bl_label: typing.Any
     bl_options: typing.Any
     bl_region_type: typing.Any
@@ -133,6 +134,12 @@ class TIME_PT_keyframing_settings(TimelinePanelButtons, _bpy_types.Panel):
         """
 
     def draw(self, context) -> None:
+        """
+
+        :param context:
+        """
+
+    def draw_header(self, context) -> None:
         """
 
         :param context:

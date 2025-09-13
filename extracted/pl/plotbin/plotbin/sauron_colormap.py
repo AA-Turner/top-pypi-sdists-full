@@ -24,10 +24,13 @@ import numpy as np
 # V1.0: SAURON colormap by Michele Cappellari & Eric Emsellem, Leiden, 10 July 2001
 #
 # Start with these 7 equally spaced coordinates, then add 4 additional control points
-# x = np.arange(7)*255/6.
-#   [0., 42.5, 85., 127.5, 170., 212.5, 255.]
+#
+# >>> x = np.linspace(0, 255, 7)
+# >>> x = np.insert(x, [3, 3, 4, 4], x[[2, 3, 3, 4]] + [20, -10, 10, -20])
 #
 # x = [0, 42.5, 85, 85 + 20, 127.5 - 10, 127.5, 127.5 + 10, 170 - 20, 170, 212.5, 255]
+#
+# x = [0., 42.5, 85., 105., 117.5, 127.5, 137.5, 150., 170., 212.5, 255.]
 # red =   [0.0, 0.0, 0.4,  0.5, 0.3, 0.0, 0.7, 1.0, 1.0,  1.0, 0.9]
 # green = [0.0, 0.0, 0.85, 1.0, 1.0, 0.9, 1.0, 1.0, 0.85, 0.0, 0.9]
 # blue =  [0.0, 1.0, 1.0,  1.0, 0.7, 0.0, 0.0, 0.0, 0.0,  0.0, 0.9]

@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: Flask-Limiter
-Version: 3.12
+Version: 3.13
 Summary: Rate limiting for flask applications
 Home-page: https://flask-limiter.readthedocs.org
 Author: Ali-Akber Saifee
@@ -25,7 +25,8 @@ License-File: LICENSE.txt
 Requires-Dist: limits>=3.13
 Requires-Dist: Flask>=2
 Requires-Dist: ordered-set<5,>4
-Requires-Dist: rich<14,>=12
+Requires-Dist: typing_extensions>=4.3
+Requires-Dist: rich<15,>=12
 Provides-Extra: redis
 Requires-Dist: limits[redis]; extra == "redis"
 Provides-Extra: memcached
@@ -40,6 +41,7 @@ Dynamic: classifier
 Dynamic: description
 Dynamic: home-page
 Dynamic: license
+Dynamic: license-file
 Dynamic: project-url
 Dynamic: provides-extra
 Dynamic: requires-dist

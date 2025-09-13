@@ -54,7 +54,10 @@ import rich
 import urllib3
 import yaml
 from dask.distributed import Security
-from rich.console import Console
+from rich.align import Align
+from rich.console import Console, Group
+from rich.panel import Panel
+from rich.progress import BarColumn, Progress, TextColumn
 
 from coiled.exceptions import (
     AccountFormatError,
@@ -2120,3 +2123,62 @@ def join_command_parts(command: list[str]):
         return s
 
     return " ".join(quote_if_has_whitespace(part) for part in command)
+
+
+class SimpleRichProgressPanel(Progress):
+    """
+    Panel with one or more progress bars.
+
+    Basic usage:
+
+    ```python
+    with coiled.utils.SimpleRichProgressPanel.from_defaults(title="Doing stuff...") as progress:
+
+        while ...:
+            foo_complete = ...
+            bar_complete = ...
+
+            # first time you call it adds the bars, subsequent times updates the values
+            progress.update_progress([
+                {"label": "Foo", "total": 123, "completed": foo_complete},
+                {"label": "Bar", "total": 456, "completed": bar_complete},
+            ])
+    ```
+
+    """
+
+    def __init__(self, *args, batch_title: str | Group = "", **kwargs):
+        self.batch_title = batch_title
+        self._tasks_from_dicts = {}
+        super().__init__(*args, **kwargs)
+
+    def get_renderables(self):
+        yield Panel(
+            Group(
+                Align.center(self.batch_title),
+                Align.center(self.make_tasks_table(self.tasks)),
+            )
+        )
+
+    @classmethod
+    def from_defaults(cls, title=""):
+        return cls(
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(complete_style="progress.remaining"),
+            TextColumn("[progress.percentage]{task.completed}/{task.total}"),
+            console=Console(width=80),
+            batch_title=title,
+        )
+
+    def update_title(self, title):
+        self.batch_title = title
+        self.refresh()
+
+    def update_progress(self, tasks: list[dict]):
+        for task in tasks:
+            if task["label"] not in self._tasks_from_dicts:
+                self._tasks_from_dicts[task["label"]] = self.add_task(task["label"])
+
+            task_kwargs = {key: val for key, val in task.items() if key != "label"}
+            self.update(self._tasks_from_dicts[task["label"]], **task_kwargs)
+        self.refresh()

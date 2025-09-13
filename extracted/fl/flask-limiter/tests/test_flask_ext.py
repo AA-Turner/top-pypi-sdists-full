@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import functools
 import logging
 import time
 from collections import Counter
@@ -11,6 +12,7 @@ import hiro
 from flask import Flask, abort, make_response, request
 from werkzeug.exceptions import BadRequest
 
+from flask_limiter import Limit, MetaLimit
 from flask_limiter.constants import ConfigVars
 from flask_limiter.extension import Limiter
 from flask_limiter.util import get_remote_address
@@ -66,9 +68,7 @@ def test_static_exempt(extension_factory):
 
 
 def test_combined_rate_limits(extension_factory):
-    app, limiter = extension_factory(
-        {ConfigVars.DEFAULT_LIMITS: "1 per hour; 10 per day"}
-    )
+    app, limiter = extension_factory({ConfigVars.DEFAULT_LIMITS: "1 per hour; 10 per day"})
 
     @app.route("/t1")
     @limiter.limit("100 per hour;10/minute")
@@ -226,12 +226,7 @@ def test_key_func(extension_factory):
     with hiro.Timeline().freeze():
         with app.test_client() as cli:
             for i in range(0, 100):
-                assert (
-                    200
-                    == cli.get(
-                        "/t1", headers={"X_FORWARDED_FOR": "127.0.0.2"}
-                    ).status_code
-                )
+                assert 200 == cli.get("/t1", headers={"X_FORWARDED_FOR": "127.0.0.2"}).status_code
             assert 429 == cli.get("/t1").status_code
 
 
@@ -614,9 +609,7 @@ def test_application_limit_per_method(extension_factory):
 
 def test_callable_default_limit(extension_factory):
     app, limiter = extension_factory(
-        default_limits=[
-            lambda: request.headers.get("suspect", 0) and "1/minute" or "2/minute"
-        ]
+        default_limits=[lambda: request.headers.get("suspect", 0) and "1/minute" or "2/minute"]
     )
 
     @app.route("/t1")
@@ -638,9 +631,7 @@ def test_callable_default_limit(extension_factory):
 
 def test_callable_application_limit(extension_factory):
     app, limiter = extension_factory(
-        application_limits=[
-            lambda: request.headers.get("suspect", 0) and "1/minute" or "2/minute"
-        ]
+        application_limits=[lambda: request.headers.get("suspect", 0) and "1/minute" or "2/minute"]
     )
 
     @app.route("/t1")
@@ -658,38 +649,6 @@ def test_callable_application_limit(extension_factory):
             assert cli.get("/t2").status_code == 429
             assert cli.get("/t1", headers={"suspect": 1}).status_code == 200
             assert cli.get("/t2", headers={"suspect": 1}).status_code == 429
-
-
-def test_no_auto_check(extension_factory):
-    app, limiter = extension_factory(auto_check=False)
-
-    @app.route("/", methods=["GET", "POST"])
-    @limiter.limit("1/second", per_method=True)
-    def root():
-        return "root"
-
-    with hiro.Timeline().freeze():
-        with app.test_client() as cli:
-            assert 200 == cli.get("/").status_code
-            assert 200 == cli.get("/").status_code
-
-
-def test_no_auto_check_custom_before_request(extension_factory):
-    app, limiter = extension_factory(auto_check=False)
-
-    @app.route("/", methods=["GET", "POST"])
-    @limiter.limit("1/second", per_method=True)
-    def root():
-        return "root"
-
-    @app.before_request
-    def _():
-        limiter.check()
-
-    with hiro.Timeline().freeze():
-        with app.test_client() as cli:
-            assert 200 == cli.get("/").status_code
-            assert 429 == cli.get("/").status_code
 
 
 def test_fail_on_first_breach(extension_factory):
@@ -767,9 +726,7 @@ def test_default_on_breach_callback(extension_factory):
 
 
 def test_custom_key_prefix(redis_connection, extension_factory):
-    app1, limiter1 = extension_factory(
-        key_prefix="moo", storage_uri="redis://localhost:46379"
-    )
+    app1, limiter1 = extension_factory(key_prefix="moo", storage_uri="redis://localhost:46379")
     app2, limiter2 = extension_factory(
         {ConfigVars.KEY_PREFIX: "cow"}, storage_uri="redis://localhost:46379"
     )
@@ -916,8 +873,10 @@ def test_meta_limits(extension_factory):
         return make_response("Would you like some tea?", 429)
 
     app, limiter = extension_factory(
-        default_limits=["2/second"],
-        meta_limits=["2/minute; 3/hour", lambda: "4/day"],
+        default_limits=[
+            "2/second",
+        ],
+        meta_limits=["2/minute", MetaLimit("3/hour"), lambda: "4/day"],
         on_meta_breach=meta_breach_cb,
         headers_enabled=True,
     )
@@ -971,3 +930,139 @@ def test_meta_limits(extension_factory):
             # forward 22 hours
             timeline.forward(60 * 60 * 22)
             assert cli.get("/").status_code == 200
+
+
+def test_custom_meta_limits(extension_factory, check):
+    """
+    Refactored for readability: descriptive variable names, clear time phases, and keyword-only helper.
+    """
+
+    def meta_breach_callback(limit, message=""):
+        return make_response(f"meta: {message}", 429)
+
+    def breach_callback(limit):
+        return make_response("limit", 429)
+
+    def get_username():
+        return request.headers.get("username", "guest")
+
+    # Setup: default 1/sec + 2/min meta; global 3/min meta
+    app, limiter = extension_factory(
+        default_limits=[
+            Limit(
+                "1/second",
+                key_function=get_username,
+                meta_limits=[
+                    MetaLimit(
+                        "2/minute",
+                        on_breach=functools.partial(meta_breach_callback, message="default"),
+                    )
+                ],
+            ),
+        ],
+        meta_limits=["3/minute"],
+        on_meta_breach=functools.partial(meta_breach_callback, message="global"),
+        headers_enabled=True,
+        fail_on_first_breach=False,
+        on_breach=breach_callback,
+    )
+
+    @app.route("/")
+    def root_route():
+        return "root"
+
+    @app.route("/custom")
+    @limiter.limit(
+        "1/second",
+        meta_limits=[
+            MetaLimit(
+                lambda: "1/minute",
+                exempt_when=lambda: get_username() == "nobody",
+                on_breach=functools.partial(meta_breach_callback, message="custom"),
+            )
+        ],
+    )
+    def custom_route():
+        return "custom"
+
+    @app.route("/combined")
+    @limiter.limit(
+        "1/second",
+        key_func=limiter._key_func,
+        override_defaults=False,
+        meta_limits=[
+            MetaLimit(
+                lambda: "1/hour",
+                key_function=get_username,
+                on_breach=functools.partial(meta_breach_callback, message="combined"),
+            )
+        ],
+    )
+    def combined_route():
+        return "combined"
+
+    @check.check_func
+    def check_request(*, endpoint_path, expected_status, expected_body=None, username="alice"):
+        response = test_client.get(endpoint_path, headers={"username": username})
+        assert response.status_code == expected_status
+        if expected_body is not None:
+            assert response.data == expected_body
+
+    with hiro.Timeline().freeze() as timeline:
+        with app.test_client() as test_client:
+            route_paths = ["/", "/custom", "/combined"]
+            for route_path in route_paths:
+                check_request(endpoint_path=route_path, expected_status=200)
+                check_request(
+                    endpoint_path=route_path,
+                    expected_status=429,
+                    expected_body=b"limit",
+                    username="alice",
+                )
+
+            timeline.forward(1)
+            for route_path in route_paths:
+                check_request(
+                    endpoint_path=route_path,
+                    expected_status=429,
+                    expected_body=b"meta: global",
+                    username="alice",
+                )
+
+            timeline.forward(60)
+            check_request(endpoint_path="/", expected_status=200)
+            check_request(endpoint_path="/custom", expected_status=200)
+            check_request(
+                endpoint_path="/combined",
+                expected_status=429,
+                expected_body=b"meta: combined",
+                username="alice",
+            )
+
+            check_request(endpoint_path="/combined", expected_status=200, username="bob")
+            check_request(
+                endpoint_path="/combined",
+                expected_status=429,
+                expected_body=b"limit",
+                username="bob",
+            )
+
+            timeline.forward(1)
+            check_request(
+                endpoint_path="/combined",
+                expected_status=429,
+                expected_body=b"meta: combined",
+                username="bob",
+            )
+
+            timeline.forward(3600)
+            check_request(endpoint_path="/custom", expected_status=200)
+            check_request(endpoint_path="/custom", expected_status=429, expected_body=b"limit")
+
+            timeline.forward(1)
+            check_request(
+                endpoint_path="/custom",
+                expected_status=429,
+                expected_body=b"meta: custom",
+                username="bob",
+            )

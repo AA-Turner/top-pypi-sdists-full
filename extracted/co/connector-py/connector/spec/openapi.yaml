@@ -426,6 +426,79 @@ paths:
                         not specified by the capability schema.
                   description: Generic request model.
               description: Authenticated request.
+  /{connector_id}/assign_application_entitlement:
+    post:
+      operationId: assign_application_entitlement
+      description: |-
+        Assign an entitlement to an account within a managed application.
+
+        The assignment is subject to any constraints defined for the entitlement type, such as:
+        - Minimum and maximum number of assignments allowed
+
+        Common use cases include:
+        - Assigning software licenses to users
+        - Granting access levels to resources
+        - Allocating quota or usage limits
+      parameters:
+        - name: connector_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/AssignApplicationEntitlementResponse'
+                  - $ref: '#/components/schemas/ErrorResponse'
+      tags:
+        - Write Capabilities
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                auth:
+                  allOf:
+                    - $ref: '#/components/schemas/AuthCredential'
+                  description: The authentication credentials for the request.
+                credentials:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/AuthCredential'
+              allOf:
+                - type: object
+                  required:
+                    - request
+                  properties:
+                    request:
+                      allOf:
+                        - $ref: '#/components/schemas/AssignApplicationEntitlement'
+                      description: The main request payload.
+                    include_raw_data:
+                      type: boolean
+                      description: Whether to include raw data in the response.
+                    page:
+                      allOf:
+                        - $ref: '#/components/schemas/Page'
+                      description: Pagination information for the request.
+                    settings:
+                      type: object
+                      additionalProperties: {}
+                      description: |-
+                        Connector-specific settings for the request.
+
+                        These are settings that are shared across all capabilities.
+
+                        Usually contain additional required configuration options
+                        not specified by the capability schema.
+                  description: Generic request model.
+              description: Authenticated request.
   /{connector_id}/assign_entitlement:
     post:
       operationId: assign_entitlement
@@ -1855,6 +1928,80 @@ paths:
                         not specified by the capability schema.
                   description: Generic request model.
               description: Authenticated request.
+  /{connector_id}/list_applications_entitlement_associations:
+    post:
+      operationId: list_applications_entitlement_associations
+      description: |-
+        - Find associations between entitlements and resources in applications of an integration system.
+        -
+        - This operation retrieves the relationships between entitlements and their associated resources
+        - in the applications managed by a third-party system. An entitlement represents a relationship that can be associated
+        - with a user account, such as group memberships, role assignments, or workspace access.
+        -
+        - The resource context helps identify the specific entity (like workspace, organization, etc.)
+        - under which the entitlement exists. For global entitlements, the resource ID should be empty.
+        -
+        -
+      parameters:
+        - name: connector_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/ListApplicationsEntitlementAssociationsResponse'
+                  - $ref: '#/components/schemas/ErrorResponse'
+      tags:
+        - Read Capabilities
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                auth:
+                  allOf:
+                    - $ref: '#/components/schemas/AuthCredential'
+                  description: The authentication credentials for the request.
+                credentials:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/AuthCredential'
+              allOf:
+                - type: object
+                  required:
+                    - request
+                  properties:
+                    request:
+                      allOf:
+                        - $ref: '#/components/schemas/ListApplicationsEntitlementAssociations'
+                      description: The main request payload.
+                    include_raw_data:
+                      type: boolean
+                      description: Whether to include raw data in the response.
+                    page:
+                      allOf:
+                        - $ref: '#/components/schemas/Page'
+                      description: Pagination information for the request.
+                    settings:
+                      type: object
+                      additionalProperties: {}
+                      description: |-
+                        Connector-specific settings for the request.
+
+                        These are settings that are shared across all capabilities.
+
+                        Usually contain additional required configuration options
+                        not specified by the capability schema.
+                  description: Generic request model.
+              description: Authenticated request.
   /{connector_id}/list_applications_entitlements:
     post:
       operationId: list_applications_entitlements
@@ -2634,6 +2781,73 @@ paths:
                         not specified by the capability schema.
                   description: Generic request model.
               description: Authenticated request.
+  /{connector_id}/unassign_application_entitlement:
+    post:
+      operationId: unassign_application_entitlement
+      description: |-
+        Unassign an Entitlement from a user account.
+
+        Depends on the constraints (e.g. min, max) of this entitlement type.
+      parameters:
+        - name: connector_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/UnassignApplicationEntitlementResponse'
+                  - $ref: '#/components/schemas/ErrorResponse'
+      tags:
+        - Write Capabilities
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                auth:
+                  allOf:
+                    - $ref: '#/components/schemas/AuthCredential'
+                  description: The authentication credentials for the request.
+                credentials:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/AuthCredential'
+              allOf:
+                - type: object
+                  required:
+                    - request
+                  properties:
+                    request:
+                      allOf:
+                        - $ref: '#/components/schemas/UnassignApplicationEntitlement'
+                      description: The main request payload.
+                    include_raw_data:
+                      type: boolean
+                      description: Whether to include raw data in the response.
+                    page:
+                      allOf:
+                        - $ref: '#/components/schemas/Page'
+                      description: Pagination information for the request.
+                    settings:
+                      type: object
+                      additionalProperties: {}
+                      description: |-
+                        Connector-specific settings for the request.
+
+                        These are settings that are shared across all capabilities.
+
+                        Usually contain additional required configuration options
+                        not specified by the capability schema.
+                  description: Generic request model.
+              description: Authenticated request.
   /{connector_id}/unassign_entitlement:
     post:
       operationId: unassign_entitlement
@@ -3205,6 +3419,22 @@ components:
       description: A single record of an activity that occurred within the system.
       x-unique-hash:
         - id
+    ApplicationEntitlementAssociation:
+      type: object
+      required:
+        - application_id
+      properties:
+        application_id:
+          type: string
+          x-semantic: application-id
+      allOf:
+        - $ref: '#/components/schemas/FoundEntitlementAssociation'
+      description: '- A link between a user account and their granted entitlement.'
+      x-unique-hash:
+        - account_id
+        - integration_specific_entitlement_id
+        - integration_specific_resource_id
+        - application_id
     ApplicationEntitlementData:
       type: object
       required:
@@ -3264,6 +3494,33 @@ components:
         Base request payload to assign an application to an account. Each connector can extend this class
         to add connector-specific fields.
       x-capability-level: write
+    AssignApplicationEntitlement:
+      type: object
+      required:
+        - application_id
+      properties:
+        application_id:
+          type: string
+          description: The identifier of the application to unassign the entitlement in
+          x-semantic: application-id
+      allOf:
+        - $ref: '#/components/schemas/AssignEntitlement'
+      description: Request payload for assigning an entitlement
+      x-capability-level: write
+    AssignApplicationEntitlementResponse:
+      type: object
+      allOf:
+        - type: object
+          required:
+            - response
+          properties:
+            response:
+              $ref: '#/components/schemas/AssignedApplicationEntitlement'
+            raw_data: {}
+            page:
+              $ref: '#/components/schemas/Page'
+          description: Response containing the main response payload, raw data, and pagination information.
+      description: Response containing the result of the application entitlement assignment
     AssignApplicationResponse:
       type: object
       allOf:
@@ -3337,6 +3594,11 @@ components:
             Indicates if an account has been created in the application via the integration
             This does not indicate if the integration account has been assigned via the integration
       description: Details about the assigned application
+    AssignedApplicationEntitlement:
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/AssignedEntitlement'
+      description: Details about the application entitlement assignment result
     AssignedEntitlement:
       type: object
       required:
@@ -5127,6 +5389,30 @@ components:
               $ref: '#/components/schemas/Page'
           description: Response containing the main response payload, raw data, and pagination information.
       description: Response containing a list of activity records.
+    ListApplicationsEntitlementAssociations:
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/EmptyButCreateAnyway'
+      description: |-
+        - Request parameters for finding entitlement associations.
+        - Currently accepts empty input.
+      x-capability-level: read
+    ListApplicationsEntitlementAssociationsResponse:
+      type: object
+      allOf:
+        - type: object
+          required:
+            - response
+          properties:
+            response:
+              type: array
+              items:
+                $ref: '#/components/schemas/ApplicationEntitlementAssociation'
+            raw_data: {}
+            page:
+              $ref: '#/components/schemas/Page'
+          description: Response containing the main response payload, raw data, and pagination information.
+      description: '- Response containing the found entitlement associations'
     ListApplicationsEntitlements:
       type: object
       allOf:
@@ -5830,6 +6116,9 @@ components:
         - list_applications_entitlements
         - list_applications_resources
         - unassign_application
+        - list_applications_entitlement_associations
+        - unassign_application_entitlement
+        - assign_application_entitlement
       description: Enum representing the standard capabilities we expect most connectors to provide.
     TimeRange:
       type: object
@@ -5930,6 +6219,33 @@ components:
           x-semantic: account-id
       description: Request parameters for unassigning an application
       x-capability-level: write
+    UnassignApplicationEntitlement:
+      type: object
+      required:
+        - application_id
+      properties:
+        application_id:
+          type: string
+          description: The identifier of the application to assign the entitlement in
+          x-semantic: application-id
+      allOf:
+        - $ref: '#/components/schemas/UnassignEntitlement'
+      description: Parameters required to unassign an entitlement from a user account
+      x-capability-level: write
+    UnassignApplicationEntitlementResponse:
+      type: object
+      allOf:
+        - type: object
+          required:
+            - response
+          properties:
+            response:
+              $ref: '#/components/schemas/UnassignedApplicationEntitlement'
+            raw_data: {}
+            page:
+              $ref: '#/components/schemas/Page'
+          description: Response containing the main response payload, raw data, and pagination information.
+      description: Response containing the result of the unassign entitlement operation
     UnassignApplicationResponse:
       type: object
       allOf:
@@ -6008,6 +6324,11 @@ components:
             - $ref: '#/components/schemas/AccountStatus'
           description: Indicates the account status after the unassignemnt operation.
       description: Details about the deactivated account
+    UnassignedApplicationEntitlement:
+      type: object
+      allOf:
+        - $ref: '#/components/schemas/UnassignedEntitlement'
+      description: Result of the unassign entitlement operation
     UnassignedEntitlement:
       type: object
       required:

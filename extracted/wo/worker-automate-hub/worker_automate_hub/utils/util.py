@@ -2367,7 +2367,7 @@ async def extract_group_by_itens(itens):
             f"Tentando obter o formato no primeiro regex - item {descricao}.. \n"
         )
         try:
-            match = re.search(r"\((\d+)X(\d+)(L|KG)?\)", descricao)
+            match = re.search(r"\((\d+)X(\d+(?:[.,]\d+)?)(L|KG)?\)", descricao)
             formato = match.group(0) if match else None
         except Exception as e:
             console.print(

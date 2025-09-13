@@ -108,6 +108,7 @@ class TensorDot(Function, Module):
             grad_B = xp.transpose(grad_B, perm) 
         return grad_A, grad_B
 
+
 class EinSum(Function, Module):
     name = "EinSum"
     def __init__(self, subscripts: str, optimize = False, use_opt_einsum = False):
@@ -116,30 +117,19 @@ class EinSum(Function, Module):
         self.subscripts = subscripts.replace(" ", "")
         self.optimize = optimize
         self.use_opt_einsum = use_opt_einsum
-    
-    def _einsum(self, subscripts, *operands):
-        """Unified einsum with optional opt-einsum optimization."""
-        if not self.use_opt_einsum:
-            return xp.einsum(subscripts, *operands, optimize=self.optimize)
-        
-        try:
-            import opt_einsum as oe
-            total_elements = sum(op.size for op in operands)
-            is_conv_pattern = ('ncpqhw' in subscripts and ('fchw' in subscripts or 'chw' in subscripts))
-            
-            if xp.__name__ == 'numpy' and (total_elements > 10000 or is_conv_pattern):
-                return oe.contract(subscripts, *operands, optimize='optimal')
-            elif xp.__name__ == 'cupy' and is_conv_pattern:
-                return oe.contract(subscripts, *operands, optimize='greedy')
-            else:
-                return xp.einsum(subscripts, *operands, optimize=True)
-        except ImportError:
-            return xp.einsum(subscripts, *operands, optimize=True)
-    
+        if self.use_opt_einsum:
+            try:
+                import opt_einsum
+                self.opt_einsum = opt_einsum
+            except ImportError:
+                raise ImportError("opt_einsum is not installed. Please install it with: pip install opt_einsum")
     def forward(self, *operands: xp.ndarray) -> xp.ndarray:
         self.operand_shapes = [op.shape for op in operands]
         self.input_operands = operands
-        return self._einsum(self.subscripts, *operands)   
+        if self.use_opt_einsum:
+            return self.opt_einsum.contract(self.subscripts, *operands, optimize=self.optimize, backend=str(xp.__name__))
+        else:
+            return xp.einsum(self.subscripts, *operands, optimize=self.optimize)   
     def backward(self, grad_output: xp.ndarray):
         grads = []
         if '->' in self.subscripts:
@@ -163,7 +153,11 @@ class EinSum(Function, Module):
                     grad_specs.append(input_specs[j])
             grad_equation = ','.join(grad_specs) + '->' + input_specs[i]
             try:
-                grad = self._einsum(grad_equation, *grad_operands)
+                if self.use_opt_einsum:
+                    grad = self.opt_einsum.contract(grad_equation, *grad_operands, optimize=self.optimize,
+                                                    backend=str(xp.__name__))
+                else:
+                    grad = xp.einsum(grad_equation, *grad_operands, optimize=self.optimize)
                 grad = self._handle_broadcasting(grad, self.operand_shapes[i])
                 grads.append(grad)
             except Exception as e:
@@ -179,6 +173,7 @@ class EinSum(Function, Module):
             if orig_dim == 1 and grad_dim > 1:
                 grad = grad.sum(axis=i, keepdims=True)
         return grad
+
 
 class Transpose(Function, Module):
     name = "Transpose"

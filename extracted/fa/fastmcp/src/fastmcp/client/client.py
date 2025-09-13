@@ -454,7 +454,7 @@ class Client(Generic[ClientTransportT]):
             if self._session_state.nesting_counter > 0:
                 return
 
-            # stop the active seesion
+            # stop the active session
             if self._session_state.session_task is None:
                 return
             self._session_state.stop_event.set()
@@ -505,7 +505,7 @@ class Client(Generic[ClientTransportT]):
     ) -> None:
         """Send a cancellation notification for an in-progress request."""
         notification = mcp.types.ClientNotification(
-            mcp.types.CancelledNotification(
+            root=mcp.types.CancelledNotification(
                 method="notifications/cancelled",
                 params=mcp.types.CancelledNotificationParams(
                     requestId=request_id,
@@ -743,13 +743,13 @@ class Client(Generic[ClientTransportT]):
 
     async def complete_mcp(
         self,
-        ref: mcp.types.ResourceReference | mcp.types.PromptReference,
+        ref: mcp.types.ResourceTemplateReference | mcp.types.PromptReference,
         argument: dict[str, str],
     ) -> mcp.types.CompleteResult:
         """Send a completion request and return the complete MCP protocol result.
 
         Args:
-            ref (mcp.types.ResourceReference | mcp.types.PromptReference): The reference to complete.
+            ref (mcp.types.ResourceTemplateReference | mcp.types.PromptReference): The reference to complete.
             argument (dict[str, str]): Arguments to pass to the completion request.
 
         Returns:
@@ -766,13 +766,13 @@ class Client(Generic[ClientTransportT]):
 
     async def complete(
         self,
-        ref: mcp.types.ResourceReference | mcp.types.PromptReference,
+        ref: mcp.types.ResourceTemplateReference | mcp.types.PromptReference,
         argument: dict[str, str],
     ) -> mcp.types.Completion:
         """Send a completion request to the server.
 
         Args:
-            ref (mcp.types.ResourceReference | mcp.types.PromptReference): The reference to complete.
+            ref (mcp.types.ResourceTemplateReference | mcp.types.PromptReference): The reference to complete.
             argument (dict[str, str]): Arguments to pass to the completion request.
 
         Returns:

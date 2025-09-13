@@ -5,7 +5,10 @@ from re import Pattern
 # django.utils.translation -- that module depends on the settings.
 from typing import Any, Literal, Protocol, TypeAlias, TypedDict, type_check_only
 
+from django.utils.functional import _StrOrPromise
 from typing_extensions import NotRequired
+
+from django_stubs_ext.settings import TemplatesSetting
 
 _Admins: TypeAlias = list[tuple[str, str]]
 
@@ -114,7 +117,7 @@ EMAIL_TIMEOUT: int | None
 # List of strings representing installed apps.
 INSTALLED_APPS: list[str]
 
-TEMPLATES: list[dict[str, Any]]
+TEMPLATES: list[TemplatesSetting]
 
 # Default form rendering class.
 FORM_RENDERER: str
@@ -389,11 +392,11 @@ AUTH_USER_MODEL: str
 
 AUTHENTICATION_BACKENDS: Sequence[str]
 
-LOGIN_URL: str
+LOGIN_URL: _StrOrPromise
 
-LOGIN_REDIRECT_URL: str
+LOGIN_REDIRECT_URL: _StrOrPromise
 
-LOGOUT_REDIRECT_URL: str | None
+LOGOUT_REDIRECT_URL: _StrOrPromise | None
 
 # The number of seconds a password reset link is valid for
 PASSWORD_RESET_TIMEOUT: int

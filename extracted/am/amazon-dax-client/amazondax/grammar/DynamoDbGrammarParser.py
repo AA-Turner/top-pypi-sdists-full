@@ -1,10 +1,13 @@
-# Generated from grammar/DynamoDbGrammar.g4 by ANTLR 4.7.2
+# Generated from grammar/DynamoDbGrammar.g4 by ANTLR 4.9.3
 # encoding: utf-8
 # pylint: skip-file
 from antlr4 import *
 from io import StringIO
-from typing.io import TextIO
 import sys
+if sys.version_info[1] > 5:
+	from typing import TextIO
+else:
+	from typing.io import TextIO
 
 
 def serializedATN():
@@ -198,7 +201,7 @@ class DynamoDbGrammarParser ( Parser ):
 
     def __init__(self, input:TokenStream, output:TextIO = sys.stdout):
         super().__init__(input, output)
-        self.checkVersion("4.7.2")
+        self.checkVersion("4.9.3")
         self._interp = ParserATNSimulator(self, self.atn, self.decisionsToDFA, self.sharedContextCache)
         self._predicates = None
 
@@ -211,6 +214,7 @@ class DynamoDbGrammarParser ( Parser ):
 
 
     class Projection_Context(ParserRuleContext):
+        __slots__ = 'parser'
 
         def __init__(self, parser, parent:ParserRuleContext=None, invokingState:int=-1):
             super().__init__(parent, invokingState)
@@ -257,6 +261,7 @@ class DynamoDbGrammarParser ( Parser ):
 
 
     class ProjectionContext(ParserRuleContext):
+        __slots__ = 'parser'
 
         def __init__(self, parser, parent:ParserRuleContext=None, invokingState:int=-1):
             super().__init__(parent, invokingState)
@@ -314,6 +319,7 @@ class DynamoDbGrammarParser ( Parser ):
 
 
     class Condition_Context(ParserRuleContext):
+        __slots__ = 'parser'
 
         def __init__(self, parser, parent:ParserRuleContext=None, invokingState:int=-1):
             super().__init__(parent, invokingState)
@@ -360,6 +366,7 @@ class DynamoDbGrammarParser ( Parser ):
 
 
     class ConditionContext(ParserRuleContext):
+        __slots__ = 'parser'
 
         def __init__(self, parser, parent:ParserRuleContext=None, invokingState:int=-1):
             super().__init__(parent, invokingState)
@@ -718,6 +725,7 @@ class DynamoDbGrammarParser ( Parser ):
 
 
     class Comparator_symbolContext(ParserRuleContext):
+        __slots__ = 'parser'
 
         def __init__(self, parser, parent:ParserRuleContext=None, invokingState:int=-1):
             super().__init__(parent, invokingState)
@@ -779,6 +787,7 @@ class DynamoDbGrammarParser ( Parser ):
 
 
     class Update_Context(ParserRuleContext):
+        __slots__ = 'parser'
 
         def __init__(self, parser, parent:ParserRuleContext=None, invokingState:int=-1):
             super().__init__(parent, invokingState)
@@ -825,6 +834,7 @@ class DynamoDbGrammarParser ( Parser ):
 
 
     class UpdateContext(ParserRuleContext):
+        __slots__ = 'parser'
 
         def __init__(self, parser, parent:ParserRuleContext=None, invokingState:int=-1):
             super().__init__(parent, invokingState)
@@ -921,6 +931,7 @@ class DynamoDbGrammarParser ( Parser ):
 
 
     class Set_sectionContext(ParserRuleContext):
+        __slots__ = 'parser'
 
         def __init__(self, parser, parent:ParserRuleContext=None, invokingState:int=-1):
             super().__init__(parent, invokingState)
@@ -983,6 +994,7 @@ class DynamoDbGrammarParser ( Parser ):
 
 
     class Set_actionContext(ParserRuleContext):
+        __slots__ = 'parser'
 
         def __init__(self, parser, parent:ParserRuleContext=None, invokingState:int=-1):
             super().__init__(parent, invokingState)
@@ -1035,6 +1047,7 @@ class DynamoDbGrammarParser ( Parser ):
 
 
     class Add_sectionContext(ParserRuleContext):
+        __slots__ = 'parser'
 
         def __init__(self, parser, parent:ParserRuleContext=None, invokingState:int=-1):
             super().__init__(parent, invokingState)
@@ -1097,6 +1110,7 @@ class DynamoDbGrammarParser ( Parser ):
 
 
     class Add_actionContext(ParserRuleContext):
+        __slots__ = 'parser'
 
         def __init__(self, parser, parent:ParserRuleContext=None, invokingState:int=-1):
             super().__init__(parent, invokingState)
@@ -1144,6 +1158,7 @@ class DynamoDbGrammarParser ( Parser ):
 
 
     class Delete_sectionContext(ParserRuleContext):
+        __slots__ = 'parser'
 
         def __init__(self, parser, parent:ParserRuleContext=None, invokingState:int=-1):
             super().__init__(parent, invokingState)
@@ -1206,6 +1221,7 @@ class DynamoDbGrammarParser ( Parser ):
 
 
     class Delete_actionContext(ParserRuleContext):
+        __slots__ = 'parser'
 
         def __init__(self, parser, parent:ParserRuleContext=None, invokingState:int=-1):
             super().__init__(parent, invokingState)
@@ -1253,6 +1269,7 @@ class DynamoDbGrammarParser ( Parser ):
 
 
     class Remove_sectionContext(ParserRuleContext):
+        __slots__ = 'parser'
 
         def __init__(self, parser, parent:ParserRuleContext=None, invokingState:int=-1):
             super().__init__(parent, invokingState)
@@ -1315,6 +1332,7 @@ class DynamoDbGrammarParser ( Parser ):
 
 
     class Remove_actionContext(ParserRuleContext):
+        __slots__ = 'parser'
 
         def __init__(self, parser, parent:ParserRuleContext=None, invokingState:int=-1):
             super().__init__(parent, invokingState)
@@ -1356,6 +1374,7 @@ class DynamoDbGrammarParser ( Parser ):
 
 
     class Set_valueContext(ParserRuleContext):
+        __slots__ = 'parser'
 
         def __init__(self, parser, parent:ParserRuleContext=None, invokingState:int=-1):
             super().__init__(parent, invokingState)
@@ -1443,6 +1462,7 @@ class DynamoDbGrammarParser ( Parser ):
 
 
     class ArithmeticContext(ParserRuleContext):
+        __slots__ = 'parser'
 
         def __init__(self, parser, parent:ParserRuleContext=None, invokingState:int=-1):
             super().__init__(parent, invokingState)
@@ -1558,6 +1578,7 @@ class DynamoDbGrammarParser ( Parser ):
 
 
     class OperandContext(ParserRuleContext):
+        __slots__ = 'parser'
 
         def __init__(self, parser, parent:ParserRuleContext=None, invokingState:int=-1):
             super().__init__(parent, invokingState)
@@ -1708,6 +1729,7 @@ class DynamoDbGrammarParser ( Parser ):
 
 
     class FuncContext(ParserRuleContext):
+        __slots__ = 'parser'
 
         def __init__(self, parser, parent:ParserRuleContext=None, invokingState:int=-1):
             super().__init__(parent, invokingState)
@@ -1786,6 +1808,7 @@ class DynamoDbGrammarParser ( Parser ):
 
 
     class PathContext(ParserRuleContext):
+        __slots__ = 'parser'
 
         def __init__(self, parser, parent:ParserRuleContext=None, invokingState:int=-1):
             super().__init__(parent, invokingState)
@@ -1845,6 +1868,7 @@ class DynamoDbGrammarParser ( Parser ):
 
 
     class Id_Context(ParserRuleContext):
+        __slots__ = 'parser'
 
         def __init__(self, parser, parent:ParserRuleContext=None, invokingState:int=-1):
             super().__init__(parent, invokingState)
@@ -1894,6 +1918,7 @@ class DynamoDbGrammarParser ( Parser ):
 
 
     class DereferenceContext(ParserRuleContext):
+        __slots__ = 'parser'
 
         def __init__(self, parser, parent:ParserRuleContext=None, invokingState:int=-1):
             super().__init__(parent, invokingState)
@@ -1986,6 +2011,7 @@ class DynamoDbGrammarParser ( Parser ):
 
 
     class LiteralContext(ParserRuleContext):
+        __slots__ = 'parser'
 
         def __init__(self, parser, parent:ParserRuleContext=None, invokingState:int=-1):
             super().__init__(parent, invokingState)
@@ -2039,6 +2065,7 @@ class DynamoDbGrammarParser ( Parser ):
 
 
     class Expression_attr_names_subContext(ParserRuleContext):
+        __slots__ = 'parser'
 
         def __init__(self, parser, parent:ParserRuleContext=None, invokingState:int=-1):
             super().__init__(parent, invokingState)
@@ -2084,6 +2111,7 @@ class DynamoDbGrammarParser ( Parser ):
 
 
     class Expression_attr_values_subContext(ParserRuleContext):
+        __slots__ = 'parser'
 
         def __init__(self, parser, parent:ParserRuleContext=None, invokingState:int=-1):
             super().__init__(parent, invokingState)
@@ -2129,6 +2157,7 @@ class DynamoDbGrammarParser ( Parser ):
 
 
     class UnknownContext(ParserRuleContext):
+        __slots__ = 'parser'
 
         def __init__(self, parser, parent:ParserRuleContext=None, invokingState:int=-1):
             super().__init__(parent, invokingState)

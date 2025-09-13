@@ -1,19 +1,19 @@
-#  Licensed to the Apache Software Foundation (ASF) under one
-#  or more contributor license agreements.  See the NOTICE file
-#  distributed with this work for additional information
-#  regarding copyright ownership.  The ASF licenses this file
-#  to you under the Apache License, Version 2.0 (the
-#  "License"); you may not use this file except in compliance
-#  with the License.  You may obtain a copy of the License at
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
 #
-#    http://www.apache.org/licenses/LICENSE-2.0
+#   http://www.apache.org/licenses/LICENSE-2.0
 #
-#  Unless required by applicable law or agreed to in writing,
-#  software distributed under the License is distributed on an
-#  "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-#  KIND, either express or implied.  See the License for the
-#  specific language governing permissions and limitations
-#  under the License.
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
 import os
 from tempfile import mkdtemp
 from typing import Iterable, Union
@@ -23,7 +23,7 @@ import pyspark
 from pyspark.sql import DataFrame
 
 from sedona.spark import *
-from sedona.utils.decorators import classproperty
+from sedona.spark.utils.decorators import classproperty
 
 SPARK_REMOTE = os.getenv("SPARK_REMOTE")
 EXTRA_JARS = os.getenv("SEDONA_PYTHON_EXTRA_JARS")
@@ -47,23 +47,30 @@ class TestBase:
                 builder = (
                     builder.remote(SPARK_REMOTE)
                     .config(
-                        "spark.jars.packages",
-                        f"org.apache.spark:spark-connect_2.12:{pyspark.__version__}",
-                    )
-                    .config(
                         "spark.sql.extensions",
                         "org.apache.sedona.sql.SedonaSqlExtensions",
                     )
-                    .config(
-                        "spark.sedona.stac.load.itemsLimitMax",
-                        "20",
-                    )
+                    .config("spark.checkpoint.dir", mkdtemp())
                 )
+
+                # Connect is packaged with Spark 4+
+                if pyspark.__version__ < "4":
+                    builder = builder.config(
+                        "spark.jars.packages",
+                        f"org.apache.spark:spark-connect_2.12:{pyspark.__version__}",
+                    )
             else:
-                builder = builder.master("local[*]").config(
+                builder = builder.master("local[*]")
+
+            builder = (
+                builder.config(
                     "spark.sedona.stac.load.itemsLimitMax",
                     "20",
                 )
+                # Pandas on PySpark doesn't work with ANSI mode, which is enabled by default
+                # in Spark 4
+                .config("spark.sql.ansi.enabled", "false")
+            )
 
             # Allows the Sedona .jar to be explicitly set by the caller (e.g, to run
             # pytest against a freshly-built development version of Sedona)
@@ -124,9 +131,12 @@ class TestBase:
 
         if not actual_geom.equals_exact(expected_geom, tolerance=tolerance):
             # If the exact equals check fails, perform a buffer check with tolerance
-            if actual_geom.buffer(tolerance).contains(
-                expected_geom
-            ) and expected_geom.buffer(tolerance).contains(actual_geom):
+            if (
+                actual_geom.is_valid
+                and actual_geom.buffer(tolerance).contains(expected_geom)
+                and expected_geom.is_valid
+                and expected_geom.buffer(tolerance).contains(actual_geom)
+            ):
                 return
             else:
                 # fail the test with error message

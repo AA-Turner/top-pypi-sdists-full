@@ -207,6 +207,8 @@ class ClusterKwargs(TypedDict, total=False):
     region: str | None
     arm: bool | None
     batch_job_container: str | None
+    scheduler_sidecars: list[dict] | None
+    worker_sidecars: list[dict] | None
     pause_on_exit: bool | None
 
 
@@ -467,6 +469,13 @@ class Cluster(DistributedCluster, Generic[IsAsynchronous]):
         The cloud provider region in which to run the cluster.
     arm
         Use ARM instances for cluster; default is x86 (Intel) instances.
+    scheduler_sidecars
+        Optional list of additional containers to run as sidecars on the scheduler. For example,
+        ``scheduler_sidecars=[ {"name": "test", container="foo/foo:latest", command="run_something"} ]`` will
+        start the ``foo/foo:latest`` container with ``run_something`` as the command. Note that VM will shut itself
+        down once container exits, to sidecar commands are expected to be things that will keep running.
+    worker_sidecars
+        Like ``scheduler_sidecars``, but run on worker VMs instead of scheduler.
     pause_on_exit
         Pause the cluster instead of shutting it down when exiting.
     """
@@ -551,6 +560,8 @@ class Cluster(DistributedCluster, Generic[IsAsynchronous]):
         arm: bool | None = None,
         batch_job_ids: List[int] | None = None,
         batch_job_container: str | None = None,
+        scheduler_sidecars: list[dict] | None = None,
+        worker_sidecars: list[dict] | None = None,
         pause_on_exit: bool | None = None,
     ):
         self.pause_on_exit = pause_on_exit
@@ -758,6 +769,9 @@ class Cluster(DistributedCluster, Generic[IsAsynchronous]):
         else:
             self.extra_user_container = batch_job_container
             self.extra_user_container_ignore_entrypoint = False
+
+        self.scheduler_sidecars = scheduler_sidecars
+        self.worker_sidecars = worker_sidecars
 
         self.software_environment = software or dask.config.get("coiled.software")
         self.software_container = container or dask.config.get("coiled.container", None)
@@ -1599,6 +1613,8 @@ class Cluster(DistributedCluster, Generic[IsAsynchronous]):
                     batch_job_ids=self.batch_job_ids,
                     extra_user_container=self.extra_user_container,
                     extra_user_container_ignore_entrypoint=self.extra_user_container_ignore_entrypoint,
+                    scheduler_sidecars=self.scheduler_sidecars,
+                    worker_sidecars=self.worker_sidecars,
                     host_setup_script_content=self.host_setup_script_content,
                     pause_on_exit=self.pause_on_exit,
                     cluster_timeout_seconds=self.cluster_timeout_seconds,

@@ -2215,6 +2215,17 @@ def test_inlining_shader_nodes(
     :type undo: bool | None
     """
 
+def toggle_viewer(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+) -> None:
+    """Toggle selected viewer node in compositor and geometry nodes
+
+    :type execution_context: int | str | None
+    :type undo: bool | None
+    """
+
 def translate_attach(
     execution_context: int | str | None = None,
     undo: bool | None = None,
@@ -2322,7 +2333,7 @@ def viewer_shortcut_get(
     *,
     viewer_index: int | None = 0,
 ) -> None:
-    """Activate a specific viewer node using 1,2,..,9 keys
+    """Toggle a specific viewer node using 1,2,..,9 keys
 
     :type execution_context: int | str | None
     :type undo: bool | None

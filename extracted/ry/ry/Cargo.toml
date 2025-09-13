@@ -18,6 +18,7 @@ name = "ry"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
+#mimalloc = "0.1.48"
 pyo3 = { workspace = true, features = [] }
 ryo3 = { workspace = true, features = ["ry"] }
 tracing.workspace = true
@@ -53,7 +54,7 @@ inherits = "release"
 lto = "fat"
 
 [workspace.package]
-version = "0.0.56"
+version = "0.0.57"
 authors = [
   "Jesse K. Rubin <jessekrubin@gmail.com>",
   # hopefully you will contribute!
@@ -96,6 +97,7 @@ ryo3-jiter = { path = "./crates/ryo3-jiter" }
 ryo3-json = { path = "./crates/ryo3-json" }
 ryo3-macro-rules = { path = "crates/ryo3-macro-rules" }
 ryo3-memchr = { path = "crates/ryo3-memchr" }
+ryo3-pydantic = { path = "./crates/ryo3-pydantic" }
 ryo3-quick-maths = { path = "./crates/_ryo3-quick-maths" } # template library
 ryo3-regex = { path = "./crates/ryo3-regex" }
 ryo3-reqwest = { path = "./crates/ryo3-reqwest" }
@@ -106,13 +108,14 @@ ryo3-size = { path = "./crates/ryo3-size" }
 ryo3-sqlformat = { path = "./crates/ryo3-sqlformat" }
 ryo3-std = { path = "./crates/ryo3-std" }
 ryo3-tokio = { path = "./crates/ryo3-tokio" }
+ryo3-twox-hash = { path = "./crates/ryo3-twox-hash" }
 ryo3-ulid = { path = "./crates/ryo3-ulid" }
 ryo3-unindent = { path = "./crates/ryo3-unindent" }
 ryo3-url = { path = "./crates/ryo3-url" }
 ryo3-uuid = { path = "./crates/ryo3-uuid" }
 ryo3-walkdir = { path = "./crates/ryo3-walkdir" }
 ryo3-which = { path = "./crates/ryo3-which" }
-ryo3-xxhash = { path = "./crates/ryo3-xxhash" }
+# ryo3-xxhash = { path = "./crates/ryo3-xxhash" }
 ryo3-zstd = { path = "./crates/ryo3-zstd" }
 
 # pyo3
@@ -156,19 +159,21 @@ tokio = { version = "1.45.1", features = ["bytes", "fs", "macros", "parking_lot"
 tracing = "0.1.41"
 tracing-log = "0.2.0"
 tracing-subscriber = { version = "0.3.20", features = ["serde", "serde_json", "default"] }
+twox-hash =  "2.1.2"
 ulid = { version = "1.2.1" }
 unindent = "0.2.4"
 url = { version = "2.5.4" }
 uuid = { version = "1.18.1", features = ["v4", "v8"] }
 walkdir = "2.5.0"
 which = { version = "8.0.0", features = [] }
-xxhash-rust = { version = "0.8.15", features = []}
+# xxhash-rust = { version = "0.8.15", features = [] }
 zstd = "0.13.3"
 zstd-safe = "7.2.4"
 
 [workspace.lints.rust]
 unsafe_code = "warn"
 unreachable_pub = "warn"
+missing_copy_implementations = "warn"
 
 [workspace.lints.clippy]
 # groups

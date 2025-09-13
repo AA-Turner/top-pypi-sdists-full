@@ -3,7 +3,7 @@ from fastapi import APIRouter
 
 from project.api.authorize import APIAuthorizeData, api_authorize, require_user_token_dbm_api_authorize_middleware, \
     require_api_key_dbm_api_authorize_middleware
-from project.api.exception import APIException
+from project.api.api_exception import APIException
 from project.api.schema.out.common.error import ErrorCommonSO
 from project.sqlalchemy_db_.sqlalchemy_model import UserDBM
 

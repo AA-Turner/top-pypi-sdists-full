@@ -79,6 +79,9 @@ const double zoom_factor = 0.7;
 //  factor by which panning is faster in "fast" (+Shift) mode
 const double fast_factor = 3.0;
 
+//  size of cross
+const int mark_size = 9;
+
 // -------------------------------------------------------------
 
 struct OpHideShowCell 
@@ -395,21 +398,6 @@ LayoutViewBase::init (db::Manager *mgr)
 
   mp_canvas = new lay::LayoutCanvas (this);
 
-  //  occupy services and editables:
-  //  these services get deleted by the canvas destructor automatically:
-  if ((m_options & LV_NoTracker) == 0) {
-    mp_tracker = new lay::MouseTracker (this);
-  }
-  if ((m_options & LV_NoZoom) == 0) {
-    mp_zoom_service = new lay::ZoomService (this);
-  }
-  if ((m_options & LV_NoSelection) == 0) {
-    mp_selection_service = new lay::SelectionService (this);
-  }
-  if ((m_options & LV_NoMove) == 0) {
-    mp_move_service = new lay::MoveService (this);
-  }
-
   create_plugins ();
 }
 
@@ -599,20 +587,41 @@ void LayoutViewBase::create_plugins (const lay::PluginDeclaration *except_this)
   clear_plugins ();
 
   //  create the plugins
-  for (tl::Registrar<lay::PluginDeclaration>::iterator cls = tl::Registrar<lay::PluginDeclaration>::begin (); cls != tl::Registrar<lay::PluginDeclaration>::end (); ++cls) {
+  for (tl::Registrar<lay::PluginDeclaration>::iterator cls = tl::Registrar<lay::PluginDeclaration>::begin (); cls != tl::Registrar<lay::PluginDeclaration>::end (); ) {
 
-    if (&*cls != except_this) {
+    //  NOTE: during "create_plugin" a plugin may be unregistered, so don't increment the iterator after
+    auto current = cls.operator-> ();
+    std::string current_name = cls.current_name ();
+    ++cls;
+
+    if (current != except_this) {
 
       //  TODO: clean solution. The following is a HACK:
-      if (cls.current_name () == "ant::Plugin" || cls.current_name () == "img::Plugin") {
+      if (current_name == "ant::Plugin" || current_name == "img::Plugin") {
         //  ant and img are created always
-        create_plugin (&*cls);
+        create_plugin (current);
+      } else if (current_name == "laybasic::MouseTrackerPlugin") {
+        if ((m_options & LV_NoTracker) == 0) {
+          mp_tracker = dynamic_cast<lay::MouseTracker *> (create_plugin (current));
+        }
+      } else if (current_name == "laybasic::MoveServicePlugin") {
+        if ((m_options & LV_NoMove) == 0) {
+          mp_move_service = dynamic_cast<lay::MoveService *> (create_plugin (current));
+        }
+      } else if (current_name == "laybasic::SelectionServicePlugin") {
+        if ((m_options & LV_NoSelection) == 0) {
+          mp_selection_service = dynamic_cast<lay::SelectionService *> (create_plugin (current));
+        }
+      } else if (current_name == "laybasic::ZoomServicePlugin") {
+        if ((m_options & LV_NoZoom) == 0) {
+          mp_zoom_service = dynamic_cast<lay::ZoomService *> (create_plugin (current));
+        }
       } else if ((options () & LV_NoPlugins) == 0) {
         //  others: only create unless LV_NoPlugins is set
-        create_plugin (&*cls);
-      } else if ((options () & LV_NoGrid) == 0 && cls.current_name () == "GridNetPlugin") {
+        create_plugin (current);
+      } else if ((options () & LV_NoGrid) == 0 && current_name == "lay::GridNetPlugin") {
         //  except grid net plugin which is created on request
-        create_plugin (&*cls);
+        create_plugin (current);
       }
 
     }
@@ -678,6 +687,12 @@ LayoutViewBase::set_synchronous (bool s)
 
 void
 LayoutViewBase::message (const std::string & /*s*/, int /*timeout*/)
+{
+  //  .. nothing yet ..
+}
+
+void
+LayoutViewBase::set_focus ()
 {
   //  .. nothing yet ..
 }
@@ -759,14 +774,6 @@ bool
 LayoutViewBase::configure (const std::string &name, const std::string &value)
 {
   lay::Dispatcher::configure (name, value);
-
-  if (mp_move_service && mp_move_service->configure (name, value)) {
-    return true;
-  }
-
-  if (mp_tracker && mp_tracker->configure (name, value)) {
-    return true;
-  }
 
   if (name == cfg_default_lyp_file) {
 
@@ -1416,14 +1423,6 @@ LayoutViewBase::config_finalize ()
 void 
 LayoutViewBase::enable_edits (bool enable)
 {
-  //  enable or disable these services:
-  if (mp_selection_service) {
-    mp_selection_service->enable (enable);
-  }
-  if (mp_move_service) {
-    mp_move_service->enable (enable);
-  }
-
   //  enable or disable the services that implement "lay::ViewService"
   for (std::vector<lay::Plugin *>::iterator p = mp_plugins.begin (); p != mp_plugins.end (); ++p) {
     lay::ViewService *svc = (*p)->view_service_interface ();
@@ -1601,19 +1600,30 @@ LayoutViewBase::rename_properties (unsigned int index, const std::string &new_na
   layer_list_changed_event (4);
 }
 
-bool
-LayoutViewBase::set_current_layer (unsigned int cv_index, const db::LayerProperties &lp)
+lay::LayerPropertiesConstIterator
+LayoutViewBase::find_layer (unsigned int cv_index, const db::LayerProperties &lp) const
 {
-  //  rename the ones that got shifted.
   lay::LayerPropertiesConstIterator l = begin_layers ();
   while (! l.at_end ()) {
     if (l->source (true).cv_index () == int (cv_index) && l->source (true).layer_props ().log_equal (lp)) {
-      set_current_layer (l);
-      return true;
+      return l;
     }
     ++l;
   }
-  return false;
+
+  return lay::LayerPropertiesConstIterator ();
+}
+
+bool
+LayoutViewBase::set_current_layer (unsigned int cv_index, const db::LayerProperties &lp)
+{
+  lay::LayerPropertiesConstIterator l = find_layer (cv_index, lp);
+  if (! l.is_null ()) {
+    set_current_layer (l);
+    return true;
+  } else {
+    return false;
+  }
 }
 
 void
@@ -1949,6 +1959,22 @@ LayoutViewBase::set_properties (unsigned int index, const LayerPropertiesList &p
     redraw_later ();
     m_prop_changed = true;
   }
+}
+
+void
+LayoutViewBase::clear_layers (unsigned int index)
+{
+  LayerPropertiesList ll;
+  ll.set_name (get_properties (index).name ());
+  set_properties (index, ll);
+}
+
+void
+LayoutViewBase::clear_layers ()
+{
+  LayerPropertiesList ll;
+  ll.set_name (get_properties ().name ());
+  set_properties (ll);
 }
 
 void 
@@ -2639,7 +2665,9 @@ LayoutViewBase::signal_apply_technology (lay::LayoutHandle *layout_handle)
 
         //  remove all references to the cellview in the layer properties
         for (unsigned int lindex = 0; lindex < layer_lists (); ++lindex) {
-          m_layer_properties_lists [lindex]->remove_cv_references (i);
+          lay::LayerPropertiesList props = *m_layer_properties_lists [lindex];
+          props.remove_cv_references (i);
+          set_properties (lindex, props);
         }
 
         //  if a layer properties file is set, create the layer properties now
@@ -3861,8 +3889,13 @@ LayoutViewBase::full_box () const
 
   db::DBox bbox;
 
-  for (LayerPropertiesConstIterator l = get_properties ().begin_const_recursive (); ! l.at_end (); ++l) {
-    bbox += l->bbox ();
+  auto tv = cv_transform_variants_with_empty ();
+  for (auto i = tv.begin (); i != tv.end (); ++i) {
+    const lay::CellView &cv = cellview (i->second);
+    if (cv.is_valid ()) {
+      double dbu = cv->layout ().dbu ();
+      bbox += (i->first * db::CplxTrans (dbu) * cv.context_trans ()) * cv.cell ()->bbox_with_empty ();
+    }
   }
 
   for (lay::AnnotationShapes::iterator a = annotation_shapes ().begin (); ! a.at_end (); ++a) {
@@ -4241,7 +4274,7 @@ LayoutViewBase::set_view_ops ()
   //  cell boxes
   if (m_cell_box_visible) {
 
-    lay::ViewOp vop;
+    lay::ViewOp vop, vopv;
 
     //  context level
     if (m_ctx_color.is_valid ()) {
@@ -4249,12 +4282,15 @@ LayoutViewBase::set_view_ops ()
     } else {
       vop = lay::ViewOp (lay::LayerProperties::brighter (box_color.rgb (), brightness_for_context), lay::ViewOp::Copy, 0, 0, 0);
     }
+    vopv = vop;
+    vopv.shape (lay::ViewOp::Cross);
+    vopv.width (mark_size);
 
     //  fill, frame, text, vertex
     view_ops.push_back (lay::ViewOp (0, lay::ViewOp::Or, 0, 0, 0));
     view_ops.push_back (vop);
     view_ops.push_back (vop);
-    view_ops.push_back (lay::ViewOp (0, lay::ViewOp::Or, 0, 0, 0));
+    view_ops.push_back (vopv);
 
     //  child level
     if (m_child_ctx_color.is_valid ()) {
@@ -4262,21 +4298,27 @@ LayoutViewBase::set_view_ops ()
     } else {
       vop = lay::ViewOp (lay::LayerProperties::brighter (box_color.rgb (), brightness_for_context), lay::ViewOp::Copy, 0, 0, 0);
     }
+    vopv = vop;
+    vopv.shape (lay::ViewOp::Cross);
+    vopv.width (mark_size);
 
     //  fill, frame, text, vertex
     view_ops.push_back (lay::ViewOp (0, lay::ViewOp::Or, 0, 0, 0));
     view_ops.push_back (vop);
     view_ops.push_back (vop);
-    view_ops.push_back (lay::ViewOp (0, lay::ViewOp::Or, 0, 0, 0));
+    view_ops.push_back (vopv);
 
     //  current level
     vop = lay::ViewOp (box_color.rgb (), lay::ViewOp::Copy, 0, 0, 0);
+    vopv = vop;
+    vopv.shape (lay::ViewOp::Cross);
+    vopv.width (mark_size);
 
     //  fill, frame, text, vertex
     view_ops.push_back (lay::ViewOp (0, lay::ViewOp::Or, 0, 0, 0));
     view_ops.push_back (vop);
     view_ops.push_back (vop);
-    view_ops.push_back (lay::ViewOp (0, lay::ViewOp::Or, 0, 0, 0));
+    view_ops.push_back (vopv);
 
   } else {
     //  invisible
@@ -4487,7 +4529,7 @@ LayoutViewBase::set_view_ops ()
           view_ops.push_back (lay::ViewOp (0, lay::ViewOp::Or, 0, 0, 0));
         }
         // vertex 
-        view_ops.push_back (lay::ViewOp (frame_color, mode, 0, 0, 0, lay::ViewOp::Cross, l->marked (true /*real*/) ? 9/*mark size*/ : 0)); // vertex
+        view_ops.push_back (lay::ViewOp (frame_color, mode, 0, 0, 0, lay::ViewOp::Cross, l->marked (true /*real*/) ? mark_size : 0)); // vertex
 
       } else {
         for (unsigned int i = 0; i < (unsigned int) planes_per_layer / 3; ++i) {
@@ -4817,13 +4859,6 @@ LayoutViewBase::background_color (tl::Color c)
   }
 
   do_set_background_color (c, contrast);
-
-  if (mp_selection_service) {
-    mp_selection_service->set_colors (c, contrast);
-  }
-  if (mp_zoom_service) {
-    mp_zoom_service->set_colors (c, contrast);
-  }
 
   //  Set the color for all ViewService interfaces
   for (std::vector<lay::Plugin *>::iterator p = mp_plugins.begin (); p != mp_plugins.end (); ++p) {
@@ -5487,7 +5522,7 @@ LayoutViewBase::paste_interactive (bool transient_mode)
   //  operations.
   trans->close ();
 
-  if (mp_move_service && mp_move_service->begin_move (trans.release (), transient_mode)) {
+  if (mp_move_service && mp_move_service->start_move (trans.release (), transient_mode)) {
     switch_mode (-1);  //  move mode
   }
 }
@@ -5766,20 +5801,12 @@ LayoutViewBase::mode (int m)
     m_mode = m;
     mp_active_plugin = 0;
 
-    if (m > 0) {
-
-      for (std::vector<lay::Plugin *>::iterator p = mp_plugins.begin (); p != mp_plugins.end (); ++p) {
-        if ((*p)->plugin_declaration ()->id () == m) {
-          mp_active_plugin = *p;
-          mp_canvas->activate ((*p)->view_service_interface ());
-          break;
-        }
+    for (std::vector<lay::Plugin *>::iterator p = mp_plugins.begin (); p != mp_plugins.end (); ++p) {
+      if ((*p)->plugin_declaration ()->id () == m) {
+        mp_active_plugin = *p;
+        mp_canvas->activate ((*p)->view_service_interface ());
+        break;
       }
-
-    } else if (m == 0 && mp_selection_service) {
-      mp_canvas->activate (mp_selection_service);
-    } else if (m == -1 && mp_move_service) {
-      mp_canvas->activate (mp_move_service);
     }
 
   }
@@ -5975,6 +6002,16 @@ LayoutViewBase::cv_transform_variants (int cv_index) const
 }
 
 std::vector<db::DCplxTrans>
+LayoutViewBase::cv_transform_variants_with_empty (int cv_index) const
+{
+  std::vector<db::DCplxTrans> trns_variants = cv_transform_variants (cv_index);
+  if (trns_variants.empty ()) {
+    trns_variants.push_back (db::DCplxTrans ());
+  }
+  return trns_variants;
+}
+
+std::vector<db::DCplxTrans>
 LayoutViewBase::cv_transform_variants (int cv_index, unsigned int layer) const
 {
   if (cellview (cv_index)->layout ().is_valid_layer (layer)) {
@@ -6034,7 +6071,32 @@ LayoutViewBase::cv_transform_variants () const
   return box_variants;
 }
 
-db::InstElement 
+std::set< std::pair<db::DCplxTrans, int> >
+LayoutViewBase::cv_transform_variants_with_empty () const
+{
+  std::set< std::pair<db::DCplxTrans, int> > box_variants = cv_transform_variants ();
+
+  //  add a default box variant for the CVs not present in the layer list to
+  //  draw boxes at least.
+
+  std::vector<bool> cv_present;
+  cv_present.resize (m_cellviews.size ());
+  for (auto bv = box_variants.begin (); bv != box_variants.end (); ++bv) {
+    if (bv->second >= 0 && bv->second < int (cv_present.size ())) {
+      cv_present[bv->second] = true;
+    }
+  }
+
+  for (auto i = cv_present.begin (); i != cv_present.end (); ++i) {
+    if (!*i) {
+      box_variants.insert (std::make_pair (db::DCplxTrans (), int (i - cv_present.begin ())));
+    }
+  }
+
+  return box_variants;
+}
+
+db::InstElement
 LayoutViewBase::ascend (int index)
 {
   tl_assert (int (m_cellviews.size ()) > index && cellview_iter (index)->is_valid ());

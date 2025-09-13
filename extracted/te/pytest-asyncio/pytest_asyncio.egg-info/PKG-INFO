@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest-asyncio
-Version: 1.1.0
+Version: 1.2.0
 Summary: Pytest support for asyncio
 Author-email: Tin Tvrtković <tinchester@gmail.com>
 Maintainer-email: Michael Seifert <m.seifert@digitalernachschub.de>
@@ -28,7 +28,7 @@ Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: backports-asyncio-runner<2,>=1.1; python_version < "3.11"
 Requires-Dist: pytest<9,>=8.2
-Requires-Dist: typing-extensions>=4.12; python_version < "3.10"
+Requires-Dist: typing-extensions>=4.12; python_version < "3.13"
 Provides-Extra: docs
 Requires-Dist: sphinx>=5.3; extra == "docs"
 Requires-Dist: sphinx-rtd-theme>=1; extra == "docs"

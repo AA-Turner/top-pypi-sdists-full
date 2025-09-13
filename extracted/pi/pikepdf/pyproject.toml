@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pikepdf"
-version = "9.10.2"
+version = "9.11.0"
 description = "Read and write PDFs with Python, powered by qpdf"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -74,9 +74,10 @@ test-extras = "test"
 #   build.yml sets CIBW_BUILD to select what can be built
 #   this file sets skip to deselect what cannot be built
 skip = [
-  "*-win32", # no 32-bit builds/not supported by Pillow anymore
+  "*-win32",  # no 32-bit builds/not supported by Pillow anymore,
+  "cp3??t-*", # no freethreading builds
 ]
-build-frontend = "build"
+build-frontend = "build[uv]"
 
 [tool.cibuildwheel.environment]
 QPDF_MIN_VERSION = "11.9.0"
@@ -243,4 +244,4 @@ convention = "google"
 quote-style = "preserve"
 
 [dependency-groups]
-dev = []
+dev = ["ruff>=0.12.9"]

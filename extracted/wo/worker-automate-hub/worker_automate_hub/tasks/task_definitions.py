@@ -99,6 +99,9 @@ from worker_automate_hub.tasks.jobs.extracao_fechamento_contabil import (
 from worker_automate_hub.tasks.jobs.extracao_fechamento_emsys import (
     extracao_fechamento_emsys,
 )
+from worker_automate_hub.tasks.jobs.opex_capex import (
+    opex_capex,
+)
 
 
 task_definitions = {
@@ -117,6 +120,7 @@ task_definitions = {
     "9e5a1c05-9336-4b2d-814e-4d0e9f0057e1": entrada_de_notas_33,
     "08a112db-7683-417b-9a87-14ad0e1548da": entrada_de_notas_34,
     "1e354c95-f4e4-4e12-aaf6-4ef836cc741b": entrada_de_notas_36,
+    "33d9edeb-7cb2-449b-9096-ed9cf3d3f6c3": entrada_de_notas_37,
     "bf763394-918b-47be-bb36-7cddc81a8174": entrada_de_notas_39,
     "dafc0407-da8f-43a1-b97a-d27f966e122a": entrada_de_notas_207,
     "e1051c43-3495-4ca7-91d5-527fea2b5f79": entrada_de_notas_500,
@@ -203,7 +207,7 @@ task_definitions = {
     "8c28726d-458d-4119-afa0-202695b79a8f": extracao_fechamento_emsys,
     "16debe45-3520-4f63-acfe-ef0e8784fcab": extracao_saldo_estoque,
     "9cbc6016-7c0e-4a3a-8ee9-fb9dc4b35e33": extracao_saldo_estoque_fiscal,
-    "33d9edeb-7cb2-449b-9096-ed9cf3d3f6c3": entrada_de_notas_37,
+    "07072711-c9d0-49e4-b180-530cecbe0728": opex_capex
 }
 
 

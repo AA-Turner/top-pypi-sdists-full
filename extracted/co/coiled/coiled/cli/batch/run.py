@@ -10,15 +10,18 @@ import shlex
 
 import click
 import dask.config
+import yaml
 from dask.utils import format_bytes, format_time, parse_timedelta
 from rich.console import Console
 from rich.panel import Panel
 
 import coiled
+from coiled.cli.batch.wait import batch_job_wait
 from coiled.cli.curl import sync_request
 from coiled.cli.run import dict_from_key_val_list
 from coiled.cli.utils import CONTEXT_SETTINGS, fix_path_for_upload
 from coiled.credentials.aws import get_aws_local_session_token
+from coiled.filestore import FilestoreManager, upload_to_filestore_with_ui
 from coiled.utils import COILED_LOGGER_NAME, error_info_for_tracking, supress_logs
 
 console = Console(width=80)
@@ -103,7 +106,7 @@ def handle_possible_implicit_file(implicit_file):
             "remote_path": f"/scratch/{remote_rel_dir}{remote_base}",
             "content": file_content,
         }
-    elif any(implicit_file.endswith(t) for t in UPLOAD_FILE_TYPES):
+    elif any(implicit_file.endswith(t) and "$" not in implicit_file for t in UPLOAD_FILE_TYPES):
         console.print(
             f"[orange1]WARNING:[/orange1] {implicit_file} appears to be a filename, "
             "but this file not found locally and will not be copied to VMs",
@@ -334,6 +337,50 @@ def get_kwargs_from_header(f: dict, click_params: list):
         "Delimiter for splitting the string from ``--map-over-values`` or the file contents from ``--map-over-file`` "
         "into individual values. By default this is ',' for ``--map-over-values`` and newline for ``--map-over-file``."
     ),
+)
+@click.option("--wait", default=None, is_flag=True)
+@click.option(
+    "--upload",
+    "local_upload_path",
+    default=None,
+    type=str,
+    help=(
+        "File or directory to upload to cloud storage and download onto the VM(s). "
+        "By default files will be copied into the working directory on VM where your batch script runs."
+    ),
+)
+@click.option(
+    "--download",
+    "local_download_path",
+    default=None,
+    type=str,
+    help=(
+        "When used with ``--wait``, output files from job will be downloaded into this local directory "
+        "when job is complete. When used without ``--wait``, files won't be automatically downloaded, "
+        "but job will be configured to store result files in cloud storage for later download."
+    ),
+)
+@click.option(
+    "--sync",
+    "local_sync_path",
+    default=None,
+    type=str,
+    help="Equivalent to specifying both ``--upload`` and ``--download`` with the same local directory.",
+)
+@click.option(
+    "--pipe-to-files",
+    default=None,
+    is_flag=True,
+    help=(
+        "Write stdout and stderr from each task to files which can be downloaded when job is complete. "
+        "This is in addition to sending stdout and stderr to logs, and is more convenient than logs for when "
+        "you want to use outputs from tasks as inputs to further processing)."
+    ),
+)
+@click.option("--input-filestore", default=None, type=str, help="Name of input filestore")
+@click.option("--output-filestore", default=None, type=str, help="Name of output filestore")
+@click.option(
+    "--scheduler-sidecar-spec", default=None, type=str, help="Filename for scheduler sidecar spec (yaml or json)"
 )
 @click.option(
     "--ntasks",
@@ -707,6 +754,26 @@ def _batch_run(default_kwargs, logger=None, from_cli=False, **kwargs) -> dict:
 
     batch_job_container = f"{kwargs['container']}!" if kwargs["ignore_container_entrypoint"] else kwargs["container"]
 
+    scheduler_sidecars = []
+    if kwargs.get("scheduler_sidecar_spec"):
+        with open(kwargs["scheduler_sidecar_spec"]) as f:
+            if kwargs["scheduler_sidecar_spec"].endswith((".yaml", ".yml")):
+                sidecar_spec = yaml.safe_load(f)
+            elif kwargs["scheduler_sidecar_spec"].endswith(".json"):
+                sidecar_spec = json.load(f)
+            else:
+                raise ValueError(f"Unknown format for {kwargs['scheduler_sidecar_spec']}, json or yaml expected.")
+
+            # support either list-like or dict-like
+            if isinstance(sidecar_spec, list):
+                scheduler_sidecars = sidecar_spec
+            if isinstance(sidecar_spec, dict):
+                scheduler_sidecars = [{"name": key, **val} for key, val in sidecar_spec.items()]
+
+            for sidecar in scheduler_sidecars:
+                # allow `image` as the key, to match docker compose spec
+                sidecar["container"] = sidecar.get("container") or sidecar.get("image")
+
     cluster_kwargs = {
         "name": kwargs["name"],
         "workspace": kwargs["workspace"],
@@ -739,6 +806,7 @@ def _batch_run(default_kwargs, logger=None, from_cli=False, **kwargs) -> dict:
         "package_sync_conda_extras": kwargs.get("package_sync_conda_extras"),
         "package_sync_ignore": kwargs.get("package_sync_ignore"),
         "allow_cross_zone": True if kwargs["allow_cross_zone"] is None else kwargs["allow_cross_zone"],
+        "scheduler_sidecars": scheduler_sidecars,
     }
 
     # when task will run on scheduler, give it the same VM specs as worker node
@@ -771,6 +839,7 @@ def _batch_run(default_kwargs, logger=None, from_cli=False, **kwargs) -> dict:
         # Avoid possibly breaking prefect batch jobs
         # https://github.com/coiled/platform/pull/8655#pullrequestreview-2826448869
         "workdir": None if "flow-run-id" in tags else "/scratch/batch",
+        "pipe_to_files": bool(kwargs.get("pipe_to_files")),
         "host_setup": host_setup_content,
         "job_timeout_seconds": parse_timedelta(kwargs["job_timeout"]) if kwargs["job_timeout"] else None,
     }
@@ -796,12 +865,58 @@ def _batch_run(default_kwargs, logger=None, from_cli=False, **kwargs) -> dict:
 
         job_id = response["id"]
 
+        filestores_to_attach = []
+
+        for sidecar in scheduler_sidecars:
+            for attachment in sidecar.get("filestores") or []:
+                filestores_to_attach.append({"worker": False, "input": True, "output": True, **attachment})
+
+        # only create and attach filestores if using upload or indicate desire to store results
+        if (
+            kwargs.get("local_upload_path")
+            or kwargs.get("local_sync_path")
+            or kwargs.get("local_download_path")
+            or kwargs.get("pipe_to_files")
+            or kwargs.get("input_filestore")
+            or kwargs.get("output_filestore")
+        ):
+            fs_base_name = kwargs["name"] or f"batch-job-{job_id}"
+
+            in_fs_name = kwargs.get("input_filestore") or f"{fs_base_name}-input"
+            out_fs_name = kwargs.get("output_filestore") or f"{fs_base_name}-output"
+
+            filestores = FilestoreManager.get_or_create_filestores(
+                names=[in_fs_name, out_fs_name],
+                workspace=job_spec["workspace"],
+                region=kwargs["region"],
+            )
+
+            in_fs = filestores[0]
+            out_fs = filestores[1]
+
+            filestores_to_attach.extend([
+                {"id": in_fs["id"], "input": True, "path": "/scratch/batch/", "primary": True},
+                {"id": out_fs["id"], "output": True, "path": "/scratch/batch/", "primary": True},
+            ])
+
+            if kwargs.get("local_upload_path") or kwargs.get("local_sync_path"):
+                upload_to_filestore_with_ui(
+                    fs=in_fs, local_dir=kwargs.get("local_upload_path") or kwargs.get("local_sync_path")
+                )
+
         # Run the job on a cluster
         with supress_logs([COILED_LOGGER_NAME], level=logging.WARNING):
             cluster = coiled.Cluster(
                 cloud=cloud,
                 batch_job_ids=[job_id],
                 **cluster_kwargs,
+            )
+
+        # TODO support for attaching as part of create request
+        if filestores_to_attach:
+            FilestoreManager.attach_filestores_to_cluster(
+                cluster_id=cluster.cluster_id,
+                attachments=filestores_to_attach,
             )
 
         if logger:
@@ -822,17 +937,31 @@ Tasks:       {n_tasks}
                     status_command = f"{status_command} --workspace {kwargs['workspace']}"
             else:
                 status_command = f"coiled.batch.status({cluster.cluster_id})"
+            track_status_message = (
+                f"""
+
+To track progress run:
+
+  [green]{status_command}[/]
+"""
+                if not kwargs.get("wait")
+                else ""
+            )
+
             message = f"""
 [bold]Command[/]:     [bright_blue]{coiled.utils.join_command_parts(command)}[/]
 [bold]Cluster ID[/]:  [bright_blue]{cluster.cluster_id}[/]
 [bold]URL[/]:         [link][bright_blue]{cluster.details_url}[/bright_blue][/link]
 [bold]Tasks[/]:       [bright_blue]{n_tasks}[/]
-
-To track progress run:
-
-  [green]{status_command}[/]
-{extra_message}"""
+{track_status_message}{extra_message}"""
 
             console.print(Panel(message, title="Coiled Batch"))
+
+        if kwargs.get("wait") and cluster.cluster_id:
+            batch_job_wait(
+                cluster_id=cluster.cluster_id,
+                workspace=job_spec["workspace"],
+                download=kwargs.get("local_download_path") or kwargs.get("local_sync_path"),
+            )
 
         return {"cluster_id": cluster.cluster_id, "cluster_name": cluster.name, "job_id": job_id}

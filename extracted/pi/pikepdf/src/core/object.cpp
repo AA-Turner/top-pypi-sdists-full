@@ -337,7 +337,7 @@ void init_object(py::module_ &m)
 #if _MSC_VER
 #    pragma warning(suppress : 4267)
 #endif
-    py::class_<QPDFObjectHandle>(m, "Object")
+    py::class_<QPDFObjectHandle, py::smart_holder>(m, "Object")
         .def_property_readonly("_type_code", &QPDFObjectHandle::getTypeCode)
         .def_property_readonly("_type_name", &QPDFObjectHandle::getTypeName)
         .def(
@@ -809,6 +809,16 @@ void init_object(py::module_ &m)
                 return og.getInstructions();
             })
         .def(
+            "_get_unique_resource_name",
+            [](QPDFObjectHandle &h, std::string const &prefix, int min_suffix) {
+                auto name = h.getUniqueResourceName(prefix, min_suffix);
+                return std::pair(name, min_suffix);
+            },
+            py::arg("prefix")     = "",
+            py::arg("min_suffix") = 0)
+        .def("_get_resource_names",
+            [](QPDFObjectHandle &h) { return h.getResourceNames(); })
+        .def(
             "unparse",
             [](QPDFObjectHandle &h, bool resolved) -> py::bytes {
                 if (resolved)
@@ -868,7 +878,8 @@ void init_object(py::module_ &m)
         py::arg("op"));
     m.def("_Null", &QPDFObjectHandle::newNull, "Construct a PDF Null object");
 
-    py::class_<QPDFObjectHandle::ParserCallbacks, PyParserCallbacks>(m, "StreamParser")
+    py::class_<QPDFObjectHandle::ParserCallbacks, py::smart_holder, PyParserCallbacks>(
+        m, "StreamParser")
         .def(py::init<>(), "You must call ``super.__init__()`` in subclasses.")
         // LCOV_EXCL_START
         // coverage misses the virtual function call ::handleObject here.

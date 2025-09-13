@@ -23,7 +23,7 @@ def equal_jitter_backoff(cap, base=SDK_DEFAULT_BASE_DELAY_MS, attempts=0):
                          "got: %s" % base)
 
     temp = min(cap, base * 2 ** attempts)
-    time_to_sleep = temp / 2 + random.randint(0, temp / 2)
+    time_to_sleep = temp / 2 + random.randint(0, int(temp / 2))
     return time_to_sleep
 
 

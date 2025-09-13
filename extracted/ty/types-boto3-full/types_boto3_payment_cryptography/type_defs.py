@@ -33,6 +33,7 @@ from .literals import (
     KeyStateType,
     KeyUsageType,
     MultiRegionKeyTypeType,
+    SigningAlgorithmTypeType,
     SymmetricKeyAlgorithmType,
     WrappedKeyMaterialFormatType,
     WrappingKeySpecType,
@@ -54,6 +55,7 @@ __all__ = (
     "AddKeyReplicationRegionsInputTypeDef",
     "AddKeyReplicationRegionsOutputTypeDef",
     "AliasTypeDef",
+    "CertificateSubjectTypeTypeDef",
     "CreateAliasInputTypeDef",
     "CreateAliasOutputTypeDef",
     "CreateKeyInputTypeDef",
@@ -77,6 +79,8 @@ __all__ = (
     "ExportTr34KeyBlockTypeDef",
     "GetAliasInputTypeDef",
     "GetAliasOutputTypeDef",
+    "GetCertificateSigningRequestInputTypeDef",
+    "GetCertificateSigningRequestOutputTypeDef",
     "GetDefaultKeyReplicationRegionsOutputTypeDef",
     "GetKeyInputTypeDef",
     "GetKeyOutputTypeDef",
@@ -145,6 +149,16 @@ class ResponseMetadataTypeDef(TypedDict):
 class AliasTypeDef(TypedDict):
     AliasName: str
     KeyArn: NotRequired[str]
+
+
+class CertificateSubjectTypeTypeDef(TypedDict):
+    CommonName: str
+    OrganizationUnit: NotRequired[str]
+    Organization: NotRequired[str]
+    City: NotRequired[str]
+    Country: NotRequired[str]
+    StateOrProvince: NotRequired[str]
+    EmailAddress: NotRequired[str]
 
 
 class CreateAliasInputTypeDef(TypedDict):
@@ -226,9 +240,11 @@ class ImportTr31KeyBlockTypeDef(TypedDict):
 class ImportTr34KeyBlockTypeDef(TypedDict):
     CertificateAuthorityPublicKeyIdentifier: str
     SigningKeyCertificate: str
-    ImportToken: str
     WrappedKeyBlock: str
     KeyBlockFormat: Literal["X9_TR34_2012"]
+    ImportToken: NotRequired[str]
+    WrappingKeyIdentifier: NotRequired[str]
+    WrappingKeyCertificate: NotRequired[str]
     RandomNonce: NotRequired[str]
 
 
@@ -310,6 +326,11 @@ class EnableDefaultKeyReplicationRegionsOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class GetCertificateSigningRequestOutputTypeDef(TypedDict):
+    CertificateSigningRequest: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class GetDefaultKeyReplicationRegionsOutputTypeDef(TypedDict):
     EnabledReplicationRegions: List[str]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -358,6 +379,12 @@ class ListAliasesOutputTypeDef(TypedDict):
 class UpdateAliasOutputTypeDef(TypedDict):
     Alias: AliasTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetCertificateSigningRequestInputTypeDef(TypedDict):
+    KeyIdentifier: str
+    SigningAlgorithm: SigningAlgorithmTypeType
+    CertificateSubject: CertificateSubjectTypeTypeDef
 
 
 class ListTagsForResourceOutputTypeDef(TypedDict):
@@ -501,8 +528,10 @@ class ExportTr31KeyBlockTypeDef(TypedDict):
 class ExportTr34KeyBlockTypeDef(TypedDict):
     CertificateAuthorityPublicKeyIdentifier: str
     WrappingKeyCertificate: str
-    ExportToken: str
     KeyBlockFormat: Literal["X9_TR34_2012"]
+    ExportToken: NotRequired[str]
+    SigningKeyIdentifier: NotRequired[str]
+    SigningKeyCertificate: NotRequired[str]
     RandomNonce: NotRequired[str]
     KeyBlockHeaders: NotRequired[KeyBlockHeadersTypeDef]
 

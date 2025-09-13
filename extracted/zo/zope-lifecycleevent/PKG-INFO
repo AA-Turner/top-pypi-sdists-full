@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: zope.lifecycleevent
-Version: 5.1
+Version: 6.0
 Summary: Object life-cycle events
 Home-page: http://github.com/zopefoundation/zope.lifecycleevent
 Author: Zope Foundation and Contributors
@@ -31,10 +31,22 @@ Provides-Extra: test
 Requires-Dist: zope.component; extra == "test"
 Requires-Dist: zope.configuration; extra == "test"
 Requires-Dist: zope.testing; extra == "test"
-Requires-Dist: zope.testrunner; extra == "test"
+Requires-Dist: zope.testrunner>=6.4; extra == "test"
 Provides-Extra: docs
 Requires-Dist: repoze.sphinx.autointerface; extra == "docs"
 Requires-Dist: sphinx_rtd_theme; extra == "docs"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 =========================
  ``zope.lifecycleevent``
@@ -76,6 +88,12 @@ Documentation is hosted at https://zopelifecycleevent.readthedocs.io
 =========
  Changes
 =========
+
+6.0 (2025-09-12)
+================
+
+- Replace ``pkg_resources`` namespace with PEP 420 native namespace.
+
 
 5.1 (2025-02-14)
 ================

@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: zope.component
-Version: 6.1
+Version: 7.0
 Summary: Zope Component Architecture
 Home-page: https://github.com/zopefoundation/zope.component
 Author: Zope Foundation and Contributors
@@ -47,12 +47,12 @@ Provides-Extra: mintests
 Requires-Dist: zope.configuration; extra == "mintests"
 Requires-Dist: zope.i18nmessageid; extra == "mintests"
 Requires-Dist: zope.testing; extra == "mintests"
-Requires-Dist: zope.testrunner; extra == "mintests"
+Requires-Dist: zope.testrunner>=6.4; extra == "mintests"
 Provides-Extra: test
 Requires-Dist: zope.configuration; extra == "test"
 Requires-Dist: zope.i18nmessageid; extra == "test"
 Requires-Dist: zope.testing; extra == "test"
-Requires-Dist: zope.testrunner; extra == "test"
+Requires-Dist: zope.testrunner>=6.4; extra == "test"
 Requires-Dist: persistent; extra == "test"
 Requires-Dist: zope.location; extra == "test"
 Requires-Dist: zope.proxy; extra == "test"
@@ -68,6 +68,7 @@ Dynamic: description
 Dynamic: home-page
 Dynamic: keywords
 Dynamic: license
+Dynamic: license-file
 Dynamic: project-url
 Dynamic: provides-extra
 Dynamic: requires-dist
@@ -116,6 +117,12 @@ documentation.
 =========
  Changes
 =========
+
+7.0 (2025-09-12)
+================
+
+- Replace ``pkg_resources`` namespace with PEP 420 native namespace.
+
 
 6.1 (2025-09-09)
 ================

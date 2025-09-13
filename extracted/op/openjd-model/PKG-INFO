@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openjd-model
-Version: 0.8.3
+Version: 0.8.4
 Summary: Provides a Python implementation of the data model for Open Job Description's template schemas.
 Project-URL: Homepage, https://github.com/OpenJobDescription/openjd-model-for-python
 Project-URL: Source, https://github.com/OpenJobDescription/openjd-model-for-python

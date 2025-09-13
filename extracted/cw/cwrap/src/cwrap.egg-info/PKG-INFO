@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: cwrap
-Version: 1.6.9
+Version: 1.6.10
 Summary: cwrap - ctypes blanket
 Author-email: Equinor ASA <fg_sib-scout@equinor.com>
 License: GPL-3.0
@@ -22,6 +22,7 @@ Classifier: Topic :: Utilities
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Dynamic: license-file
 
 # cwrap
 

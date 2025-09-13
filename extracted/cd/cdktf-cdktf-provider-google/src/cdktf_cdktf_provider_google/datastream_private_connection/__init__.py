@@ -1,7 +1,7 @@
 r'''
 # `google_datastream_private_connection`
 
-Refer to the Terraform Registry for docs: [`google_datastream_private_connection`](https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/datastream_private_connection).
+Refer to the Terraform Registry for docs: [`google_datastream_private_connection`](https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/datastream_private_connection).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DatastreamPrivateConnection(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.datastreamPrivateConnection.DatastreamPrivateConnection",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/datastream_private_connection google_datastream_private_connection}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/datastream_private_connection google_datastream_private_connection}.'''
 
     def __init__(
         self,
@@ -69,20 +69,20 @@ class DatastreamPrivateConnection(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/datastream_private_connection google_datastream_private_connection} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/datastream_private_connection google_datastream_private_connection} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param display_name: Display name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/datastream_private_connection#display_name DatastreamPrivateConnection#display_name}
-        :param location: The name of the location this private connection is located in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/datastream_private_connection#location DatastreamPrivateConnection#location}
-        :param private_connection_id: The private connectivity identifier. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/datastream_private_connection#private_connection_id DatastreamPrivateConnection#private_connection_id}
-        :param create_without_validation: If set to true, will skip validations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/datastream_private_connection#create_without_validation DatastreamPrivateConnection#create_without_validation}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/datastream_private_connection#id DatastreamPrivateConnection#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Labels. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/datastream_private_connection#labels DatastreamPrivateConnection#labels}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/datastream_private_connection#project DatastreamPrivateConnection#project}.
-        :param psc_interface_config: psc_interface_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/datastream_private_connection#psc_interface_config DatastreamPrivateConnection#psc_interface_config}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/datastream_private_connection#timeouts DatastreamPrivateConnection#timeouts}
-        :param vpc_peering_config: vpc_peering_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/datastream_private_connection#vpc_peering_config DatastreamPrivateConnection#vpc_peering_config}
+        :param display_name: Display name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/datastream_private_connection#display_name DatastreamPrivateConnection#display_name}
+        :param location: The name of the location this private connection is located in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/datastream_private_connection#location DatastreamPrivateConnection#location}
+        :param private_connection_id: The private connectivity identifier. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/datastream_private_connection#private_connection_id DatastreamPrivateConnection#private_connection_id}
+        :param create_without_validation: If set to true, will skip validations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/datastream_private_connection#create_without_validation DatastreamPrivateConnection#create_without_validation}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/datastream_private_connection#id DatastreamPrivateConnection#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Labels. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/datastream_private_connection#labels DatastreamPrivateConnection#labels}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/datastream_private_connection#project DatastreamPrivateConnection#project}.
+        :param psc_interface_config: psc_interface_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/datastream_private_connection#psc_interface_config DatastreamPrivateConnection#psc_interface_config}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/datastream_private_connection#timeouts DatastreamPrivateConnection#timeouts}
+        :param vpc_peering_config: vpc_peering_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/datastream_private_connection#vpc_peering_config DatastreamPrivateConnection#vpc_peering_config}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -130,7 +130,7 @@ class DatastreamPrivateConnection(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DatastreamPrivateConnection to import.
-        :param import_from_id: The id of the existing DatastreamPrivateConnection that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/datastream_private_connection#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DatastreamPrivateConnection that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/datastream_private_connection#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DatastreamPrivateConnection to import is found.
         '''
         if __debug__:
@@ -144,7 +144,7 @@ class DatastreamPrivateConnection(
     @jsii.member(jsii_name="putPscInterfaceConfig")
     def put_psc_interface_config(self, *, network_attachment: builtins.str) -> None:
         '''
-        :param network_attachment: Fully qualified name of the network attachment that Datastream will connect to. Format: projects/{project}/regions/{region}/networkAttachments/{name}. To get Datastream project for the accepted list: 'gcloud datastream private-connections create [PC ID] --location=[LOCATION] --network-attachment=[NA URI] --validate-only --display-name=[ANY STRING]' Add Datastream project to the attachment accepted list: 'gcloud compute network-attachments update [NA URI] --region=[NA region] --producer-accept-list=[TP from prev command]' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/datastream_private_connection#network_attachment DatastreamPrivateConnection#network_attachment}
+        :param network_attachment: Fully qualified name of the network attachment that Datastream will connect to. Format: projects/{project}/regions/{region}/networkAttachments/{name}. To get Datastream project for the accepted list: 'gcloud datastream private-connections create [PC ID] --location=[LOCATION] --network-attachment=[NA URI] --validate-only --display-name=[ANY STRING]' Add Datastream project to the attachment accepted list: 'gcloud compute network-attachments update [NA URI] --region=[NA region] --producer-accept-list=[TP from prev command]' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/datastream_private_connection#network_attachment DatastreamPrivateConnection#network_attachment}
         '''
         value = DatastreamPrivateConnectionPscInterfaceConfig(
             network_attachment=network_attachment
@@ -161,9 +161,9 @@ class DatastreamPrivateConnection(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/datastream_private_connection#create DatastreamPrivateConnection#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/datastream_private_connection#delete DatastreamPrivateConnection#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/datastream_private_connection#update DatastreamPrivateConnection#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/datastream_private_connection#create DatastreamPrivateConnection#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/datastream_private_connection#delete DatastreamPrivateConnection#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/datastream_private_connection#update DatastreamPrivateConnection#update}.
         '''
         value = DatastreamPrivateConnectionTimeouts(
             create=create, delete=delete, update=update
@@ -179,8 +179,8 @@ class DatastreamPrivateConnection(
         vpc: builtins.str,
     ) -> None:
         '''
-        :param subnet: A free subnet for peering. (CIDR of /29). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/datastream_private_connection#subnet DatastreamPrivateConnection#subnet}
-        :param vpc: Fully qualified name of the VPC that Datastream will peer to. Format: projects/{project}/global/{networks}/{name}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/datastream_private_connection#vpc DatastreamPrivateConnection#vpc}
+        :param subnet: A free subnet for peering. (CIDR of /29). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/datastream_private_connection#subnet DatastreamPrivateConnection#subnet}
+        :param vpc: Fully qualified name of the VPC that Datastream will peer to. Format: projects/{project}/global/{networks}/{name}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/datastream_private_connection#vpc DatastreamPrivateConnection#vpc}
         '''
         value = DatastreamPrivateConnectionVpcPeeringConfig(subnet=subnet, vpc=vpc)
 
@@ -474,16 +474,16 @@ class DatastreamPrivateConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param display_name: Display name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/datastream_private_connection#display_name DatastreamPrivateConnection#display_name}
-        :param location: The name of the location this private connection is located in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/datastream_private_connection#location DatastreamPrivateConnection#location}
-        :param private_connection_id: The private connectivity identifier. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/datastream_private_connection#private_connection_id DatastreamPrivateConnection#private_connection_id}
-        :param create_without_validation: If set to true, will skip validations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/datastream_private_connection#create_without_validation DatastreamPrivateConnection#create_without_validation}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/datastream_private_connection#id DatastreamPrivateConnection#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: Labels. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/datastream_private_connection#labels DatastreamPrivateConnection#labels}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/datastream_private_connection#project DatastreamPrivateConnection#project}.
-        :param psc_interface_config: psc_interface_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/datastream_private_connection#psc_interface_config DatastreamPrivateConnection#psc_interface_config}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/datastream_private_connection#timeouts DatastreamPrivateConnection#timeouts}
-        :param vpc_peering_config: vpc_peering_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/datastream_private_connection#vpc_peering_config DatastreamPrivateConnection#vpc_peering_config}
+        :param display_name: Display name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/datastream_private_connection#display_name DatastreamPrivateConnection#display_name}
+        :param location: The name of the location this private connection is located in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/datastream_private_connection#location DatastreamPrivateConnection#location}
+        :param private_connection_id: The private connectivity identifier. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/datastream_private_connection#private_connection_id DatastreamPrivateConnection#private_connection_id}
+        :param create_without_validation: If set to true, will skip validations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/datastream_private_connection#create_without_validation DatastreamPrivateConnection#create_without_validation}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/datastream_private_connection#id DatastreamPrivateConnection#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: Labels. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/datastream_private_connection#labels DatastreamPrivateConnection#labels}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/datastream_private_connection#project DatastreamPrivateConnection#project}.
+        :param psc_interface_config: psc_interface_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/datastream_private_connection#psc_interface_config DatastreamPrivateConnection#psc_interface_config}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/datastream_private_connection#timeouts DatastreamPrivateConnection#timeouts}
+        :param vpc_peering_config: vpc_peering_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/datastream_private_connection#vpc_peering_config DatastreamPrivateConnection#vpc_peering_config}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -614,7 +614,7 @@ class DatastreamPrivateConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def display_name(self) -> builtins.str:
         '''Display name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/datastream_private_connection#display_name DatastreamPrivateConnection#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/datastream_private_connection#display_name DatastreamPrivateConnection#display_name}
         '''
         result = self._values.get("display_name")
         assert result is not None, "Required property 'display_name' is missing"
@@ -624,7 +624,7 @@ class DatastreamPrivateConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''The name of the location this private connection is located in.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/datastream_private_connection#location DatastreamPrivateConnection#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/datastream_private_connection#location DatastreamPrivateConnection#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -634,7 +634,7 @@ class DatastreamPrivateConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def private_connection_id(self) -> builtins.str:
         '''The private connectivity identifier.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/datastream_private_connection#private_connection_id DatastreamPrivateConnection#private_connection_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/datastream_private_connection#private_connection_id DatastreamPrivateConnection#private_connection_id}
         '''
         result = self._values.get("private_connection_id")
         assert result is not None, "Required property 'private_connection_id' is missing"
@@ -646,14 +646,14 @@ class DatastreamPrivateConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If set to true, will skip validations.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/datastream_private_connection#create_without_validation DatastreamPrivateConnection#create_without_validation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/datastream_private_connection#create_without_validation DatastreamPrivateConnection#create_without_validation}
         '''
         result = self._values.get("create_without_validation")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/datastream_private_connection#id DatastreamPrivateConnection#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/datastream_private_connection#id DatastreamPrivateConnection#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -668,14 +668,14 @@ class DatastreamPrivateConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/datastream_private_connection#labels DatastreamPrivateConnection#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/datastream_private_connection#labels DatastreamPrivateConnection#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/datastream_private_connection#project DatastreamPrivateConnection#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/datastream_private_connection#project DatastreamPrivateConnection#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -685,7 +685,7 @@ class DatastreamPrivateConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["DatastreamPrivateConnectionPscInterfaceConfig"]:
         '''psc_interface_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/datastream_private_connection#psc_interface_config DatastreamPrivateConnection#psc_interface_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/datastream_private_connection#psc_interface_config DatastreamPrivateConnection#psc_interface_config}
         '''
         result = self._values.get("psc_interface_config")
         return typing.cast(typing.Optional["DatastreamPrivateConnectionPscInterfaceConfig"], result)
@@ -694,7 +694,7 @@ class DatastreamPrivateConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["DatastreamPrivateConnectionTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/datastream_private_connection#timeouts DatastreamPrivateConnection#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/datastream_private_connection#timeouts DatastreamPrivateConnection#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DatastreamPrivateConnectionTimeouts"], result)
@@ -705,7 +705,7 @@ class DatastreamPrivateConnectionConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["DatastreamPrivateConnectionVpcPeeringConfig"]:
         '''vpc_peering_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/datastream_private_connection#vpc_peering_config DatastreamPrivateConnection#vpc_peering_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/datastream_private_connection#vpc_peering_config DatastreamPrivateConnection#vpc_peering_config}
         '''
         result = self._values.get("vpc_peering_config")
         return typing.cast(typing.Optional["DatastreamPrivateConnectionVpcPeeringConfig"], result)
@@ -879,7 +879,7 @@ class DatastreamPrivateConnectionErrorOutputReference(
 class DatastreamPrivateConnectionPscInterfaceConfig:
     def __init__(self, *, network_attachment: builtins.str) -> None:
         '''
-        :param network_attachment: Fully qualified name of the network attachment that Datastream will connect to. Format: projects/{project}/regions/{region}/networkAttachments/{name}. To get Datastream project for the accepted list: 'gcloud datastream private-connections create [PC ID] --location=[LOCATION] --network-attachment=[NA URI] --validate-only --display-name=[ANY STRING]' Add Datastream project to the attachment accepted list: 'gcloud compute network-attachments update [NA URI] --region=[NA region] --producer-accept-list=[TP from prev command]' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/datastream_private_connection#network_attachment DatastreamPrivateConnection#network_attachment}
+        :param network_attachment: Fully qualified name of the network attachment that Datastream will connect to. Format: projects/{project}/regions/{region}/networkAttachments/{name}. To get Datastream project for the accepted list: 'gcloud datastream private-connections create [PC ID] --location=[LOCATION] --network-attachment=[NA URI] --validate-only --display-name=[ANY STRING]' Add Datastream project to the attachment accepted list: 'gcloud compute network-attachments update [NA URI] --region=[NA region] --producer-accept-list=[TP from prev command]' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/datastream_private_connection#network_attachment DatastreamPrivateConnection#network_attachment}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a01c30b1af3a147e5e2ef2d3eade858af25aeeefdfc85d428764ce5e0cfc58f1)
@@ -897,7 +897,7 @@ class DatastreamPrivateConnectionPscInterfaceConfig:
         Add Datastream project to the attachment accepted list:
         'gcloud compute network-attachments update [NA URI] --region=[NA region] --producer-accept-list=[TP from prev command]'
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/datastream_private_connection#network_attachment DatastreamPrivateConnection#network_attachment}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/datastream_private_connection#network_attachment DatastreamPrivateConnection#network_attachment}
         '''
         result = self._values.get("network_attachment")
         assert result is not None, "Required property 'network_attachment' is missing"
@@ -984,9 +984,9 @@ class DatastreamPrivateConnectionTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/datastream_private_connection#create DatastreamPrivateConnection#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/datastream_private_connection#delete DatastreamPrivateConnection#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/datastream_private_connection#update DatastreamPrivateConnection#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/datastream_private_connection#create DatastreamPrivateConnection#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/datastream_private_connection#delete DatastreamPrivateConnection#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/datastream_private_connection#update DatastreamPrivateConnection#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a34f0eac934d22eda8ada46299147a5fa9540ecf7a1a7f0727f2696477c6d136)
@@ -1003,19 +1003,19 @@ class DatastreamPrivateConnectionTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/datastream_private_connection#create DatastreamPrivateConnection#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/datastream_private_connection#create DatastreamPrivateConnection#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/datastream_private_connection#delete DatastreamPrivateConnection#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/datastream_private_connection#delete DatastreamPrivateConnection#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/datastream_private_connection#update DatastreamPrivateConnection#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/datastream_private_connection#update DatastreamPrivateConnection#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1140,8 +1140,8 @@ class DatastreamPrivateConnectionTimeoutsOutputReference(
 class DatastreamPrivateConnectionVpcPeeringConfig:
     def __init__(self, *, subnet: builtins.str, vpc: builtins.str) -> None:
         '''
-        :param subnet: A free subnet for peering. (CIDR of /29). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/datastream_private_connection#subnet DatastreamPrivateConnection#subnet}
-        :param vpc: Fully qualified name of the VPC that Datastream will peer to. Format: projects/{project}/global/{networks}/{name}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/datastream_private_connection#vpc DatastreamPrivateConnection#vpc}
+        :param subnet: A free subnet for peering. (CIDR of /29). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/datastream_private_connection#subnet DatastreamPrivateConnection#subnet}
+        :param vpc: Fully qualified name of the VPC that Datastream will peer to. Format: projects/{project}/global/{networks}/{name}. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/datastream_private_connection#vpc DatastreamPrivateConnection#vpc}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__80a967ebe261a07cb9d7742d4c0b4d97c4db5545fff3423fdd0f682e8642a6a2)
@@ -1156,7 +1156,7 @@ class DatastreamPrivateConnectionVpcPeeringConfig:
     def subnet(self) -> builtins.str:
         '''A free subnet for peering. (CIDR of /29).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/datastream_private_connection#subnet DatastreamPrivateConnection#subnet}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/datastream_private_connection#subnet DatastreamPrivateConnection#subnet}
         '''
         result = self._values.get("subnet")
         assert result is not None, "Required property 'subnet' is missing"
@@ -1166,7 +1166,7 @@ class DatastreamPrivateConnectionVpcPeeringConfig:
     def vpc(self) -> builtins.str:
         '''Fully qualified name of the VPC that Datastream will peer to. Format: projects/{project}/global/{networks}/{name}.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.2/docs/resources/datastream_private_connection#vpc DatastreamPrivateConnection#vpc}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.49.3/docs/resources/datastream_private_connection#vpc DatastreamPrivateConnection#vpc}
         '''
         result = self._values.get("vpc")
         assert result is not None, "Required property 'vpc' is missing"

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: zope.filerepresentation
-Version: 6.1
+Version: 7.0
 Summary: File-system Representation Interfaces
 Home-page: http://zopefilerepresentation.readthedocs.io
 Author: Zope Foundation and Contributors
@@ -30,11 +30,23 @@ Requires-Dist: setuptools
 Requires-Dist: zope.interface
 Requires-Dist: zope.schema
 Provides-Extra: test
-Requires-Dist: zope.testrunner; extra == "test"
+Requires-Dist: zope.testrunner>=6.4; extra == "test"
 Provides-Extra: docs
 Requires-Dist: Sphinx; extra == "docs"
 Requires-Dist: repoze.sphinx.autointerface; extra == "docs"
 Requires-Dist: sphinx_rtd_theme; extra == "docs"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 =============================
  ``zope.filerepresentation``
@@ -70,6 +82,12 @@ Documentation is hosted at https://zopefilerepresentation.readthedocs.io/
  Changes
 =========
 
+7.0 (2025-09-12)
+================
+
+- Replace ``pkg_resources`` namespace with PEP 420 native namespace.
+
+
 6.1 (2025-02-14)
 ================
 
@@ -78,7 +96,7 @@ Documentation is hosted at https://zopefilerepresentation.readthedocs.io/
 - Add support for Python 3.12, 3.13.
 
 
-6.0 (2025-02-14)
+6.0 (2023-01-14)
 ================
 
 - Drop support for Python 2.7, 3.5, 3.6.

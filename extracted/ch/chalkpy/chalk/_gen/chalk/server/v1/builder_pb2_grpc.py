@@ -65,6 +65,11 @@ class BuilderServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetDeploymentLogsRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetDeploymentLogsResponse.FromString,
         )
+        self.GetDeploymentDependencies = channel.unary_unary(
+            "/chalk.server.v1.BuilderService/GetDeploymentDependencies",
+            request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetDeploymentDependenciesRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetDeploymentDependenciesResponse.FromString,
+        )
         self.GetClusterTimescaleDB = channel.unary_unary(
             "/chalk.server.v1.BuilderService/GetClusterTimescaleDB",
             request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetClusterTimescaleDBRequest.SerializeToString,
@@ -215,6 +220,11 @@ class BuilderServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.CreateTelemetryDeploymentRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.CreateTelemetryDeploymentResponse.FromString,
         )
+        self.DeleteTelemetryDeployment = channel.unary_unary(
+            "/chalk.server.v1.BuilderService/DeleteTelemetryDeployment",
+            request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.DeleteTelemetryDeploymentRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.DeleteTelemetryDeploymentResponse.FromString,
+        )
 
 
 class BuilderServiceServicer(object):
@@ -281,6 +291,12 @@ class BuilderServiceServicer(object):
         raise NotImplementedError("Method not implemented!")
 
     def GetDeploymentLogs(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetDeploymentDependencies(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -466,6 +482,12 @@ class BuilderServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def DeleteTelemetryDeployment(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_BuilderServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -518,6 +540,11 @@ def add_BuilderServiceServicer_to_server(servicer, server):
             servicer.GetDeploymentLogs,
             request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetDeploymentLogsRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetDeploymentLogsResponse.SerializeToString,
+        ),
+        "GetDeploymentDependencies": grpc.unary_unary_rpc_method_handler(
+            servicer.GetDeploymentDependencies,
+            request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetDeploymentDependenciesRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetDeploymentDependenciesResponse.SerializeToString,
         ),
         "GetClusterTimescaleDB": grpc.unary_unary_rpc_method_handler(
             servicer.GetClusterTimescaleDB,
@@ -668,6 +695,11 @@ def add_BuilderServiceServicer_to_server(servicer, server):
             servicer.CreateTelemetryDeployment,
             request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.CreateTelemetryDeploymentRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.CreateTelemetryDeploymentResponse.SerializeToString,
+        ),
+        "DeleteTelemetryDeployment": grpc.unary_unary_rpc_method_handler(
+            servicer.DeleteTelemetryDeployment,
+            request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.DeleteTelemetryDeploymentRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.DeleteTelemetryDeploymentResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler("chalk.server.v1.BuilderService", rpc_method_handlers)
@@ -958,6 +990,35 @@ class BuilderService(object):
             "/chalk.server.v1.BuilderService/GetDeploymentLogs",
             chalk_dot_server_dot_v1_dot_builder__pb2.GetDeploymentLogsRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_builder__pb2.GetDeploymentLogsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetDeploymentDependencies(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.BuilderService/GetDeploymentDependencies",
+            chalk_dot_server_dot_v1_dot_builder__pb2.GetDeploymentDependenciesRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_builder__pb2.GetDeploymentDependenciesResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -1828,6 +1889,35 @@ class BuilderService(object):
             "/chalk.server.v1.BuilderService/CreateTelemetryDeployment",
             chalk_dot_server_dot_v1_dot_builder__pb2.CreateTelemetryDeploymentRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_builder__pb2.CreateTelemetryDeploymentResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def DeleteTelemetryDeployment(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.BuilderService/DeleteTelemetryDeployment",
+            chalk_dot_server_dot_v1_dot_builder__pb2.DeleteTelemetryDeploymentRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_builder__pb2.DeleteTelemetryDeploymentResponse.FromString,
             options,
             channel_credentials,
             insecure,

@@ -55194,6 +55194,12 @@ class Query(sgqlc.types.Type):
                 ),
                 ("operator", sgqlc.types.Arg(String, graphql_name="operator", default="OR")),
                 ("mcon", sgqlc.types.Arg(String, graphql_name="mcon", default=None)),
+                (
+                    "mcons",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(String), graphql_name="mcons", default=None
+                    ),
+                ),
                 ("parent_mcon", sgqlc.types.Arg(String, graphql_name="parentMcon", default=None)),
                 ("domain_id", sgqlc.types.Arg(UUID, graphql_name="domainId", default=None)),
                 ("tags_only", sgqlc.types.Arg(Boolean, graphql_name="tagsOnly", default=False)),
@@ -55296,6 +55302,7 @@ class Query(sgqlc.types.Type):
     * `operator` (`String`): Search operator to use, either OR or AND
       (DEPRECATED) (default: `"OR"`)
     * `mcon` (`String`): Filter on mcon
+    * `mcons` (`[String]`): Filter on multiple mcons
     * `parent_mcon` (`String`): Filter on parent_mcon
     * `domain_id` (`UUID`): Filter by domain UUID
     * `tags_only` (`Boolean`): Search only tags and descriptions (no

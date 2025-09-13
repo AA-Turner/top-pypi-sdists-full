@@ -68,6 +68,59 @@ fn test_parse_simple() {
 }
 
 #[test]
+fn test_parse_simple_corrupted_json() {
+    let expected_files = [
+        "-_0_0_0/aot_forward_graph",
+        "-_0_0_0/dynamo_output_graph",
+        "index.html",
+        "compile_directory.json",
+        "failures_and_restarts.html",
+        "-_0_0_0/inductor_post_grad_graph",
+        "-_0_0_0/inductor_output_code",
+    ];
+    // Read the test file
+    // payload 6762d47fdbf80071626529f25dc69013 is a corrupted json
+    let path = Path::new("tests/inputs/simple_corrupted_json.log").to_path_buf();
+    let config = tlparse::ParseConfig {
+        strict: false,
+        ..Default::default()
+    };
+    let output = tlparse::parse_path(&path, &config);
+    assert!(output.is_ok());
+    let map: HashMap<PathBuf, String> = output.unwrap().into_iter().collect();
+    // Check all files are present
+    for prefix in expected_files {
+        assert!(
+            prefix_exists(&map, prefix),
+            "{} not found in output",
+            prefix
+        );
+    }
+
+    // Check that raw.jsonl exists and has exactly 26 lines (non-payload lines from original, excluding chromium_event entries)
+    assert!(
+        map.contains_key(&PathBuf::from("raw.jsonl")),
+        "raw.jsonl not found in output"
+    );
+    let shortraw_content = &map[&PathBuf::from("raw.jsonl")];
+    let shortraw_lines = shortraw_content.lines().count();
+    assert_eq!(
+        shortraw_lines, 15,
+        "raw.jsonl should have exactly 15 lines (1 string table + 14 log entries, excluding 50 chromium_event entries and 12 str entries)"
+    );
+
+    // Verify that the first line contains the string table
+    let first_line = shortraw_content
+        .lines()
+        .next()
+        .expect("raw.jsonl should have at least one line");
+    assert!(
+        first_line.starts_with("{\"string_table\":"),
+        "First line of raw.jsonl should be the string table object"
+    );
+}
+
+#[test]
 fn test_parse_compilation_metrics() {
     let expected_files = [
         "-_0_0_1/dynamo_output_graph",
@@ -1565,6 +1618,66 @@ fn test_provenance_tracking_jit_debug_handle() {
     });
 
     assert_eq!(line_mappings, expected_mappings);
+}
+
+#[test]
+fn test_provenance_tracking_multiple_colons_in_kernel_name() {
+    let expected_files = [
+        "-_-_-_-/before_pre_grad_graph_0.txt",
+        "-_-_-_-/after_post_grad_graph_8.txt",
+        "provenance_tracking_-_-_-_-.html",
+        "-_-_-_-/inductor_provenance_tracking_node_mappings_12.json",
+    ];
+
+    let path = Path::new("tests/inputs/inductor_provenance_long_log.txt").to_path_buf();
+    let config = tlparse::ParseConfig {
+        inductor_provenance: true,
+        ..Default::default()
+    };
+    let output = tlparse::parse_path(&path, &config);
+    assert!(output.is_ok());
+    let map: HashMap<PathBuf, String> = output.unwrap().into_iter().collect();
+
+    // Check all files are present
+    for prefix in expected_files {
+        assert!(
+            prefix_exists(&map, prefix),
+            "{} not found in output",
+            prefix
+        );
+    }
+
+    // Read the HTML file and verify the line mappings
+    let html_path = map
+        .keys()
+        .find(|p| {
+            p.to_str()
+                .unwrap()
+                .contains("provenance_tracking_-_-_-_-.html")
+        })
+        .unwrap();
+    let html_content = map.get(html_path).unwrap();
+
+    // Extract the line mappings JSON from the script tag
+    let script_start = html_content
+        .find(r#"<script id="lineMappings" type="application/json">"#)
+        .unwrap();
+    let json_start = html_content[script_start..].find(">").unwrap() + script_start + 1;
+    let json_end = html_content[json_start..].find("</script>").unwrap() + json_start;
+    let line_mappings_str = &html_content[json_start..json_end];
+    let line_mappings: serde_json::Value = serde_json::from_str(line_mappings_str).unwrap();
+
+    // For jit log, we expect similar structure to jit cuda but with different kernel names
+    let expected_post_nodes = vec![
+        10197, 10194, 10191, 10200, 10225, 10223, 10221, 10220, 10219, 10218, 10215, 10214, 10213,
+        10212, 10211, 10205, 10204, 10203, 10199, 10198, 10202, 10201, 10217, 10216, 10210, 10209,
+        10208, 10207, 10206, 10224, 10222, 10227, 10226,
+    ];
+
+    assert_eq!(
+        line_mappings["cppCodeToPost"]["15892"],
+        serde_json::json!(expected_post_nodes)
+    );
 }
 
 #[test]

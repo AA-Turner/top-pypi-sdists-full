@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zope.annotation
-Version: 5.2
+Version: 6.0
 Summary: Object annotation mechanism
 Home-page: https://github.com/zopefoundation/zope.annotation
 Author: Zope Foundation and Contributors
@@ -39,17 +39,17 @@ Requires-Dist: repoze.sphinx.autointerface; extra == "docs"
 Requires-Dist: zope.component[zcml]; extra == "docs"
 Requires-Dist: zope.configuration; extra == "docs"
 Requires-Dist: zope.testing; extra == "docs"
-Requires-Dist: zope.testrunner; extra == "docs"
+Requires-Dist: zope.testrunner>=6.4; extra == "docs"
 Provides-Extra: test
 Requires-Dist: zope.component[zcml]; extra == "test"
 Requires-Dist: zope.configuration; extra == "test"
 Requires-Dist: zope.testing; extra == "test"
-Requires-Dist: zope.testrunner; extra == "test"
+Requires-Dist: zope.testrunner>=6.4; extra == "test"
 Provides-Extra: testing
 Requires-Dist: zope.component[zcml]; extra == "testing"
 Requires-Dist: zope.configuration; extra == "testing"
 Requires-Dist: zope.testing; extra == "testing"
-Requires-Dist: zope.testrunner; extra == "testing"
+Requires-Dist: zope.testrunner>=6.4; extra == "testing"
 Requires-Dist: nose; extra == "testing"
 Requires-Dist: coverage; extra == "testing"
 Provides-Extra: zcml
@@ -89,6 +89,12 @@ objects without need to modify object class.
 =========
  Changes
 =========
+
+6.0 (2025-09-12)
+================
+
+- Replace ``pkg_resources`` namespace with PEP 420 native namespace.
+
 
 5.2 (2025-08-06)
 ================

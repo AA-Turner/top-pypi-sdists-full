@@ -9,7 +9,7 @@ commands:
     parameters:
       cibw-version:
         type: string
-        default: 3.1.2
+        default: 3.1.3
     steps:
       - run:
           name: run cibuildwheel
@@ -29,16 +29,11 @@ environment: &global-environment
 
 jobs:
   python-linux:
-    parameters:
-      python-version:
-        type: string
-
     docker:
       - image: cimg/python:3.13  # just need a version that can install cibuildwheel
 
     environment:
       <<: *global-environment
-      CIBW_PROJECT_REQUIRES_PYTHON: ~=<< parameters.python-version>>
       CIBW_ARCHS_LINUX: x86_64
 
     steps:
@@ -47,10 +42,6 @@ jobs:
       - run-cibuildwheel
 
   python-linux-aarch64:
-    parameters:
-      python-version:
-        type: string
-
     machine:
       image: default
 
@@ -58,7 +49,6 @@ jobs:
 
     environment:
       <<: *global-environment
-      CIBW_PROJECT_REQUIRES_PYTHON: ~=<< parameters.python-version>>
       CIBW_ARCHS_LINUX: aarch64
 
     steps:
@@ -110,14 +100,11 @@ jobs:
     resource_class: macos.m1.medium.gen1
 
     parameters:
-      python-version:
-        type: string
       cibw-arch:
         type: string
 
     environment:
       <<: *global-environment
-      CIBW_PROJECT_REQUIRES_PYTHON: ~=<< parameters.python-version>>
       CIBW_ARCHS_MACOS: << parameters.cibw-arch >>
 
     steps:
@@ -126,16 +113,11 @@ jobs:
       - run-cibuildwheel
 
   python-windows:
-    parameters:
-      python-version:
-        type: string
-
     executor:
       name: win/default
 
     environment:
       <<: *global-environment
-      CIBW_PROJECT_REQUIRES_PYTHON: ~=<< parameters.python-version>>
       CIBW_ARCHS_WINDOWS: AMD64
 
     steps:
@@ -197,8 +179,6 @@ jobs:
     parameters:
       gcc-version:
         type: string
-      cpp-standard:
-        type: string
 
     docker:
       - image: gcc:<< parameters.gcc-version >>
@@ -220,14 +200,17 @@ jobs:
           name: run c++ tests with meson
           command: |
             . env/bin/activate
-            meson setup _build -Dbuildtype=debug -Dwerror=true -Dcpp_std=<< parameters.cpp-standard >>
+            meson setup _build -Dbuildtype=debug -Dwerror=true
+            meson test -C _build
+
+      - run: &run-cpp23-tests
+          name: run c++23 tests with meson
+          command: |
+            . env/bin/activate
+            meson configure _build -Dcpp_std=c++23
             meson test -C _build
 
   cpp-macOS:
-    parameters:
-      cpp-standard:
-        type: string
-
     macos:
       xcode: 15.3.0
     resource_class: macos.m1.medium.gen1
@@ -236,6 +219,7 @@ jobs:
       - checkout
       - run: *install-requirements
       - run: *run-cpp-tests
+      - run: *run-cpp23-tests
 
   serialization:
     docker:
@@ -256,7 +240,7 @@ jobs:
           command: |
             python -m venv env_latest
             . env_latest/bin/activate
-            pip install dist/*optimization*cp313*.whl
+            pip install dist/*optimization*abi3*.whl
       - run:
           name: save models with latest and load with 0.5.2
           command: |
@@ -339,27 +323,20 @@ jobs:
 workflows:
   tests:
     jobs:
-      - python-linux: &build-linux
-          matrix:
-            parameters:
-              # versions are built with ~= so the patch version doesn't matter
-              python-version: &python-versions [3.9.0, 3.10.0, 3.11.0, 3.12.0, 3.13.0, 3.14.0]
+      - python-linux:
           filters: &tags
             # also run on tags so the deploy pipeline works
             tags:
               only: &version-string /^[0-9]+(\.[0-9]+)*((\.dev|rc)([0-9]+)?)?$/
-      - python-linux-aarch64: *build-linux
+      - python-linux-aarch64:
+          filters: *tags
       - python-linux-debug
       - python-macOS:
           matrix:
             parameters:
-              python-version: *python-versions
               cibw-arch: [x86_64, arm64]
           filters: *tags
       - python-windows:
-          matrix:
-            parameters:
-              python-version: *python-versions
           filters: *tags
       - python-sdist:
           filters: *tags
@@ -378,15 +355,11 @@ workflows:
           requires:
             - python-linux
       - cpp-gcc:
-          name: cpp-gcc-<< matrix.gcc-version >>-<< matrix.cpp-standard >>
+          name: cpp-gcc-<< matrix.gcc-version >>
           matrix:
             parameters:
-              gcc-version: ["11", "12", "13", "14", "15"]
-              cpp-standard: ["c++20", "c++23"]
-      - cpp-macOS:
-          matrix:
-            parameters:
-              cpp-standard: ["c++20", "c++23"]
+              gcc-version: ["11", "latest"]
+      - cpp-macOS
       - serialization:
           requires:
             - python-linux

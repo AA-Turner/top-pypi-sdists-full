@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydantic-ai-slim
-Version: 1.0.5
+Version: 1.0.6
 Summary: Agent Framework / shim to use Pydantic with LLMs, slim package
 Project-URL: Homepage, https://github.com/pydantic/pydantic-ai/tree/main/pydantic_ai_slim
 Project-URL: Source, https://github.com/pydantic/pydantic-ai/tree/main/pydantic_ai_slim
@@ -33,7 +33,7 @@ Requires-Dist: genai-prices>=0.0.23
 Requires-Dist: griffe>=1.3.2
 Requires-Dist: httpx>=0.27
 Requires-Dist: opentelemetry-api>=1.28.0
-Requires-Dist: pydantic-graph==1.0.5
+Requires-Dist: pydantic-graph==1.0.6
 Requires-Dist: pydantic>=2.10
 Requires-Dist: typing-inspection>=0.4.0
 Provides-Extra: a2a
@@ -51,13 +51,13 @@ Requires-Dist: prompt-toolkit>=3; extra == 'cli'
 Requires-Dist: pyperclip>=1.9.0; extra == 'cli'
 Requires-Dist: rich>=13; extra == 'cli'
 Provides-Extra: cohere
-Requires-Dist: cohere>=5.17.0; (platform_system != 'Emscripten') and extra == 'cohere'
+Requires-Dist: cohere>=5.18.0; (platform_system != 'Emscripten') and extra == 'cohere'
 Provides-Extra: dbos
 Requires-Dist: dbos>=1.13.0; extra == 'dbos'
 Provides-Extra: duckduckgo
 Requires-Dist: ddgs>=9.0.0; extra == 'duckduckgo'
 Provides-Extra: evals
-Requires-Dist: pydantic-evals==1.0.5; extra == 'evals'
+Requires-Dist: pydantic-evals==1.0.6; extra == 'evals'
 Provides-Extra: google
 Requires-Dist: google-genai>=1.31.0; extra == 'google'
 Provides-Extra: groq
