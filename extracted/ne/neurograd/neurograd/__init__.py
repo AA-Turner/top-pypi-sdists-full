@@ -11,7 +11,7 @@ elif DEVICE == "cuda":
             del sys.modules[mod]
     # Install extras
     base = pathlib.Path.home() / ".cupy" / "cuda_lib" / "12.x"
-    libs = {"cutensor": "cutensor"}
+    libs = {"cudnn": "cudnn", "cutensor": "cutensor"}
     for lib, dirname in libs.items():
         target = base / dirname
         if not target.exists():

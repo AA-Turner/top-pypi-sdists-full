@@ -1,6 +1,6 @@
 [package]
 name = "sparopt"
-version = "0.2.1"
+version = "0.3.0"
 authors.workspace = true
 license.workspace = true
 readme = "README.md"
@@ -13,7 +13,7 @@ rust-version.workspace = true
 
 [features]
 default = []
-rdf-star = ["oxrdf/rdf-star", "spargebra/rdf-star"]
+sparql-12 = ["spargebra/sparql-12"]
 sep-0002 = ["spargebra/sep-0002"]
 sep-0006 = ["spargebra/sep-0006"]
 

@@ -13,8 +13,9 @@ from capnp.helpers.helpers cimport init_capnp_api
 from capnp.includes.capnp_cpp cimport AsyncIoStream, WaitScope, PyPromise, VoidPromise, EventPort, EventLoop, PyAsyncIoStream, PromiseFulfiller, VoidPromiseFulfiller, tryReadMessage, writeMessage, makeException, PythonInterfaceDynamicImpl
 from capnp.includes.schema_cpp cimport (MessageReader,)
 
+from builtins import memoryview as BuiltinsMemoryview
 from cpython cimport array, Py_buffer, PyObject_CheckBuffer
-from cpython.buffer cimport PyBUF_SIMPLE, PyBUF_WRITABLE, PyBUF_WRITE, PyBUF_READ
+from cpython.buffer cimport PyBUF_SIMPLE, PyBUF_WRITABLE, PyBUF_WRITE, PyBUF_READ, PyBUF_CONTIG_RO
 from cpython.memoryview cimport PyMemoryView_FromMemory
 from cpython.exc cimport PyErr_Clear
 from cython.operator cimport dereference as deref
@@ -27,6 +28,7 @@ import array
 import asyncio
 import collections as _collections
 import contextlib
+import base64
 import enum as _enum
 import inspect as _inspect
 import os as _os
@@ -666,7 +668,7 @@ cdef to_python_reader(C_DynamicValue.Reader self, object parent):
         return (<char*>temp_text.begin())[:temp_text.size()]
     elif type == capnp.TYPE_DATA:
         temp_data = self.asData()
-        return <bytes>((<char*>temp_data.begin())[:temp_data.size()])
+        return PyMemoryView_FromMemory(<char *> temp_data.begin(), temp_data.size(), PyBUF_READ)
     elif type == capnp.TYPE_LIST:
         return _DynamicListReader()._init(self.asList(), parent)
     elif type == capnp.TYPE_STRUCT:
@@ -700,7 +702,7 @@ cdef to_python_builder(C_DynamicValue.Builder self, object parent):
         return (<char*>temp_text.begin())[:temp_text.size()]
     elif type == capnp.TYPE_DATA:
         temp_data = self.asData()
-        return <bytes>((<char*>temp_data.begin())[:temp_data.size()])
+        return PyMemoryView_FromMemory(<char *> temp_data.begin(), temp_data.size(), PyBUF_WRITE)
     elif type == capnp.TYPE_LIST:
         return _DynamicListBuilder()._init(self.asList(), parent)
     elif type == capnp.TYPE_STRUCT:
@@ -765,6 +767,20 @@ cdef _setBytes(_DynamicSetterClasses thisptr, field, value):
     cdef C_DynamicValue.Reader temp = C_DynamicValue.Reader(temp_string)
     thisptr.set(field, temp)
 
+cdef _setMemoryview(_DynamicSetterClasses thisptr, field, value):
+    cdef Py_buffer buf
+    cdef capnp.StringPtr temp_string
+    cdef C_DynamicValue.Reader temp
+    if PyObject_GetBuffer(value, &buf, PyBUF_CONTIG_RO) != 0:
+        raise KjException(
+            "cannot get buffer from memory view, for field '{}'".format(field)
+        )
+    try:
+        temp_string = capnp.StringPtr(<char *> buf.buf, buf.len)
+        temp = C_DynamicValue.Reader(temp_string)
+        thisptr.set(field, temp)
+    finally:
+        PyBuffer_Release(&buf)
 
 cdef _setBaseString(_DynamicSetterClasses thisptr, field, value):
     encoded_value = value.encode('utf-8')
@@ -778,6 +794,20 @@ cdef _setBytesField(DynamicStruct_Builder thisptr, _StructSchemaField field, val
     cdef C_DynamicValue.Reader temp = C_DynamicValue.Reader(temp_string)
     thisptr.setByField(field.thisptr, temp)
 
+cdef _setMemoryviewField(DynamicStruct_Builder thisptr, _StructSchemaField field, value):
+    cdef Py_buffer buf
+    cdef capnp.StringPtr temp_string
+    cdef C_DynamicValue.Reader temp
+    if PyObject_GetBuffer(value, &buf, PyBUF_CONTIG_RO) != 0:
+        raise KjException(
+            "cannot get buffer from memory view, for field '{}'".format(field)
+        )
+    try:
+        temp_string = capnp.StringPtr(<char *>buf.buf, buf.len)
+        temp = C_DynamicValue.Reader(temp_string)
+        thisptr.setByField(field.thisptr, temp)
+    finally:
+        PyBuffer_Release(&buf)
 
 cdef _setBaseStringField(DynamicStruct_Builder thisptr, _StructSchemaField field, value):
     encoded_value = value.encode('utf-8')
@@ -804,6 +834,8 @@ cdef _setDynamicField(_DynamicSetterClasses thisptr, field, value, parent):
         thisptr.set(field, temp)
     elif value_type is bytes:
         _setBytes(thisptr, field, value)
+    elif isinstance(value, BuiltinsMemoryview):
+        _setMemoryview(thisptr, field, value)
     elif isinstance(value, basestring):
         _setBaseString(thisptr, field, value)
     elif value_type is list:
@@ -869,6 +901,8 @@ cdef _setDynamicFieldWithField(DynamicStruct_Builder thisptr, _StructSchemaField
         thisptr.setByField(field.thisptr, temp)
     elif value_type is bytes:
         _setBytesField(thisptr, field, value)
+    elif isinstance(value, BuiltinsMemoryview):
+        _setMemoryviewField(thisptr, field, value)
     elif isinstance(value, basestring):
         _setBaseStringField(thisptr, field, value)
     elif value_type is list:
@@ -969,17 +1003,17 @@ cdef _DynamicStructBuilder temp_msg_b
 cdef _DynamicStructReader temp_msg_r
 
 
-cdef _to_dict(msg, bint verbose, bint ordered):
+cdef _to_dict(msg, bint verbose, bint ordered, bint encode_bytes_as_base64=False):
     msg_type = type(msg)
     if msg_type is _DynamicListBuilder:
         temp_list_b = msg
-        return [_to_dict(temp_list_b._get(i), verbose, ordered) for i in range(len(msg))]
+        return [_to_dict(temp_list_b._get(i), verbose, ordered, encode_bytes_as_base64) for i in range(len(msg))]
     elif msg_type is _DynamicListReader:
         temp_list_r = msg
-        return [_to_dict(temp_list_r._get(i), verbose, ordered) for i in range(len(msg))]
+        return [_to_dict(temp_list_r._get(i), verbose, ordered, encode_bytes_as_base64) for i in range(len(msg))]
     elif msg_type is _DynamicResizableListBuilder:
         temp_list_rb = msg
-        return [_to_dict(temp_list_rb._get(i), verbose, ordered) for i in range(len(msg))]
+        return [_to_dict(temp_list_rb._get(i), verbose, ordered, encode_bytes_as_base64) for i in range(len(msg))]
 
     if msg_type is _DynamicStructBuilder or isinstance(msg, _Request):
         temp_msg_b = msg
@@ -989,13 +1023,13 @@ cdef _to_dict(msg, bint verbose, bint ordered):
             ret = {}
         try:
             which = temp_msg_b.which()
-            ret[which] = _to_dict(temp_msg_b._get(which), verbose, ordered)
+            ret[which] = _to_dict(temp_msg_b._get(which), verbose, ordered, encode_bytes_as_base64)
         except KjException:
             pass
 
         for field in temp_msg_b.schema.non_union_fields:
             if verbose or temp_msg_b._has(field):
-                ret[field] = _to_dict(temp_msg_b._get(field), verbose, ordered)
+                ret[field] = _to_dict(temp_msg_b._get(field), verbose, ordered, encode_bytes_as_base64)
 
         return ret
     elif msg_type is _DynamicStructReader or isinstance(msg, _Response):
@@ -1006,13 +1040,13 @@ cdef _to_dict(msg, bint verbose, bint ordered):
             ret = {}
         try:
             which = temp_msg_r.which()
-            ret[which] = _to_dict(temp_msg_r._get(which), verbose, ordered)
+            ret[which] = _to_dict(temp_msg_r._get(which), verbose, ordered, encode_bytes_as_base64)
         except KjException:
             pass
 
         for field in temp_msg_r.schema.non_union_fields:
             if verbose or temp_msg_r._has(field):
-                ret[field] = _to_dict(temp_msg_r._get(field), verbose, ordered)
+                ret[field] = _to_dict(temp_msg_r._get(field), verbose, ordered, encode_bytes_as_base64)
 
         return ret
 
@@ -1021,6 +1055,10 @@ cdef _to_dict(msg, bint verbose, bint ordered):
 
     if msg_type is _DynamicEnum:
         return str(msg)
+
+    if encode_bytes_as_base64 and msg_type is bytes:
+        # encode the message as base64 and return utf-8 string
+        return base64.b64encode(msg).decode('utf-8')
 
     return msg
 
@@ -1234,10 +1272,10 @@ cdef class _DynamicStructReader:
     def __repr__(self):
         return '<%s reader %s>' % (self.schema.node.displayName, <char*>strStructReader(self.thisptr).cStr())
 
-    def to_dict(self, verbose=False, ordered=False):
-        return _to_dict(self, verbose, ordered)
+    def to_dict(self, verbose=False, ordered=False, encode_bytes_as_base64=False):
+        return _to_dict(self, verbose, ordered, encode_bytes_as_base64)
 
-    cpdef as_builder(self, num_first_segment_words=None):
+    cpdef as_builder(self, num_first_segment_words=None, allocate_seg_callable=None):
         """A method for casting this Reader to a Builder
 
         This is a copying operation with respect to the message's buffer.
@@ -1245,11 +1283,20 @@ cdef class _DynamicStructReader:
 
         :type num_first_segment_words: int
         :param num_first_segment_words: Size of the first segment to allocate (in words ie. 8 byte increments)
+        
+        :type allocate_seg_callable: Callable[[int], bytearray]
+        :param allocate_seg_callable: A python callable object that takes the minimum number of 8-byte 
+        words to allocate (as an `int`) and returns a `bytearray`. This is used to customize the memory 
+        allocation strategy.
 
         :rtype: :class:`_DynamicStructBuilder`
         """
-        builder = _MallocMessageBuilder(num_first_segment_words)
-        return builder.set_root(self)
+        if allocate_seg_callable is None:
+            builder = _MallocMessageBuilder(num_first_segment_words)
+            return builder.set_root(self)
+        else:
+            builder = _PyCustomMessageBuilder(allocate_seg_callable, num_first_segment_words)
+            return builder.set_root(self)
 
     property total_size:
         def __get__(self):
@@ -1588,7 +1635,7 @@ cdef class _DynamicStructBuilder:
         reader._obj_to_pin = self
         return reader
 
-    cpdef copy(self, num_first_segment_words=None):
+    cpdef copy(self, num_first_segment_words=None, allocate_seg_callable=None):
         """A method for copying this Builder
 
         This is a copying operation with respect to the message's buffer.
@@ -1596,11 +1643,20 @@ cdef class _DynamicStructBuilder:
 
         :type num_first_segment_words: int
         :param num_first_segment_words: Size of the first segment to allocate (in words ie. 8 byte increments)
+        
+        :type allocate_seg_callable: Callable[[int], bytearray]
+        :param allocate_seg_callable: A python callable object that takes the minimum number of 8-byte 
+        words to allocate (as an `int`) and returns a `bytearray`. This is used to customize the memory 
+        allocation strategy.
 
         :rtype: :class:`_DynamicStructBuilder`
         """
-        builder = _MallocMessageBuilder(num_first_segment_words)
-        return builder.set_root(self)
+        if allocate_seg_callable is None:
+            builder = _MallocMessageBuilder(num_first_segment_words)
+            return builder.set_root(self)
+        else:
+            builder = _PyCustomMessageBuilder(allocate_seg_callable, num_first_segment_words)
+            return builder.set_root(self)
 
     property schema:
         """A property that returns the _StructSchema object matching this writer"""
@@ -1618,12 +1674,18 @@ cdef class _DynamicStructBuilder:
     def __repr__(self):
         return '<%s builder %s>' % (self.schema.node.displayName, <char*>strStructBuilder(self.thisptr).cStr())
 
-    def to_dict(self, verbose=False, ordered=False):
-        return _to_dict(self, verbose, ordered)
+    def to_dict(self, verbose=False, ordered=False, encode_bytes_as_base64=False):
+        return _to_dict(self, verbose, ordered, encode_bytes_as_base64)
 
     def from_dict(self, dict d):
         for key, val in d.iteritems():
             if key != 'which':
+                field = self.schema.fields.get(key)
+                if isinstance(val, str):
+                    dtype = field.proto.slot.type.which()
+                    if dtype == "data":
+                        # decode bytes from utf-8 base64 encoding
+                        val = base64.b64decode(val)
                 try:
                     self._set(key, val)
                 except Exception as e:
@@ -1703,8 +1765,8 @@ cdef class _DynamicStructPipeline:
     # def __repr__(self):
     #     return '<%s reader %s>' % (self.schema.node.displayName, strStructReader(self.thisptr).cStr())
 
-    def to_dict(self, verbose=False, ordered=False):
-        return _to_dict(self, verbose, ordered)
+    def to_dict(self, verbose=False, ordered=False, encode_bytes_as_base64=False):
+        return _to_dict(self, verbose, ordered, encode_bytes_as_base64)
 
 
 cdef class _DynamicOrphan:
@@ -2086,8 +2148,8 @@ cdef class _RemotePromise:
     def __dir__(self):
         return list(set(self.schema.fieldnames + tuple(dir(self.__class__))))
 
-    def to_dict(self, verbose=False, ordered=False):
-        return _to_dict(self, verbose, ordered)
+    def to_dict(self, verbose=False, ordered=False, encode_bytes_as_base64=False):
+        return _to_dict(self, verbose, ordered, encode_bytes_as_base64)
 
     cpdef cancel(self):
         self.thisptr = Own[RemotePromise]()
@@ -3134,8 +3196,12 @@ class _StructABCMeta(type):
         return isinstance(obj, cls.__base__) and obj.schema == cls._schema
 
 
-cdef _new_message(self, kwargs, num_first_segment_words):
-    builder = _MallocMessageBuilder(num_first_segment_words)
+cdef _new_message(self, kwargs, num_first_segment_words, allocate_seg_callable):
+    cdef _MessageBuilder builder
+    if allocate_seg_callable is None:
+        builder = _MallocMessageBuilder(num_first_segment_words)
+    else:
+        builder = _PyCustomMessageBuilder(allocate_seg_callable, num_first_segment_words)
     msg = builder.init_root(self.schema)
     if kwargs is not None:
         msg.from_dict(kwargs)
@@ -3376,11 +3442,16 @@ class _StructModule(object):
     def __call__(self, num_first_segment_words=None, **kwargs):
         return self.new_message(num_first_segment_words=num_first_segment_words, **kwargs)
 
-    def new_message(self, num_first_segment_words=None, **kwargs):
+    def new_message(self, num_first_segment_words=None, allocate_seg_callable=None, **kwargs):
         """Returns a newly allocated builder message.
 
         :type num_first_segment_words: int
         :param num_first_segment_words: Size of the first segment to allocate (in words ie. 8 byte increments)
+
+        :type allocate_seg_callable: Callable[[int], bytearray]
+        :param allocate_seg_callable: A python callable object that takes the minimum number of 8-byte
+        words to allocate (as an `int`) and returns a `bytearray`. This is used to customize the memory
+        allocation strategy.
 
         :type kwargs: dict
         :param kwargs: A list of fields and their values to initialize in the struct.
@@ -3390,7 +3461,7 @@ class _StructModule(object):
 
         :rtype: :class:`_DynamicStructBuilder`
         """
-        return _new_message(self, kwargs, num_first_segment_words)
+        return _new_message(self, kwargs, num_first_segment_words, allocate_seg_callable)
 
 
 class _InterfaceModule(object):
@@ -3745,6 +3816,50 @@ cdef class _MallocMessageBuilder(_MessageBuilder):
             self.thisptr = new schema_cpp.MallocMessageBuilder()
         else:
             self.thisptr = new schema_cpp.MallocMessageBuilder(size)
+
+
+cdef class _PyCustomMessageBuilder(_MessageBuilder):
+    """The class for building Cap'n Proto messages,
+    with customised memory allocation strategy
+
+    You will use this class if you want to customise the allocateSegment method,
+    and define your own memory allocation strategy.
+    """
+    def __init__(self, allocate_seg_callable, size=None):
+        """ The constructor requires you to provide a Python callable object as a parameter.
+        This callable object will be invoked in the allocateSegment method of the MessageBuilder
+        to allocate memory. The allocated memory will be managed within the MessageBuilder.
+
+        :type allocate_seg_callable: Callable[[int], bytearray]
+        :param allocate_seg_callable: A python callable object that takes the minimum number of 8-byte
+        words to allocate (as an `int`) and returns a `bytearray`. This is used to customize the memory
+        allocation strategy.
+
+        Required function signature is like this:
+        def __call__(self, minimum_size: int) -> bytearray:
+        Note that the unit of minimum_size is words, ie. 8 byte increments.
+
+            class Allocator:
+                def __init__(self):
+                    self.cur_size = 0
+                def __call__(self, minimum_size: int) -> bytearray:
+                    size = max(minimum_size, self.cur_size)
+                    self.cur_size += size
+                    WORD_SIZE = 8
+                    byte_count = size * WORD_SIZE
+                    return bytearray(byte_count)
+
+            addressbook = capnp.load('addressbook.capnp')
+            message = capnp._PyCustomMessageBuilder(allocator)
+            person = message.init_root(addressbook.Person)
+
+        :type size: int
+        :param size: Size of the first segment to allocate (in words ie. 8 byte increments)
+        """
+        if size is None:
+            self.thisptr = new schema_cpp.PyCustomMessageBuilder(<PyObject*>allocate_seg_callable)
+        else:
+            self.thisptr = new schema_cpp.PyCustomMessageBuilder(<PyObject*>allocate_seg_callable, size)
 
 
 cdef class _MessageReader:
@@ -4108,6 +4223,44 @@ cdef class _MultipleBytesPackedMessageReader:
         return self
 
 
+cdef class _MultipleBytesPackedAnyMessageReader:
+    cdef schema_cpp.ArrayInputStream * stream
+    cdef schema_cpp.BufferedInputStream * buffered_stream
+    cdef Py_buffer view
+
+    cdef public object traversal_limit_in_words, nesting_limit, schema, buf
+
+    def __init__(self, buf, traversal_limit_in_words=None, nesting_limit=None):
+        self.traversal_limit_in_words = traversal_limit_in_words
+        self.nesting_limit = nesting_limit
+
+        if PyObject_GetBuffer(buf, &self.view, PyBUF_SIMPLE) != 0:
+            raise KjException("could not get read buffer")
+
+        self.buf = buf
+        self.stream = new schema_cpp.ArrayInputStream(schema_cpp.ByteArrayPtr(<byte *>self.view.buf, self.view.len))
+        self.buffered_stream = new schema_cpp.BufferedInputStreamWrapper(deref(self.stream))
+
+    def __dealloc__(self):
+        PyBuffer_Release(&self.view)
+        del self.buffered_stream
+        del self.stream
+
+    def __next__(self):
+        try:
+            reader = _PackedMessageReader()._init(
+                deref(self.buffered_stream), self.traversal_limit_in_words, self.nesting_limit, self)
+            return reader.get_root_as_any()
+        except KjException as e:
+            if 'EOF' in str(e):
+                raise StopIteration
+            else:
+                raise
+
+    def __iter__(self):
+        return self
+
+
 @cython.internal
 cdef class _AlignedBuffer:
     cdef char * buf
@@ -4405,6 +4558,25 @@ def load(file_name, display_name=None, imports=[]):
         _global_schema_parser = SchemaParser()
 
     return _global_schema_parser.load(file_name, display_name, imports)
+
+
+def read_multiple_bytes_packed(buf, traversal_limit_in_words=None, nesting_limit=None):
+    """Returns an iterable, that when traversed will return Readers for AnyPointer messages.
+
+    :type buf: buffer
+    :param buf: Any Python object that supports the buffer interface.
+
+    :type traversal_limit_in_words: int
+    :param traversal_limit_in_words: Limits how many total words of data are allowed to be traversed.
+                                        Is actually a uint64_t, and values can be up to 2^64-1. Default is 8*1024*1024.
+
+    :type nesting_limit: int
+    :param nesting_limit: Limits how many total words of data are allowed to be traversed. Default is 64.
+
+    :rtype: Iterable with elements of :class:`_DynamicStructReader`"""
+
+    reader = _MultipleBytesPackedAnyMessageReader(buf, traversal_limit_in_words, nesting_limit)
+    return reader
 
 
 # Automatically include the system and built-in capnp paths

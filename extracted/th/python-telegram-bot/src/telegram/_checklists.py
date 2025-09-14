@@ -17,6 +17,7 @@
 # You should have received a copy of the GNU Lesser Public License
 # along with this program.  If not, see [http://www.gnu.org/licenses/].
 """This module contains an objects related to Telegram checklists."""
+
 import datetime as dtm
 from collections.abc import Sequence
 from typing import TYPE_CHECKING, Optional
@@ -39,7 +40,7 @@ class ChecklistTask(TelegramObject):
     Describes a task in a checklist.
 
     Objects of this class are comparable in terms of equality.
-    Two objects of this class are considered equal, if all their :attr:`id` is equal.
+    Two objects of this class are considered equal, if their :attr:`id` is equal.
 
     .. versionadded:: 22.3
 

@@ -1,4 +1,5 @@
 use crate::{QueryEvaluationError, QuerySolutionIter};
+use oxiri::Iri;
 use oxrdf::NamedNode;
 use spargebra::algebra::GraphPattern;
 use std::collections::HashMap;
@@ -13,11 +14,12 @@ use std::sync::Arc;
 /// Note that you can also use [`DefaultServiceHandler`] if you need to handle any service and not a specific one.
 ///
 /// ```
+/// use oxiri::Iri;
 /// use oxrdf::{Dataset, Literal, NamedNode, Variable};
 /// use sparesults::QuerySolution;
 /// use spareval::{QueryEvaluator, QueryResults, QuerySolutionIter, ServiceHandler};
+/// use spargebra::SparqlParser;
 /// use spargebra::algebra::GraphPattern;
-/// use spargebra::Query;
 /// use std::convert::Infallible;
 /// use std::iter::once;
 /// use std::sync::Arc;
@@ -29,9 +31,9 @@ use std::sync::Arc;
 ///
 ///     fn handle(
 ///         &self,
-///         _pattern: GraphPattern,
-///         _base_iri: Option<String>,
-///     ) -> Result<QuerySolutionIter, Self::Error> {
+///         _pattern: &GraphPattern,
+///         _base_iri: Option<&Iri<String>>,
+///     ) -> Result<QuerySolutionIter<'static>, Self::Error> {
 ///         // Always return a single binding foo -> 1
 ///         let variables = [Variable::new_unchecked("foo")].into();
 ///         Ok(QuerySolutionIter::new(
@@ -48,11 +50,9 @@ use std::sync::Arc;
 ///     NamedNode::new("http://example.com/service")?,
 ///     TestServiceHandler {},
 /// );
-/// let query = Query::parse(
-///     "SELECT ?foo WHERE { SERVICE <http://example.com/service> {} }",
-///     None,
-/// )?;
-/// if let QueryResults::Solutions(mut solutions) = evaluator.execute(Dataset::new(), &query)? {
+/// let query = SparqlParser::new()
+///     .parse_query("SELECT ?foo WHERE { SERVICE <http://example.com/service> {} }")?;
+/// if let QueryResults::Solutions(mut solutions) = evaluator.execute(&Dataset::new(), &query)? {
 ///     assert_eq!(
 ///         solutions.next().unwrap()?.get("foo"),
 ///         Some(&Literal::from(1).into())
@@ -67,9 +67,9 @@ pub trait ServiceHandler: Send + Sync {
     /// Evaluates a [`Query`](spargebra::Query) against the service.
     fn handle(
         &self,
-        pattern: GraphPattern,
-        base_iri: Option<String>,
-    ) -> Result<QuerySolutionIter, Self::Error>;
+        pattern: &GraphPattern,
+        base_iri: Option<&Iri<String>>,
+    ) -> Result<QuerySolutionIter<'static>, Self::Error>;
 }
 
 /// Default handler for [SPARQL 1.1 Federated Query](https://www.w3.org/TR/sparql11-federated-query/) SERVICEs.
@@ -80,11 +80,12 @@ pub trait ServiceHandler: Send + Sync {
 /// Note that you can also use [`ServiceHandler`] if you need to handle a single service and not any service.
 ///
 /// ```
+/// use oxiri::Iri;
 /// use oxrdf::{Dataset, NamedNode, Variable};
 /// use sparesults::QuerySolution;
 /// use spareval::{DefaultServiceHandler, QueryEvaluator, QueryResults, QuerySolutionIter};
+/// use spargebra::SparqlParser;
 /// use spargebra::algebra::GraphPattern;
-/// use spargebra::Query;
 /// use std::convert::Infallible;
 /// use std::iter::once;
 /// use std::sync::Arc;
@@ -96,28 +97,26 @@ pub trait ServiceHandler: Send + Sync {
 ///
 ///     fn handle(
 ///         &self,
-///         service_name: NamedNode,
-///         _pattern: GraphPattern,
-///         _base_iri: Option<String>,
-///     ) -> Result<QuerySolutionIter, Self::Error> {
+///         service_name: &NamedNode,
+///         _pattern: &GraphPattern,
+///         _base_iri: Option<&Iri<String>>,
+///     ) -> Result<QuerySolutionIter<'static>, Self::Error> {
 ///         // Always return a single binding name -> name of service
 ///         let variables = [Variable::new_unchecked("foo")].into();
 ///         Ok(QuerySolutionIter::new(
 ///             Arc::clone(&variables),
 ///             once(Ok(QuerySolution::from((
 ///                 variables,
-///                 vec![Some(service_name.into())],
+///                 vec![Some(service_name.clone().into())],
 ///             )))),
 ///         ))
 ///     }
 /// }
 ///
 /// let evaluator = QueryEvaluator::default().with_default_service_handler(TestServiceHandler {});
-/// let query = Query::parse(
-///     "SELECT ?foo WHERE { SERVICE <http://example.com/service> {} }",
-///     None,
-/// )?;
-/// if let QueryResults::Solutions(mut solutions) = evaluator.execute(Dataset::new(), &query)? {
+/// let query = SparqlParser::new()
+///     .parse_query("SELECT ?foo WHERE { SERVICE <http://example.com/service> {} }")?;
+/// if let QueryResults::Solutions(mut solutions) = evaluator.execute(&Dataset::new(), &query)? {
 ///     assert_eq!(
 ///         solutions.next().unwrap()?.get("foo"),
 ///         Some(&NamedNode::new("http://example.com/service")?.into())
@@ -132,10 +131,10 @@ pub trait DefaultServiceHandler: Send + Sync {
     /// Evaluates a [`GraphPattern`] against a given service identified by a [`NamedNode`].
     fn handle(
         &self,
-        service_name: NamedNode,
-        pattern: GraphPattern,
-        base_iri: Option<String>,
-    ) -> Result<QuerySolutionIter, Self::Error>;
+        service_name: &NamedNode,
+        pattern: &GraphPattern,
+        base_iri: Option<&Iri<String>>,
+    ) -> Result<QuerySolutionIter<'static>, Self::Error>;
 }
 
 #[derive(Clone, Default)]
@@ -168,17 +167,19 @@ impl ServiceHandlerRegistry {
 
     pub fn handle(
         &self,
-        service_name: NamedNode,
-        pattern: GraphPattern,
-        base_iri: Option<String>,
-    ) -> Result<QuerySolutionIter, QueryEvaluationError> {
-        if let Some(handler) = self.handlers.get(&service_name) {
+        service_name: &NamedNode,
+        pattern: &GraphPattern,
+        base_iri: Option<&Iri<String>>,
+    ) -> Result<QuerySolutionIter<'static>, QueryEvaluationError> {
+        if let Some(handler) = self.handlers.get(service_name) {
             return handler.handle(pattern, base_iri);
         }
         if let Some(default) = &self.default {
             return default.handle(service_name, pattern, base_iri);
         }
-        Err(QueryEvaluationError::UnsupportedService(service_name))
+        Err(QueryEvaluationError::UnsupportedService(
+            service_name.clone(),
+        ))
     }
 }
 
@@ -189,9 +190,9 @@ impl<S: ServiceHandler> ServiceHandler for ErrorConversionServiceHandler<S> {
 
     fn handle(
         &self,
-        pattern: GraphPattern,
-        base_iri: Option<String>,
-    ) -> Result<QuerySolutionIter, QueryEvaluationError> {
+        pattern: &GraphPattern,
+        base_iri: Option<&Iri<String>>,
+    ) -> Result<QuerySolutionIter<'static>, QueryEvaluationError> {
         self.0.handle(pattern, base_iri).map_err(wrap_service_error)
     }
 }
@@ -201,10 +202,10 @@ impl<S: DefaultServiceHandler> DefaultServiceHandler for ErrorConversionServiceH
 
     fn handle(
         &self,
-        service_name: NamedNode,
-        pattern: GraphPattern,
-        base_iri: Option<String>,
-    ) -> Result<QuerySolutionIter, QueryEvaluationError> {
+        service_name: &NamedNode,
+        pattern: &GraphPattern,
+        base_iri: Option<&Iri<String>>,
+    ) -> Result<QuerySolutionIter<'static>, QueryEvaluationError> {
         self.0
             .handle(service_name, pattern, base_iri)
             .map_err(wrap_service_error)

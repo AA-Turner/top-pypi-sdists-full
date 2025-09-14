@@ -1,8 +1,11 @@
+#[cfg(feature = "sparql-12")]
+use oxrdf::BaseDirection;
 use oxrdf::{
-    BlankNode, Dataset, GraphNameRef, Literal, NamedNode, QuadRef, SubjectRef, Term, TermRef,
+    BlankNode, Dataset, GraphNameRef, Literal, NamedNode, NamedOrBlankNodeRef, QuadRef, Term,
+    TermRef,
 };
-#[cfg(feature = "rdf-star")]
-use oxrdf::{Subject, Triple};
+#[cfg(feature = "sparql-12")]
+use oxrdf::{NamedOrBlankNode, Triple};
 use oxsdatatypes::{Boolean, DateTime, Decimal, Double, Float, Integer};
 #[cfg(feature = "sep-0002")]
 use oxsdatatypes::{Date, DayTimeDuration, Duration, Time, YearMonthDuration};
@@ -16,16 +19,16 @@ use std::iter::empty;
 use std::mem::discriminant;
 
 /// A [RDF dataset](https://www.w3.org/TR/sparql11-query/#rdfDataset) that can be queried using SPARQL
-pub trait QueryableDataset: Sized + 'static {
+pub trait QueryableDataset<'a>: Sized + 'a {
     /// Internal representation of an RDF term
     ///
     /// Can be just an integer that indexes into a dictionary...
     ///
     /// Equality here is the RDF term equality (SPARQL `sameTerm` function)
-    type InternalTerm: Clone + Eq + Hash;
+    type InternalTerm: Clone + Eq + Hash + 'a;
 
     /// Error returned by the dataset.
-    type Error: Error + Send + Sync;
+    type Error: Error + Send + Sync + 'static;
 
     /// Fetches quads according to a pattern
     ///
@@ -36,13 +39,12 @@ pub trait QueryableDataset: Sized + 'static {
         predicate: Option<&Self::InternalTerm>,
         object: Option<&Self::InternalTerm>,
         graph_name: Option<Option<&Self::InternalTerm>>,
-    ) -> Box<dyn Iterator<Item = Result<InternalQuad<Self>, Self::Error>>>; // TODO: consider `impl`
+    ) -> impl Iterator<Item = Result<InternalQuad<Self::InternalTerm>, Self::Error>> + use<'a, Self>;
 
     /// Fetches the list of dataset named graphs
     fn internal_named_graphs(
         &self,
-    ) -> Box<dyn Iterator<Item = Result<Self::InternalTerm, Self::Error>>> {
-        // TODO: consider `impl`
+    ) -> impl Iterator<Item = Result<Self::InternalTerm, Self::Error>> + use<'a, Self> {
         let mut error = None;
         let graph_names = self
             .internal_quads_for_pattern(None, None, None, None)
@@ -110,61 +112,41 @@ pub trait QueryableDataset: Sized + 'static {
     }
 }
 
-impl QueryableDataset for Dataset {
-    type InternalTerm = Term;
+impl<'a> QueryableDataset<'a> for &'a Dataset {
+    type InternalTerm = TermCow<'a>;
     type Error = Infallible;
 
     fn internal_quads_for_pattern(
         &self,
-        subject: Option<&Term>,
-        predicate: Option<&Term>,
-        object: Option<&Term>,
-        graph_name: Option<Option<&Term>>,
-    ) -> Box<dyn Iterator<Item = Result<InternalQuad<Self>, Infallible>>> {
-        // Awful implementation, please don't take it as an example
-
-        #[allow(clippy::unnecessary_wraps)]
-        fn quad_to_result(quad: QuadRef<'_>) -> Result<InternalQuad<Dataset>, Infallible> {
+        subject: Option<&TermCow<'a>>,
+        predicate: Option<&TermCow<'a>>,
+        object: Option<&TermCow<'a>>,
+        graph_name: Option<Option<&TermCow<'a>>>,
+    ) -> impl Iterator<Item = Result<InternalQuad<TermCow<'a>>, Infallible>> + use<'a> {
+        #[expect(clippy::unnecessary_wraps)]
+        fn quad_to_result(quad: QuadRef<'_>) -> Result<InternalQuad<TermCow<'_>>, Infallible> {
             Ok(InternalQuad {
-                subject: quad.subject.into(),
-                predicate: quad.predicate.into(),
-                object: quad.object.into_owned(),
+                subject: TermRef::from(quad.subject).into(),
+                predicate: TermRef::from(quad.predicate).into(),
+                object: quad.object.into(),
                 graph_name: match quad.graph_name {
-                    GraphNameRef::NamedNode(g) => Some(g.into()),
-                    GraphNameRef::BlankNode(g) => Some(g.into()),
+                    GraphNameRef::NamedNode(g) => Some(TermRef::from(g).into()),
+                    GraphNameRef::BlankNode(g) => Some(TermRef::from(g).into()),
                     GraphNameRef::DefaultGraph => None,
                 },
             })
         }
 
-        let subject = if let Some(subject) = subject {
-            Some(match TermRef::from(subject) {
-                TermRef::NamedNode(s) => SubjectRef::from(s),
-                TermRef::BlankNode(s) => s.into(),
-                TermRef::Literal(_) => return Box::new(empty()),
-                #[cfg(feature = "rdf-star")]
-                TermRef::Triple(s) => s.into(),
-            })
-        } else {
-            None
-        };
-        let predicate = if let Some(predicate) = predicate {
-            if let TermRef::NamedNode(p) = TermRef::from(predicate) {
-                Some(p)
-            } else {
-                return Box::new(empty());
-            }
-        } else {
-            None
-        };
-        let object = object.map(TermRef::from);
         let graph_name = if let Some(graph_name) = graph_name {
             Some(if let Some(graph_name) = graph_name {
-                match TermRef::from(graph_name) {
+                match graph_name.into() {
                     TermRef::NamedNode(s) => s.into(),
                     TermRef::BlankNode(s) => s.into(),
-                    TermRef::Literal(_) => return Box::new(empty()),
-                    #[cfg(feature = "rdf-star")]
+                    TermRef::Literal(_) => {
+                        let empty: Box<dyn Iterator<Item = Result<_, _>>> = Box::new(empty());
+                        return empty;
+                    }
+                    #[cfg(feature = "sparql-12")]
                     TermRef::Triple(_) => return Box::new(empty()),
                 }
             } else {
@@ -173,61 +155,90 @@ impl QueryableDataset for Dataset {
         } else {
             None
         };
-        let quads: Vec<_> = if let Some(subject) = subject {
-            self.quads_for_subject(subject)
-                .filter(|q| {
-                    predicate.map_or(true, |t| t == q.predicate)
-                        && object.map_or(true, |t| t == q.object)
-                        && graph_name
-                            .map_or_else(|| !q.graph_name.is_default_graph(), |t| t == q.graph_name)
-                })
-                .map(quad_to_result)
-                .collect()
+        if let Some(subject) = subject {
+            let subject = match subject.into() {
+                TermRef::NamedNode(s) => NamedOrBlankNodeRef::from(s),
+                TermRef::BlankNode(s) => s.into(),
+                TermRef::Literal(_) => {
+                    return Box::new(empty());
+                }
+                #[cfg(feature = "sparql-12")]
+                TermRef::Triple(_) => return Box::new(empty()),
+            };
+            let predicate = predicate.cloned();
+            let object = object.cloned();
+            let graph_name = graph_name.map(GraphNameRef::into_owned);
+            Box::new(
+                self.quads_for_subject(subject)
+                    .filter(move |q| {
+                        predicate
+                            .as_ref()
+                            .is_none_or(|t| TermRef::from(t) == q.predicate.into())
+                            && object.as_ref().is_none_or(|t| TermRef::from(t) == q.object)
+                            && graph_name.as_ref().map_or_else(
+                                || !q.graph_name.is_default_graph(),
+                                |t| t.as_ref() == q.graph_name,
+                            )
+                    })
+                    .map(quad_to_result),
+            )
         } else if let Some(object) = object {
-            self.quads_for_object(object)
-                .filter(|q| {
-                    predicate.map_or(true, |t| t == q.predicate)
-                        && graph_name
-                            .map_or_else(|| !q.graph_name.is_default_graph(), |t| t == q.graph_name)
-                })
-                .map(quad_to_result)
-                .collect()
+            let predicate = predicate.cloned();
+            let graph_name = graph_name.map(GraphNameRef::into_owned);
+            Box::new(
+                self.quads_for_object(object)
+                    .filter(move |q| {
+                        predicate
+                            .as_ref()
+                            .is_none_or(|t| TermRef::from(t) == q.predicate.into())
+                            && graph_name.as_ref().map_or_else(
+                                || !q.graph_name.is_default_graph(),
+                                |t| t.as_ref() == q.graph_name,
+                            )
+                    })
+                    .map(quad_to_result),
+            )
         } else if let Some(predicate) = predicate {
-            self.quads_for_predicate(predicate)
-                .filter(|q| {
-                    graph_name
-                        .map_or_else(|| !q.graph_name.is_default_graph(), |t| t == q.graph_name)
-                })
-                .map(quad_to_result)
-                .collect()
+            let TermRef::NamedNode(predicate) = predicate.into() else {
+                return Box::new(empty());
+            };
+            let graph_name = graph_name.map(GraphNameRef::into_owned);
+            Box::new(
+                self.quads_for_predicate(predicate)
+                    .filter(move |q| {
+                        graph_name.as_ref().map_or_else(
+                            || !q.graph_name.is_default_graph(),
+                            |t| t.as_ref() == q.graph_name,
+                        )
+                    })
+                    .map(quad_to_result),
+            )
         } else if let Some(graph_name) = graph_name {
-            self.quads_for_graph_name(graph_name)
-                .map(quad_to_result)
-                .collect()
+            Box::new(self.quads_for_graph_name(graph_name).map(quad_to_result))
         } else {
-            self.iter()
-                .filter(|q| !q.graph_name.is_default_graph())
-                .map(quad_to_result)
-                .collect()
-        };
-        Box::new(quads.into_iter())
+            Box::new(
+                self.iter()
+                    .filter(|q| !q.graph_name.is_default_graph())
+                    .map(quad_to_result),
+            )
+        }
     }
 
-    fn internalize_term(&self, term: Term) -> Result<Term, Infallible> {
-        Ok(term)
+    fn internalize_term(&self, term: Term) -> Result<TermCow<'a>, Infallible> {
+        Ok(term.into())
     }
 
-    fn externalize_term(&self, term: Term) -> Result<Term, Infallible> {
-        Ok(term)
+    fn externalize_term(&self, term: TermCow<'a>) -> Result<Term, Infallible> {
+        Ok(term.into())
     }
 }
 
-pub struct InternalQuad<D: QueryableDataset> {
-    pub subject: D::InternalTerm,
-    pub predicate: D::InternalTerm,
-    pub object: D::InternalTerm,
+pub struct InternalQuad<T> {
+    pub subject: T,
+    pub predicate: T,
+    pub object: T,
     /// `None` if the quad is in the default graph
-    pub graph_name: Option<D::InternalTerm>,
+    pub graph_name: Option<T>,
 }
 
 /// A term as understood by the expression evaluator
@@ -239,6 +250,12 @@ pub enum ExpressionTerm {
     LangStringLiteral {
         value: String,
         language: String,
+    },
+    #[cfg(feature = "sparql-12")]
+    DirLangStringLiteral {
+        value: String,
+        language: String,
+        direction: BaseDirection,
     },
     BooleanLiteral(Boolean),
     IntegerLiteral(Integer),
@@ -270,7 +287,7 @@ pub enum ExpressionTerm {
         value: String,
         datatype: NamedNode,
     },
-    #[cfg(feature = "rdf-star")]
+    #[cfg(feature = "sparql-12")]
     Triple(Box<ExpressionTriple>),
 }
 
@@ -328,7 +345,7 @@ impl PartialEq for ExpressionTerm {
                         datatype: rd,
                     },
                 ) => lv == rv && ld == rd,
-                #[cfg(feature = "rdf-star")]
+                #[cfg(feature = "sparql-12")]
                 (Self::Triple(l), Self::Triple(r)) => l == r,
                 (_, _) => unreachable!(),
             }
@@ -346,6 +363,12 @@ impl Hash for ExpressionTerm {
             ExpressionTerm::BlankNode(v) => v.hash(state),
             ExpressionTerm::StringLiteral(v) => v.hash(state),
             ExpressionTerm::LangStringLiteral { value, language } => (value, language).hash(state),
+            #[cfg(feature = "sparql-12")]
+            ExpressionTerm::DirLangStringLiteral {
+                value,
+                language,
+                direction,
+            } => (value, language, direction).hash(state),
             ExpressionTerm::BooleanLiteral(v) => v.hash(state),
             ExpressionTerm::IntegerLiteral(v) => v.hash(state),
             ExpressionTerm::DecimalLiteral(v) => v.hash(state),
@@ -373,7 +396,7 @@ impl Hash for ExpressionTerm {
             #[cfg(feature = "sep-0002")]
             ExpressionTerm::DayTimeDurationLiteral(v) => v.hash(state),
             ExpressionTerm::OtherTypedLiteral { value, datatype } => (value, datatype).hash(state),
-            #[cfg(feature = "rdf-star")]
+            #[cfg(feature = "sparql-12")]
             ExpressionTerm::Triple(v) => v.hash(state),
         }
     }
@@ -386,17 +409,40 @@ impl From<Term> for ExpressionTerm {
             Term::NamedNode(t) => Self::NamedNode(t),
             Term::BlankNode(t) => Self::BlankNode(t),
             Term::Literal(t) => {
-                let (value, datatype, language) = t.destruct();
-                if let Some(language) = language {
-                    Self::LangStringLiteral { value, language }
-                } else if let Some(datatype) = datatype {
-                    parse_typed_literal(&value, datatype.as_str())
-                        .unwrap_or(Self::OtherTypedLiteral { value, datatype })
-                } else {
-                    Self::StringLiteral(value)
+                #[cfg(feature = "sparql-12")]
+                {
+                    let (value, datatype, language, direction) = t.destruct();
+                    if let Some(language) = language {
+                        if let Some(direction) = direction {
+                            Self::DirLangStringLiteral {
+                                value,
+                                language,
+                                direction,
+                            }
+                        } else {
+                            Self::LangStringLiteral { value, language }
+                        }
+                    } else if let Some(datatype) = datatype {
+                        parse_typed_literal(&value, datatype.as_str())
+                            .unwrap_or(Self::OtherTypedLiteral { value, datatype })
+                    } else {
+                        Self::StringLiteral(value)
+                    }
+                }
+                #[cfg(not(feature = "sparql-12"))]
+                {
+                    let (value, datatype, language) = t.destruct();
+                    if let Some(language) = language {
+                        Self::LangStringLiteral { value, language }
+                    } else if let Some(datatype) = datatype {
+                        parse_typed_literal(&value, datatype.as_str())
+                            .unwrap_or(Self::OtherTypedLiteral { value, datatype })
+                    } else {
+                        Self::StringLiteral(value)
+                    }
                 }
             }
-            #[cfg(feature = "rdf-star")]
+            #[cfg(feature = "sparql-12")]
             Term::Triple(t) => Self::Triple(Box::new((*t).into())),
         }
     }
@@ -412,6 +458,15 @@ impl From<ExpressionTerm> for Term {
             ExpressionTerm::LangStringLiteral { value, language } => {
                 Literal::new_language_tagged_literal_unchecked(value, language).into()
             }
+            #[cfg(feature = "sparql-12")]
+            ExpressionTerm::DirLangStringLiteral {
+                value,
+                language,
+                direction,
+            } => Literal::new_directional_language_tagged_literal_unchecked(
+                value, language, direction,
+            )
+            .into(),
             ExpressionTerm::BooleanLiteral(value) => Literal::from(value).into(),
             ExpressionTerm::IntegerLiteral(value) => Literal::from(value).into(),
             ExpressionTerm::DecimalLiteral(value) => Literal::from(value).into(),
@@ -441,7 +496,7 @@ impl From<ExpressionTerm> for Term {
             ExpressionTerm::OtherTypedLiteral { value, datatype } => {
                 Literal::new_typed_literal(value, datatype).into()
             }
-            #[cfg(feature = "rdf-star")]
+            #[cfg(feature = "sparql-12")]
             ExpressionTerm::Triple(t) => Triple::from(*t).into(),
         }
     }
@@ -546,15 +601,15 @@ fn parse_typed_literal(value: &str, datatype: &str) -> Option<ExpressionTerm> {
     })
 }
 
-#[cfg(feature = "rdf-star")]
+#[cfg(feature = "sparql-12")]
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct ExpressionTriple {
-    pub subject: ExpressionSubject,
+    pub subject: NamedOrBlankNode,
     pub predicate: NamedNode,
     pub object: ExpressionTerm,
 }
 
-#[cfg(feature = "rdf-star")]
+#[cfg(feature = "sparql-12")]
 impl From<ExpressionTriple> for ExpressionTerm {
     #[inline]
     fn from(triple: ExpressionTriple) -> Self {
@@ -562,31 +617,31 @@ impl From<ExpressionTriple> for ExpressionTerm {
     }
 }
 
-#[cfg(feature = "rdf-star")]
+#[cfg(feature = "sparql-12")]
 impl From<Triple> for ExpressionTriple {
     #[inline]
     fn from(triple: Triple) -> Self {
         ExpressionTriple {
-            subject: triple.subject.into(),
+            subject: triple.subject,
             predicate: triple.predicate,
             object: triple.object.into(),
         }
     }
 }
 
-#[cfg(feature = "rdf-star")]
+#[cfg(feature = "sparql-12")]
 impl From<ExpressionTriple> for Triple {
     #[inline]
     fn from(triple: ExpressionTriple) -> Self {
         Triple {
-            subject: triple.subject.into(),
+            subject: triple.subject,
             predicate: triple.predicate,
             object: triple.object.into(),
         }
     }
 }
 
-#[cfg(feature = "rdf-star")]
+#[cfg(feature = "sparql-12")]
 impl ExpressionTriple {
     pub fn new(
         subject: ExpressionTerm,
@@ -604,9 +659,8 @@ impl ExpressionTriple {
         }
         Some(Self {
             subject: match subject {
-                ExpressionTerm::NamedNode(s) => ExpressionSubject::NamedNode(s),
-                ExpressionTerm::BlankNode(s) => ExpressionSubject::BlankNode(s),
-                ExpressionTerm::Triple(s) => ExpressionSubject::Triple(s),
+                ExpressionTerm::NamedNode(s) => NamedOrBlankNode::NamedNode(s),
+                ExpressionTerm::BlankNode(s) => NamedOrBlankNode::BlankNode(s),
                 _ => return None,
             },
             predicate: if let ExpressionTerm::NamedNode(p) = predicate {
@@ -619,46 +673,66 @@ impl ExpressionTriple {
     }
 }
 
-#[cfg(feature = "rdf-star")]
-#[derive(Clone, PartialEq, Eq, Hash)]
-pub enum ExpressionSubject {
-    NamedNode(NamedNode),
-    BlankNode(BlankNode),
-    Triple(Box<ExpressionTriple>),
-}
-
-#[cfg(feature = "rdf-star")]
-impl From<ExpressionSubject> for ExpressionTerm {
+#[cfg(feature = "sparql-12")]
+impl From<NamedOrBlankNode> for ExpressionTerm {
     #[inline]
-    fn from(subject: ExpressionSubject) -> Self {
+    fn from(subject: NamedOrBlankNode) -> Self {
         match subject {
-            ExpressionSubject::NamedNode(s) => Self::NamedNode(s),
-            ExpressionSubject::BlankNode(s) => Self::BlankNode(s),
-            ExpressionSubject::Triple(s) => Self::Triple(s),
+            NamedOrBlankNode::NamedNode(s) => Self::NamedNode(s),
+            NamedOrBlankNode::BlankNode(s) => Self::BlankNode(s),
         }
     }
 }
 
-#[cfg(feature = "rdf-star")]
-impl From<ExpressionSubject> for Subject {
+#[doc(hidden)]
+#[derive(Clone)]
+pub enum TermCow<'a> {
+    Owned(Term),
+    Borrowed(TermRef<'a>),
+}
+
+impl PartialEq for TermCow<'_> {
     #[inline]
-    fn from(subject: ExpressionSubject) -> Self {
-        match subject {
-            ExpressionSubject::NamedNode(s) => s.into(),
-            ExpressionSubject::BlankNode(s) => s.into(),
-            ExpressionSubject::Triple(s) => Triple::from(*s).into(),
+    fn eq(&self, other: &Self) -> bool {
+        TermRef::from(self) == TermRef::from(other)
+    }
+}
+
+impl Eq for TermCow<'_> {}
+
+impl Hash for TermCow<'_> {
+    #[inline]
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        TermRef::from(self).hash(state)
+    }
+}
+
+impl From<Term> for TermCow<'_> {
+    fn from(value: Term) -> Self {
+        Self::Owned(value)
+    }
+}
+
+impl<'a> From<TermRef<'a>> for TermCow<'a> {
+    fn from(value: TermRef<'a>) -> Self {
+        Self::Borrowed(value)
+    }
+}
+
+impl From<TermCow<'_>> for Term {
+    fn from(value: TermCow<'_>) -> Self {
+        match value {
+            TermCow::Owned(t) => t,
+            TermCow::Borrowed(t) => t.into_owned(),
         }
     }
 }
 
-#[cfg(feature = "rdf-star")]
-impl From<Subject> for ExpressionSubject {
-    #[inline]
-    fn from(subject: Subject) -> Self {
-        match subject {
-            Subject::NamedNode(s) => Self::NamedNode(s),
-            Subject::BlankNode(s) => Self::BlankNode(s),
-            Subject::Triple(s) => ExpressionSubject::Triple(Box::new(ExpressionTriple::from(*s))),
+impl<'a> From<&'a TermCow<'a>> for TermRef<'a> {
+    fn from(value: &'a TermCow<'a>) -> Self {
+        match value {
+            TermCow::Owned(t) => t.as_ref(),
+            TermCow::Borrowed(t) => *t,
         }
     }
 }

@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: bluetooth-auto-recovery
-Version: 1.5.2
+Version: 1.5.3
 Summary: Recover bluetooth adapters that are in an stuck state
 License: MIT
 Author: J. Nick Koston

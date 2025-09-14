@@ -1,34 +1,34 @@
 //! A [N-Quads](https://www.w3.org/TR/n-quads/) streaming parser implemented by [`NQuadsParser`]
 //! and a serializer implemented by [`NQuadsSerializer`].
 
-use crate::chunker::get_ntriples_file_chunks;
+use crate::MIN_PARALLEL_CHUNK_SIZE;
+use crate::chunker::{get_ntriples_file_chunks, get_ntriples_slice_chunks};
 use crate::line_formats::NQuadsRecognizer;
 #[cfg(feature = "async-tokio")]
 use crate::toolkit::TokioAsyncReaderIterator;
 use crate::toolkit::{Parser, ReaderIterator, SliceIterator, TurtleParseError, TurtleSyntaxError};
-use crate::MIN_PARALLEL_CHUNK_SIZE;
 use oxrdf::{Quad, QuadRef};
-use std::io::{self, Read, Write};
+use std::fs::File;
+use std::io::{self, Read, Seek, SeekFrom, Take, Write};
+use std::path::Path;
 #[cfg(feature = "async-tokio")]
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 
 /// A [N-Quads](https://www.w3.org/TR/n-quads/) streaming parser.
-///
-/// Support for [N-Quads-star](https://w3c.github.io/rdf-star/cg-spec/2021-12-17.html#n-quads-star) is available behind the `rdf-star` feature and the [`NQuadsParser::with_quoted_triples`] option.
 ///
 /// Count the number of people:
 /// ```
 /// use oxrdf::{NamedNodeRef, vocab::rdf};
 /// use oxttl::NQuadsParser;
 ///
-/// let file = br#"<http://example.com/foo> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://schema.org/Person> .
+/// let file = r#"<http://example.com/foo> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://schema.org/Person> .
 /// <http://example.com/foo> <http://schema.org/name> "Foo" .
 /// <http://example.com/bar> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://schema.org/Person> .
 /// <http://example.com/bar> <http://schema.org/name> "Bar" ."#;
 ///
 /// let schema_person = NamedNodeRef::new("http://schema.org/Person")?;
 /// let mut count = 0;
-/// for quad in NQuadsParser::new().for_reader(file.as_ref()) {
+/// for quad in NQuadsParser::new().for_reader(file.as_bytes()) {
 ///     let quad = quad?;
 ///     if quad.predicate == rdf::TYPE && quad.object == schema_person.into() {
 ///         count += 1;
@@ -40,9 +40,7 @@ use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 #[derive(Default, Clone)]
 #[must_use]
 pub struct NQuadsParser {
-    unchecked: bool,
-    #[cfg(feature = "rdf-star")]
-    with_quoted_triples: bool,
+    lenient: bool,
 }
 
 impl NQuadsParser {
@@ -56,19 +54,17 @@ impl NQuadsParser {
     ///
     /// It will skip some validations.
     ///
-    /// Note that if the file is actually not valid, broken RDF might be emitted by the parser.
+    /// Note that if the file is actually not valid, the parser might emit broken RDF.
     #[inline]
-    pub fn unchecked(mut self) -> Self {
-        self.unchecked = true;
+    pub fn lenient(mut self) -> Self {
+        self.lenient = true;
         self
     }
 
-    /// Enables [N-Quads-star](https://w3c.github.io/rdf-star/cg-spec/2021-12-17.html#n-quads-star).
-    #[cfg(feature = "rdf-star")]
+    #[deprecated(note = "Use `lenient()` instead", since = "0.2.0")]
     #[inline]
-    pub fn with_quoted_triples(mut self) -> Self {
-        self.with_quoted_triples = true;
-        self
+    pub fn unchecked(self) -> Self {
+        self.lenient()
     }
 
     /// Parses a N-Quads file from a [`Read`] implementation.
@@ -78,14 +74,14 @@ impl NQuadsParser {
     /// use oxrdf::{NamedNodeRef, vocab::rdf};
     /// use oxttl::NQuadsParser;
     ///
-    /// let file = br#"<http://example.com/foo> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://schema.org/Person> .
+    /// let file = r#"<http://example.com/foo> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://schema.org/Person> .
     /// <http://example.com/foo> <http://schema.org/name> "Foo" .
     /// <http://example.com/bar> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://schema.org/Person> .
     /// <http://example.com/bar> <http://schema.org/name> "Bar" ."#;
     ///
     /// let schema_person = NamedNodeRef::new("http://schema.org/Person")?;
     /// let mut count = 0;
-    /// for quad in NQuadsParser::new().for_reader(file.as_ref()) {
+    /// for quad in NQuadsParser::new().for_reader(file.as_bytes()) {
     ///     let quad = quad?;
     ///     if quad.predicate == rdf::TYPE && quad.object == schema_person.into() {
     ///         count += 1;
@@ -109,14 +105,14 @@ impl NQuadsParser {
     /// use oxrdf::{NamedNodeRef, vocab::rdf};
     /// use oxttl::NQuadsParser;
     ///
-    /// let file = br#"<http://example.com/foo> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://schema.org/Person> .
+    /// let file = r#"<http://example.com/foo> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://schema.org/Person> .
     /// <http://example.com/foo> <http://schema.org/name> "Foo" .
     /// <http://example.com/bar> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://schema.org/Person> .
     /// <http://example.com/bar> <http://schema.org/name> "Bar" ."#;
     ///
     /// let schema_person = NamedNodeRef::new("http://schema.org/Person")?;
     /// let mut count = 0;
-    /// let mut parser = NQuadsParser::new().for_tokio_async_reader(file.as_ref());
+    /// let mut parser = NQuadsParser::new().for_tokio_async_reader(file.as_bytes());
     /// while let Some(triple) = parser.next().await {
     ///     let triple = triple?;
     ///     if triple.predicate == rdf::TYPE && triple.object == schema_person.into() {
@@ -144,7 +140,7 @@ impl NQuadsParser {
     /// use oxrdf::{NamedNodeRef, vocab::rdf};
     /// use oxttl::NQuadsParser;
     ///
-    /// let file = br#"<http://example.com/foo> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://schema.org/Person> .
+    /// let file = r#"<http://example.com/foo> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://schema.org/Person> .
     /// <http://example.com/foo> <http://schema.org/name> "Foo" .
     /// <http://example.com/bar> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://schema.org/Person> .
     /// <http://example.com/bar> <http://schema.org/name> "Bar" ."#;
@@ -160,21 +156,14 @@ impl NQuadsParser {
     /// assert_eq!(2, count);
     /// # Result::<_, Box<dyn std::error::Error>>::Ok(())
     /// ```
-    pub fn for_slice(self, slice: &[u8]) -> SliceNQuadsParser<'_> {
+    pub fn for_slice(self, slice: &(impl AsRef<[u8]> + ?Sized)) -> SliceNQuadsParser<'_> {
         SliceNQuadsParser {
-            inner: NQuadsRecognizer::new_parser(
-                slice,
-                true,
-                true,
-                #[cfg(feature = "rdf-star")]
-                self.with_quoted_triples,
-                self.unchecked,
-            )
-            .into_iter(),
+            inner: NQuadsRecognizer::new_parser(slice.as_ref(), true, true, self.lenient)
+                .into_iter(),
         }
     }
 
-    /// Creates a vector of iterators that may be used to parse an NQuads document slice in parallel.
+    /// Creates a vector of parsers that may be used to parse an NQuads document slice in parallel.
     /// To dynamically specify target_parallelism, use e.g. [`std::thread::available_parallelism`].
     /// Intended to work on large documents.
     ///
@@ -185,13 +174,13 @@ impl NQuadsParser {
     /// use oxttl::NQuadsParser;
     /// use rayon::iter::{IntoParallelIterator, ParallelIterator};
     ///
-    /// let file = br#"<http://example.com/foo> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://schema.org/Person> .
+    /// let file = r#"<http://example.com/foo> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://schema.org/Person> .
     /// <http://example.com/foo> <http://schema.org/name> "Foo" .
     /// <http://example.com/bar> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://schema.org/Person> .
     /// <http://example.com/bar> <http://schema.org/name> "Bar" ."#;
     ///
     /// let schema_person = NamedNodeRef::new("http://schema.org/Person")?;
-    /// let readers = NQuadsParser::new().split_slice_for_parallel_parsing(file.as_ref(), 2);
+    /// let readers = NQuadsParser::new().split_slice_for_parallel_parsing(file, 2);
     /// let count = readers
     ///     .into_par_iter()
     ///     .map(|reader| {
@@ -208,19 +197,77 @@ impl NQuadsParser {
     /// assert_eq!(2, count);
     /// # Result::<_, Box<dyn std::error::Error>>::Ok(())
     /// ```
-    pub fn split_slice_for_parallel_parsing<'a>(
-        &self,
-        slice: &'a [u8],
+    pub fn split_slice_for_parallel_parsing(
+        self,
+        slice: &(impl AsRef<[u8]> + ?Sized),
         target_parallelism: usize,
-    ) -> Vec<SliceNQuadsParser<'a>> {
+    ) -> Vec<SliceNQuadsParser<'_>> {
+        let slice = slice.as_ref();
         let n_chunks = (slice.len() / MIN_PARALLEL_CHUNK_SIZE).clamp(1, target_parallelism);
-        get_ntriples_file_chunks(slice, n_chunks)
+        get_ntriples_slice_chunks(slice, n_chunks)
             .into_iter()
             .map(|(start, end)| self.clone().for_slice(&slice[start..end]))
             .collect()
     }
 
-    /// Allows to parse a N-Quads file by using a low-level API.
+    /// Creates a vector of parsers that may be used to parse an NQuads file in parallel.
+    /// To dynamically specify target_parallelism, use e.g. [`std::thread::available_parallelism`].
+    /// Intended to work on large documents.
+    ///
+    /// Count the number of people:
+    /// ```no_run
+    /// use oxrdf::vocab::rdf;
+    /// use oxrdf::NamedNodeRef;
+    /// use oxttl::NTriplesParser;
+    /// use rayon::iter::{IntoParallelIterator, ParallelIterator};
+    /// # let path = tempfile::NamedTempFile::new()?;
+    /// # std::fs::write(&path, r#"<http://example.com/foo> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://schema.org/Person> .
+    /// # <http://example.com/foo> <http://schema.org/name> "Foo" .
+    /// # <http://example.com/bar> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://schema.org/Person> .
+    /// # <http://example.com/bar> <http://schema.org/name> "Bar" ."#)?;
+    ///
+    /// let schema_person = NamedNodeRef::new("http://schema.org/Person")?;
+    /// let readers = NTriplesParser::new().split_file_for_parallel_parsing(&path, 2)?;
+    /// let count = readers
+    ///     .into_par_iter()
+    ///     .map(|reader| {
+    ///         let mut count = 0;
+    ///         for triple in reader {
+    ///             let triple = triple.unwrap();
+    ///             if triple.predicate == rdf::TYPE && triple.object == schema_person.into() {
+    ///                 count += 1;
+    ///             }
+    ///         }
+    ///         count
+    ///     })
+    ///     .sum();
+    /// assert_eq!(2, count);
+    /// # Result::<_, Box<dyn std::error::Error>>::Ok(())
+    /// ```
+    pub fn split_file_for_parallel_parsing(
+        self,
+        path: impl AsRef<Path>,
+        target_parallelism: usize,
+    ) -> io::Result<Vec<ReaderNQuadsParser<Take<File>>>> {
+        let path = path.as_ref();
+        let mut file = File::open(path)?;
+        let file_size = file.metadata()?.len();
+        let n_chunks = usize::try_from(
+            file_size / u64::try_from(MIN_PARALLEL_CHUNK_SIZE).map_err(io::Error::other)?,
+        )
+        .map_err(io::Error::other)?
+        .clamp(1, target_parallelism);
+        get_ntriples_file_chunks(&mut file, file_size, n_chunks)?
+            .into_iter()
+            .map(|(start, end)| {
+                let mut file = File::open(path)?;
+                file.seek(SeekFrom::Start(start))?;
+                Ok(self.clone().for_reader(file.take(end - start)))
+            })
+            .collect()
+    }
+
+    /// Allows parsing an N-Quads file by using a low-level API.
     ///
     /// Count the number of people:
     /// ```
@@ -256,17 +303,9 @@ impl NQuadsParser {
     /// assert_eq!(2, count);
     /// # Result::<_, Box<dyn std::error::Error>>::Ok(())
     /// ```
-    #[allow(clippy::unused_self)]
     pub fn low_level(self) -> LowLevelNQuadsParser {
         LowLevelNQuadsParser {
-            parser: NQuadsRecognizer::new_parser(
-                Vec::new(),
-                false,
-                true,
-                #[cfg(feature = "rdf-star")]
-                self.with_quoted_triples,
-                self.unchecked,
-            ),
+            parser: NQuadsRecognizer::new_parser(Vec::new(), false, true, self.lenient),
         }
     }
 }
@@ -280,14 +319,14 @@ impl NQuadsParser {
 /// use oxrdf::{NamedNodeRef, vocab::rdf};
 /// use oxttl::NQuadsParser;
 ///
-/// let file = br#"<http://example.com/foo> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://schema.org/Person> .
+/// let file = r#"<http://example.com/foo> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://schema.org/Person> .
 /// <http://example.com/foo> <http://schema.org/name> "Foo" .
 /// <http://example.com/bar> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://schema.org/Person> .
 /// <http://example.com/bar> <http://schema.org/name> "Bar" ."#;
 ///
 /// let schema_person = NamedNodeRef::new("http://schema.org/Person")?;
 /// let mut count = 0;
-/// for quad in NQuadsParser::new().for_reader(file.as_ref()) {
+/// for quad in NQuadsParser::new().for_reader(file.as_bytes()) {
 ///     let quad = quad?;
 ///     if quad.predicate == rdf::TYPE && quad.object == schema_person.into() {
 ///         count += 1;
@@ -320,14 +359,14 @@ impl<R: Read> Iterator for ReaderNQuadsParser<R> {
 /// use oxrdf::{NamedNodeRef, vocab::rdf};
 /// use oxttl::NQuadsParser;
 ///
-/// let file = br#"<http://example.com/foo> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://schema.org/Person> .
+/// let file = r#"<http://example.com/foo> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://schema.org/Person> .
 /// <http://example.com/foo> <http://schema.org/name> "Foo" .
 /// <http://example.com/bar> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://schema.org/Person> .
 /// <http://example.com/bar> <http://schema.org/name> "Bar" ."#;
 ///
 /// let schema_person = NamedNodeRef::new("http://schema.org/Person")?;
 /// let mut count = 0;
-/// let mut parser = NQuadsParser::new().for_tokio_async_reader(file.as_ref());
+/// let mut parser = NQuadsParser::new().for_tokio_async_reader(file.as_bytes());
 /// while let Some(triple) = parser.next().await {
 ///     let triple = triple?;
 ///     if triple.predicate == rdf::TYPE && triple.object == schema_person.into() {
@@ -352,7 +391,7 @@ impl<R: AsyncRead + Unpin> TokioAsyncReaderNQuadsParser<R> {
     }
 }
 
-/// Parses a N-Quads file from a byte slice.
+/// Parses an N-Quads file from a byte slice.
 ///
 /// Can be built using [`NQuadsParser::for_slice`].
 ///
@@ -361,7 +400,7 @@ impl<R: AsyncRead + Unpin> TokioAsyncReaderNQuadsParser<R> {
 /// use oxrdf::{NamedNodeRef, vocab::rdf};
 /// use oxttl::NQuadsParser;
 ///
-/// let file = br#"<http://example.com/foo> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://schema.org/Person> .
+/// let file = r#"<http://example.com/foo> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://schema.org/Person> .
 /// <http://example.com/foo> <http://schema.org/name> "Foo" .
 /// <http://example.com/bar> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://schema.org/Person> .
 /// <http://example.com/bar> <http://schema.org/name> "Bar" ."#;
@@ -461,8 +500,6 @@ impl LowLevelNQuadsParser {
 
 /// A [N-Quads](https://www.w3.org/TR/n-quads/) serializer.
 ///
-/// Support for [N-Quads-star](https://w3c.github.io/rdf-star/cg-spec/2021-12-17.html#n-quads-star) is available behind the `rdf-star` feature.
-///
 /// ```
 /// use oxrdf::{NamedNodeRef, QuadRef};
 /// use oxrdf::vocab::rdf;
@@ -483,7 +520,7 @@ impl LowLevelNQuadsParser {
 /// ```
 #[derive(Default, Clone)]
 #[must_use]
-#[allow(clippy::empty_structs_with_brackets)]
+#[expect(clippy::empty_structs_with_brackets)]
 pub struct NQuadsSerializer {}
 
 impl NQuadsSerializer {
@@ -576,7 +613,7 @@ impl NQuadsSerializer {
     /// );
     /// # Result::<_, Box<dyn std::error::Error>>::Ok(())
     /// ```
-    #[allow(clippy::unused_self)]
+    #[expect(clippy::unused_self)]
     pub fn low_level(self) -> LowLevelNQuadsSerializer {
         LowLevelNQuadsSerializer {}
     }
@@ -694,12 +731,12 @@ impl<W: AsyncWrite + Unpin> TokioAsyncWriterNQuadsSerializer<W> {
 /// );
 /// # Result::<_, Box<dyn std::error::Error>>::Ok(())
 /// ```
-#[allow(clippy::empty_structs_with_brackets)]
+#[expect(clippy::empty_structs_with_brackets)]
 pub struct LowLevelNQuadsSerializer {}
 
 impl LowLevelNQuadsSerializer {
     /// Writes an extra quad.
-    #[allow(clippy::unused_self)]
+    #[expect(clippy::unused_self)]
     pub fn serialize_quad<'a>(
         &mut self,
         q: impl Into<QuadRef<'a>>,

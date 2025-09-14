@@ -44,6 +44,7 @@ class FlowStateAssignedToChat(AssignedAssetToChat):
     is_smart_follow_up: bool = Field(default=False)
     total_followups_sent: int = Field(default=0)
     consecutive_count: int = Field(default=0)
+    execution_attempts: int = Field(default=0)
 
     model_config = ConfigDict(
         populate_by_name=True,

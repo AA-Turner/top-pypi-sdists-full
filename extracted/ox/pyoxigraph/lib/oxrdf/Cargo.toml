@@ -1,6 +1,6 @@
 [package]
 name = "oxrdf"
-version = "0.2.4"
+version = "0.3.0"
 authors.workspace = true
 license.workspace = true
 readme = "README.md"
@@ -13,7 +13,8 @@ rust-version.workspace = true
 
 [features]
 default = []
-rdf-star = []
+rdf-12 = []
+serde = ["dep:serde"]
 
 [dependencies]
 oxilangtag.workspace = true
@@ -21,6 +22,13 @@ oxiri.workspace = true
 oxsdatatypes = { workspace = true, optional = true }
 rand.workspace = true
 thiserror.workspace = true
+serde = { workspace = true, features = ["derive"], optional = true }
+
+[dev-dependencies]
+# Ideally, this would be an optional dependency, used only when the `serde` feature is enabled.
+# However, cargo does not currently support optional dev-dependencies.
+# See https://github.com/rust-lang/cargo/issues/1596
+serde_json.workspace = true
 
 [lints]
 workspace = true

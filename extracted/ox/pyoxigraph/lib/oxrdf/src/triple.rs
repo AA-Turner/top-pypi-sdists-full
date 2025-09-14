@@ -2,12 +2,18 @@ use crate::blank_node::BlankNode;
 use crate::literal::Literal;
 use crate::named_node::NamedNode;
 use crate::{BlankNodeRef, LiteralRef, NamedNodeRef};
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize, Serializer};
 use std::fmt;
 
 /// The owned union of [IRIs](https://www.w3.org/TR/rdf11-concepts/#dfn-iri) and [blank nodes](https://www.w3.org/TR/rdf11-concepts/#dfn-blank-node).
 #[derive(Eq, PartialEq, Debug, Clone, Hash)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", serde(tag = "type", rename_all = "lowercase"))]
 pub enum NamedOrBlankNode {
+    #[cfg_attr(feature = "serde", serde(rename = "uri"))]
     NamedNode(NamedNode),
+    #[cfg_attr(feature = "serde", serde(rename = "bnode"))]
     BlankNode(BlankNode),
 }
 
@@ -68,8 +74,12 @@ impl From<BlankNodeRef<'_>> for NamedOrBlankNode {
 
 /// The borrowed union of [IRIs](https://www.w3.org/TR/rdf11-concepts/#dfn-iri) and [blank nodes](https://www.w3.org/TR/rdf11-concepts/#dfn-blank-node).
 #[derive(Eq, PartialEq, Debug, Clone, Copy, Hash)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
+#[cfg_attr(feature = "serde", serde(tag = "type", rename_all = "lowercase"))]
 pub enum NamedOrBlankNodeRef<'a> {
+    #[cfg_attr(feature = "serde", serde(rename = "uri"))]
     NamedNode(NamedNodeRef<'a>),
+    #[cfg_attr(feature = "serde", serde(rename = "bnode"))]
     BlankNode(BlankNodeRef<'a>),
 }
 
@@ -151,244 +161,19 @@ impl<'a> From<NamedOrBlankNodeRef<'a>> for NamedOrBlankNode {
     }
 }
 
-/// The owned union of [IRIs](https://www.w3.org/TR/rdf11-concepts/#dfn-iri), [blank nodes](https://www.w3.org/TR/rdf11-concepts/#dfn-blank-node)  and [triples](https://www.w3.org/TR/rdf11-concepts/#dfn-rdf-triple) (if the `rdf-star` feature is enabled).
-#[derive(Eq, PartialEq, Debug, Clone, Hash)]
-pub enum Subject {
-    NamedNode(NamedNode),
-    BlankNode(BlankNode),
-    #[cfg(feature = "rdf-star")]
-    Triple(Box<Triple>),
-}
-
-impl Subject {
-    #[inline]
-    pub fn is_named_node(&self) -> bool {
-        self.as_ref().is_named_node()
-    }
-
-    #[inline]
-    pub fn is_blank_node(&self) -> bool {
-        self.as_ref().is_blank_node()
-    }
-
-    #[cfg(feature = "rdf-star")]
-    #[inline]
-    pub fn is_triple(&self) -> bool {
-        self.as_ref().is_triple()
-    }
-
-    #[inline]
-    pub fn as_ref(&self) -> SubjectRef<'_> {
-        match self {
-            Self::NamedNode(node) => SubjectRef::NamedNode(node.as_ref()),
-            Self::BlankNode(node) => SubjectRef::BlankNode(node.as_ref()),
-            #[cfg(feature = "rdf-star")]
-            Self::Triple(triple) => SubjectRef::Triple(triple),
-        }
-    }
-}
-
-impl fmt::Display for Subject {
-    #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.as_ref().fmt(f)
-    }
-}
-
-impl From<NamedNode> for Subject {
-    #[inline]
-    fn from(node: NamedNode) -> Self {
-        Self::NamedNode(node)
-    }
-}
-
-impl From<NamedNodeRef<'_>> for Subject {
-    #[inline]
-    fn from(node: NamedNodeRef<'_>) -> Self {
-        node.into_owned().into()
-    }
-}
-
-impl From<BlankNode> for Subject {
-    #[inline]
-    fn from(node: BlankNode) -> Self {
-        Self::BlankNode(node)
-    }
-}
-
-impl From<BlankNodeRef<'_>> for Subject {
-    #[inline]
-    fn from(node: BlankNodeRef<'_>) -> Self {
-        node.into_owned().into()
-    }
-}
-
-#[cfg(feature = "rdf-star")]
-impl From<Triple> for Subject {
-    #[inline]
-    fn from(node: Triple) -> Self {
-        Self::Triple(Box::new(node))
-    }
-}
-
-#[cfg(feature = "rdf-star")]
-impl From<Box<Triple>> for Subject {
-    #[inline]
-    fn from(node: Box<Triple>) -> Self {
-        Self::Triple(node)
-    }
-}
-
-#[cfg(feature = "rdf-star")]
-impl From<TripleRef<'_>> for Subject {
-    #[inline]
-    fn from(node: TripleRef<'_>) -> Self {
-        node.into_owned().into()
-    }
-}
-
-impl From<NamedOrBlankNode> for Subject {
-    #[inline]
-    fn from(node: NamedOrBlankNode) -> Self {
-        match node {
-            NamedOrBlankNode::NamedNode(node) => node.into(),
-            NamedOrBlankNode::BlankNode(node) => node.into(),
-        }
-    }
-}
-
-impl From<NamedOrBlankNodeRef<'_>> for Subject {
-    #[inline]
-    fn from(node: NamedOrBlankNodeRef<'_>) -> Self {
-        node.into_owned().into()
-    }
-}
-
-/// The borrowed union of [IRIs](https://www.w3.org/TR/rdf11-concepts/#dfn-iri), [blank nodes](https://www.w3.org/TR/rdf11-concepts/#dfn-blank-node) and [triples](https://www.w3.org/TR/rdf11-concepts/#dfn-rdf-triple) (if the `rdf-star` feature is enabled).
-#[derive(Eq, PartialEq, Debug, Clone, Copy, Hash)]
-pub enum SubjectRef<'a> {
-    NamedNode(NamedNodeRef<'a>),
-    BlankNode(BlankNodeRef<'a>),
-    #[cfg(feature = "rdf-star")]
-    Triple(&'a Triple),
-}
-
-impl SubjectRef<'_> {
-    #[inline]
-    pub fn is_named_node(&self) -> bool {
-        matches!(self, Self::NamedNode(_))
-    }
-
-    #[inline]
-    pub fn is_blank_node(&self) -> bool {
-        matches!(self, Self::BlankNode(_))
-    }
-
-    #[cfg(feature = "rdf-star")]
-    #[inline]
-    pub fn is_triple(&self) -> bool {
-        matches!(self, Self::Triple(_))
-    }
-
-    #[inline]
-    pub fn into_owned(self) -> Subject {
-        match self {
-            Self::NamedNode(node) => Subject::NamedNode(node.into_owned()),
-            Self::BlankNode(node) => Subject::BlankNode(node.into_owned()),
-            #[cfg(feature = "rdf-star")]
-            Self::Triple(triple) => Subject::Triple(Box::new(triple.clone())),
-        }
-    }
-}
-
-impl fmt::Display for SubjectRef<'_> {
-    #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::NamedNode(node) => node.fmt(f),
-            Self::BlankNode(node) => node.fmt(f),
-            #[cfg(feature = "rdf-star")]
-            Self::Triple(triple) => write!(f, "<<{triple}>>"),
-        }
-    }
-}
-
-impl<'a> From<NamedNodeRef<'a>> for SubjectRef<'a> {
-    #[inline]
-    fn from(node: NamedNodeRef<'a>) -> Self {
-        Self::NamedNode(node)
-    }
-}
-
-impl<'a> From<&'a NamedNode> for SubjectRef<'a> {
-    #[inline]
-    fn from(node: &'a NamedNode) -> Self {
-        node.as_ref().into()
-    }
-}
-
-impl<'a> From<BlankNodeRef<'a>> for SubjectRef<'a> {
-    #[inline]
-    fn from(node: BlankNodeRef<'a>) -> Self {
-        Self::BlankNode(node)
-    }
-}
-
-impl<'a> From<&'a BlankNode> for SubjectRef<'a> {
-    #[inline]
-    fn from(node: &'a BlankNode) -> Self {
-        node.as_ref().into()
-    }
-}
-
-#[cfg(feature = "rdf-star")]
-impl<'a> From<&'a Triple> for SubjectRef<'a> {
-    #[inline]
-    fn from(node: &'a Triple) -> Self {
-        Self::Triple(node)
-    }
-}
-
-impl<'a> From<&'a Subject> for SubjectRef<'a> {
-    #[inline]
-    fn from(node: &'a Subject) -> Self {
-        node.as_ref()
-    }
-}
-
-impl<'a> From<SubjectRef<'a>> for Subject {
-    #[inline]
-    fn from(node: SubjectRef<'a>) -> Self {
-        node.into_owned()
-    }
-}
-
-impl<'a> From<NamedOrBlankNodeRef<'a>> for SubjectRef<'a> {
-    #[inline]
-    fn from(node: NamedOrBlankNodeRef<'a>) -> Self {
-        match node {
-            NamedOrBlankNodeRef::NamedNode(node) => node.into(),
-            NamedOrBlankNodeRef::BlankNode(node) => node.into(),
-        }
-    }
-}
-
-impl<'a> From<&'a NamedOrBlankNode> for SubjectRef<'a> {
-    #[inline]
-    fn from(node: &'a NamedOrBlankNode) -> Self {
-        node.as_ref().into()
-    }
-}
-
 /// An owned RDF [term](https://www.w3.org/TR/rdf11-concepts/#dfn-rdf-term)
 ///
-/// It is the union of [IRIs](https://www.w3.org/TR/rdf11-concepts/#dfn-iri), [blank nodes](https://www.w3.org/TR/rdf11-concepts/#dfn-blank-node), [literals](https://www.w3.org/TR/rdf11-concepts/#dfn-literal) and [triples](https://www.w3.org/TR/rdf11-concepts/#dfn-rdf-triple) (if the `rdf-star` feature is enabled).
+/// It is the union of [IRIs](https://www.w3.org/TR/rdf11-concepts/#dfn-iri), [blank nodes](https://www.w3.org/TR/rdf11-concepts/#dfn-blank-node), [literals](https://www.w3.org/TR/rdf11-concepts/#dfn-literal) and [triples](https://www.w3.org/TR/rdf11-concepts/#dfn-rdf-triple) (if the `rdf-12` feature is enabled).
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", serde(tag = "type", rename_all = "lowercase"))]
 #[derive(Eq, PartialEq, Debug, Clone, Hash)]
 pub enum Term {
+    #[cfg_attr(feature = "serde", serde(rename = "uri"))]
     NamedNode(NamedNode),
+    #[cfg_attr(feature = "serde", serde(rename = "bnode"))]
     BlankNode(BlankNode),
     Literal(Literal),
-    #[cfg(feature = "rdf-star")]
+    #[cfg(feature = "rdf-12")]
     Triple(Box<Triple>),
 }
 
@@ -408,7 +193,7 @@ impl Term {
         self.as_ref().is_literal()
     }
 
-    #[cfg(feature = "rdf-star")]
+    #[cfg(feature = "rdf-12")]
     #[inline]
     pub fn is_triple(&self) -> bool {
         self.as_ref().is_triple()
@@ -420,7 +205,7 @@ impl Term {
             Self::NamedNode(node) => TermRef::NamedNode(node.as_ref()),
             Self::BlankNode(node) => TermRef::BlankNode(node.as_ref()),
             Self::Literal(literal) => TermRef::Literal(literal.as_ref()),
-            #[cfg(feature = "rdf-star")]
+            #[cfg(feature = "rdf-12")]
             Self::Triple(triple) => TermRef::Triple(triple),
         }
     }
@@ -475,7 +260,7 @@ impl From<LiteralRef<'_>> for Term {
     }
 }
 
-#[cfg(feature = "rdf-star")]
+#[cfg(feature = "rdf-12")]
 impl From<Triple> for Term {
     #[inline]
     fn from(triple: Triple) -> Self {
@@ -483,7 +268,7 @@ impl From<Triple> for Term {
     }
 }
 
-#[cfg(feature = "rdf-star")]
+#[cfg(feature = "rdf-12")]
 impl From<Box<Triple>> for Term {
     #[inline]
     fn from(node: Box<Triple>) -> Self {
@@ -491,7 +276,7 @@ impl From<Box<Triple>> for Term {
     }
 }
 
-#[cfg(feature = "rdf-star")]
+#[cfg(feature = "rdf-12")]
 impl From<TripleRef<'_>> for Term {
     #[inline]
     fn from(triple: TripleRef<'_>) -> Self {
@@ -512,25 +297,6 @@ impl From<NamedOrBlankNode> for Term {
 impl From<NamedOrBlankNodeRef<'_>> for Term {
     #[inline]
     fn from(node: NamedOrBlankNodeRef<'_>) -> Self {
-        node.into_owned().into()
-    }
-}
-
-impl From<Subject> for Term {
-    #[inline]
-    fn from(node: Subject) -> Self {
-        match node {
-            Subject::NamedNode(node) => node.into(),
-            Subject::BlankNode(node) => node.into(),
-            #[cfg(feature = "rdf-star")]
-            Subject::Triple(triple) => Self::Triple(triple),
-        }
-    }
-}
-
-impl From<SubjectRef<'_>> for Term {
-    #[inline]
-    fn from(node: SubjectRef<'_>) -> Self {
         node.into_owned().into()
     }
 }
@@ -583,7 +349,7 @@ impl TryFrom<Term> for Literal {
     }
 }
 
-impl TryFrom<Term> for Subject {
+impl TryFrom<Term> for NamedOrBlankNode {
     type Error = TryFromTermError;
 
     #[inline]
@@ -591,11 +357,14 @@ impl TryFrom<Term> for Subject {
         match term {
             Term::NamedNode(term) => Ok(Self::NamedNode(term)),
             Term::BlankNode(term) => Ok(Self::BlankNode(term)),
-            #[cfg(feature = "rdf-star")]
-            Term::Triple(term) => Ok(Self::Triple(term)),
             Term::Literal(_) => Err(TryFromTermError {
                 term,
-                target: "Subject",
+                target: "NamedOrBlankNode",
+            }),
+            #[cfg(feature = "rdf-12")]
+            Term::Triple(_) => Err(TryFromTermError {
+                term,
+                target: "Triple",
             }),
         }
     }
@@ -603,13 +372,17 @@ impl TryFrom<Term> for Subject {
 
 /// A borrowed RDF [term](https://www.w3.org/TR/rdf11-concepts/#dfn-rdf-term)
 ///
-/// It is the union of [IRIs](https://www.w3.org/TR/rdf11-concepts/#dfn-iri), [blank nodes](https://www.w3.org/TR/rdf11-concepts/#dfn-blank-node), [literals](https://www.w3.org/TR/rdf11-concepts/#dfn-literal) and [triples](https://www.w3.org/TR/rdf11-concepts/#dfn-rdf-triple) (if the `rdf-star` feature is enabled).
+/// It is the union of [IRIs](https://www.w3.org/TR/rdf11-concepts/#dfn-iri), [blank nodes](https://www.w3.org/TR/rdf11-concepts/#dfn-blank-node), [literals](https://www.w3.org/TR/rdf11-concepts/#dfn-literal) and [triples](https://www.w3.org/TR/rdf11-concepts/#dfn-rdf-triple) (if the `rdf-12` feature is enabled).
 #[derive(Eq, PartialEq, Debug, Clone, Copy, Hash)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
+#[cfg_attr(feature = "serde", serde(tag = "type", rename_all = "lowercase"))]
 pub enum TermRef<'a> {
+    #[cfg_attr(feature = "serde", serde(rename = "uri"))]
     NamedNode(NamedNodeRef<'a>),
+    #[cfg_attr(feature = "serde", serde(rename = "bnode"))]
     BlankNode(BlankNodeRef<'a>),
     Literal(LiteralRef<'a>),
-    #[cfg(feature = "rdf-star")]
+    #[cfg(feature = "rdf-12")]
     Triple(&'a Triple),
 }
 
@@ -629,7 +402,7 @@ impl TermRef<'_> {
         matches!(self, Self::Literal(_))
     }
 
-    #[cfg(feature = "rdf-star")]
+    #[cfg(feature = "rdf-12")]
     #[inline]
     pub fn is_triple(&self) -> bool {
         matches!(self, Self::Triple(_))
@@ -641,7 +414,7 @@ impl TermRef<'_> {
             Self::NamedNode(node) => Term::NamedNode(node.into_owned()),
             Self::BlankNode(node) => Term::BlankNode(node.into_owned()),
             Self::Literal(literal) => Term::Literal(literal.into_owned()),
-            #[cfg(feature = "rdf-star")]
+            #[cfg(feature = "rdf-12")]
             Self::Triple(triple) => Term::Triple(Box::new(triple.clone())),
         }
     }
@@ -654,9 +427,9 @@ impl fmt::Display for TermRef<'_> {
             Self::NamedNode(node) => node.fmt(f),
             Self::BlankNode(node) => node.fmt(f),
             Self::Literal(literal) => literal.fmt(f),
-            #[cfg(feature = "rdf-star")]
+            #[cfg(feature = "rdf-12")]
             Self::Triple(triple) => {
-                write!(f, "<<{triple}>>")
+                write!(f, "<<( {triple} )>>")
             }
         }
     }
@@ -704,7 +477,7 @@ impl<'a> From<&'a Literal> for TermRef<'a> {
     }
 }
 
-#[cfg(feature = "rdf-star")]
+#[cfg(feature = "rdf-12")]
 impl<'a> From<&'a Triple> for TermRef<'a> {
     #[inline]
     fn from(node: &'a Triple) -> Self {
@@ -725,25 +498,6 @@ impl<'a> From<NamedOrBlankNodeRef<'a>> for TermRef<'a> {
 impl<'a> From<&'a NamedOrBlankNode> for TermRef<'a> {
     #[inline]
     fn from(node: &'a NamedOrBlankNode) -> Self {
-        node.as_ref().into()
-    }
-}
-
-impl<'a> From<SubjectRef<'a>> for TermRef<'a> {
-    #[inline]
-    fn from(node: SubjectRef<'a>) -> Self {
-        match node {
-            SubjectRef::NamedNode(node) => node.into(),
-            SubjectRef::BlankNode(node) => node.into(),
-            #[cfg(feature = "rdf-star")]
-            SubjectRef::Triple(triple) => triple.into(),
-        }
-    }
-}
-
-impl<'a> From<&'a Subject> for TermRef<'a> {
-    #[inline]
-    fn from(node: &'a Subject) -> Self {
         node.as_ref().into()
     }
 }
@@ -780,11 +534,13 @@ impl<'a> From<TermRef<'a>> for Term {
 /// # Result::<_,oxrdf::IriParseError>::Ok(())
 /// ```
 #[derive(Eq, PartialEq, Debug, Clone, Hash)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Triple {
     /// The [subject](https://www.w3.org/TR/rdf11-concepts/#dfn-subject) of this triple.
-    pub subject: Subject,
+    pub subject: NamedOrBlankNode,
 
     /// The [predicate](https://www.w3.org/TR/rdf11-concepts/#dfn-predicate) of this triple.
+    #[cfg_attr(feature = "serde", serde(serialize_with = "serialize_predicate"))]
     pub predicate: NamedNode,
 
     /// The [object](https://www.w3.org/TR/rdf11-concepts/#dfn-object) of this triple.
@@ -795,7 +551,7 @@ impl Triple {
     /// Builds an RDF [triple](https://www.w3.org/TR/rdf11-concepts/#dfn-rdf-triple).
     #[inline]
     pub fn new(
-        subject: impl Into<Subject>,
+        subject: impl Into<NamedOrBlankNode>,
         predicate: impl Into<NamedNode>,
         object: impl Into<Term>,
     ) -> Self {
@@ -871,7 +627,7 @@ impl fmt::Display for Triple {
 #[derive(Eq, PartialEq, Debug, Clone, Copy, Hash)]
 pub struct TripleRef<'a> {
     /// The [subject](https://www.w3.org/TR/rdf11-concepts/#dfn-subject) of this triple.
-    pub subject: SubjectRef<'a>,
+    pub subject: NamedOrBlankNodeRef<'a>,
 
     /// The [predicate](https://www.w3.org/TR/rdf11-concepts/#dfn-predicate) of this triple.
     pub predicate: NamedNodeRef<'a>,
@@ -884,7 +640,7 @@ impl<'a> TripleRef<'a> {
     /// Builds an RDF [triple](https://www.w3.org/TR/rdf11-concepts/#dfn-rdf-triple).
     #[inline]
     pub fn new(
-        subject: impl Into<SubjectRef<'a>>,
+        subject: impl Into<NamedOrBlankNodeRef<'a>>,
         predicate: impl Into<NamedNodeRef<'a>>,
         object: impl Into<TermRef<'a>>,
     ) -> Self {
@@ -941,10 +697,15 @@ impl<'a> From<TripleRef<'a>> for Triple {
 ///
 /// It is the union of [IRIs](https://www.w3.org/TR/rdf11-concepts/#dfn-iri), [blank nodes](https://www.w3.org/TR/rdf11-concepts/#dfn-blank-node), and the [default graph name](https://www.w3.org/TR/rdf11-concepts/#dfn-default-graph).
 #[derive(Eq, PartialEq, Debug, Clone, Hash, Default)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", serde(tag = "type", rename_all = "lowercase"))]
 pub enum GraphName {
+    #[cfg_attr(feature = "serde", serde(rename = "uri"))]
     NamedNode(NamedNode),
+    #[cfg_attr(feature = "serde", serde(rename = "bnode"))]
     BlankNode(BlankNode),
     #[default]
+    #[cfg_attr(feature = "serde", serde(rename = "default"))]
     DefaultGraph,
 }
 
@@ -1030,10 +791,15 @@ impl From<NamedOrBlankNodeRef<'_>> for GraphName {
 ///
 /// It is the union of [IRIs](https://www.w3.org/TR/rdf11-concepts/#dfn-iri), [blank nodes](https://www.w3.org/TR/rdf11-concepts/#dfn-blank-node), and the [default graph name](https://www.w3.org/TR/rdf11-concepts/#dfn-default-graph).
 #[derive(Eq, PartialEq, Debug, Clone, Copy, Hash, Default)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
+#[cfg_attr(feature = "serde", serde(tag = "type"))]
 pub enum GraphNameRef<'a> {
+    #[cfg_attr(feature = "serde", serde(rename = "uri"))]
     NamedNode(NamedNodeRef<'a>),
+    #[cfg_attr(feature = "serde", serde(rename = "bnode"))]
     BlankNode(BlankNodeRef<'a>),
     #[default]
+    #[cfg_attr(feature = "serde", serde(rename = "default"))]
     DefaultGraph,
 }
 
@@ -1151,17 +917,20 @@ impl<'a> From<GraphNameRef<'a>> for GraphName {
 /// # Result::<_,oxrdf::IriParseError>::Ok(())
 /// ```
 #[derive(Eq, PartialEq, Debug, Clone, Hash)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Quad {
     /// The [subject](https://www.w3.org/TR/rdf11-concepts/#dfn-subject) of this triple.
-    pub subject: Subject,
+    pub subject: NamedOrBlankNode,
 
     /// The [predicate](https://www.w3.org/TR/rdf11-concepts/#dfn-predicate) of this triple.
+    #[cfg_attr(feature = "serde", serde(serialize_with = "serialize_predicate"))]
     pub predicate: NamedNode,
 
     /// The [object](https://www.w3.org/TR/rdf11-concepts/#dfn-object) of this triple.
     pub object: Term,
 
     /// The name of the RDF [graph](https://www.w3.org/TR/rdf11-concepts/#dfn-rdf-graph) in which the triple is.
+    #[cfg_attr(feature = "serde", serde(rename = "graph"))]
     pub graph_name: GraphName,
 }
 
@@ -1169,7 +938,7 @@ impl Quad {
     /// Builds an RDF [triple](https://www.w3.org/TR/rdf11-concepts/#dfn-rdf-triple) in an [RDF dataset](https://www.w3.org/TR/rdf11-concepts/#dfn-rdf-dataset).
     #[inline]
     pub fn new(
-        subject: impl Into<Subject>,
+        subject: impl Into<NamedOrBlankNode>,
         predicate: impl Into<NamedNode>,
         object: impl Into<Term>,
         graph_name: impl Into<GraphName>,
@@ -1231,7 +1000,7 @@ impl From<Quad> for Triple {
 #[derive(Eq, PartialEq, Debug, Clone, Copy, Hash)]
 pub struct QuadRef<'a> {
     /// The [subject](https://www.w3.org/TR/rdf11-concepts/#dfn-subject) of this triple.
-    pub subject: SubjectRef<'a>,
+    pub subject: NamedOrBlankNodeRef<'a>,
 
     /// The [predicate](https://www.w3.org/TR/rdf11-concepts/#dfn-predicate) of this triple.
     pub predicate: NamedNodeRef<'a>,
@@ -1247,7 +1016,7 @@ impl<'a> QuadRef<'a> {
     /// Builds an RDF [triple](https://www.w3.org/TR/rdf11-concepts/#dfn-rdf-triple) in an [RDF dataset](https://www.w3.org/TR/rdf11-concepts/#dfn-rdf-dataset).
     #[inline]
     pub fn new(
-        subject: impl Into<SubjectRef<'a>>,
+        subject: impl Into<NamedOrBlankNodeRef<'a>>,
         predicate: impl Into<NamedNodeRef<'a>>,
         object: impl Into<TermRef<'a>>,
         graph_name: impl Into<GraphNameRef<'a>>,
@@ -1326,11 +1095,28 @@ impl TryFromTermError {
         self.term
     }
 }
+#[cfg(feature = "serde")]
+fn serialize_predicate<S>(node: &NamedNode, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    #[derive(Serialize)]
+    #[serde(rename = "uri", tag = "type")]
+    struct Value<'a> {
+        value: &'a str,
+    }
+    Value {
+        value: node.as_str(),
+    }
+    .serialize(serializer)
+}
 
 #[cfg(test)]
-#[allow(clippy::panic_in_result_fn)]
+#[expect(clippy::panic_in_result_fn)]
 mod tests {
     use super::*;
+    #[cfg(feature = "serde")]
+    use serde::de::DeserializeOwned;
 
     #[test]
     fn triple_from_terms() -> Result<(), TryFromTermError> {
@@ -1367,5 +1153,289 @@ mod tests {
             Term::from(Literal::new_simple_literal("foo"))
         );
         Ok(())
+    }
+
+    #[test]
+    #[cfg(feature = "serde")]
+    fn serde() -> Result<(), serde_json::Error> {
+        let triple = Triple::new(
+            NamedNode::new_unchecked("http://example.com/s"),
+            NamedNode::new_unchecked("http://example.com/p"),
+            NamedNode::new_unchecked("http://example.com/o"),
+        );
+        let jsn = serde_json::to_string(&triple)?;
+        assert_eq!(
+            jsn,
+            r#"{"subject":{"type":"uri","value":"http://example.com/s"},"predicate":{"type":"uri","value":"http://example.com/p"},"object":{"type":"uri","value":"http://example.com/o"}}"#
+        );
+        let deserialized: Triple = serde_json::from_str(&jsn)?;
+        assert_eq!(deserialized, triple);
+
+        // Test triples with all possible combinations of terms
+        let triple = Triple::new(
+            BlankNode::new_unchecked("s"),
+            NamedNode::new_unchecked("http://example.com/p"),
+            Literal::new_simple_literal("foo"),
+        );
+        let jsn = serde_json::to_string(&triple)?;
+        assert_eq!(
+            jsn,
+            r#"{"subject":{"type":"bnode","value":"s"},"predicate":{"type":"uri","value":"http://example.com/p"},"object":{"type":"literal","value":"foo"}}"#
+        );
+        let deserialized: Triple = serde_json::from_str(&jsn)?;
+        assert_eq!(deserialized, triple);
+
+        let triple = Triple::new(
+            NamedNode::new_unchecked("http://example.com/s"),
+            NamedNode::new_unchecked("http://example.com/p"),
+            BlankNode::new("foo").unwrap(),
+        );
+
+        let jsn = serde_json::to_string(&triple).unwrap();
+        assert_eq!(
+            jsn,
+            r#"{"subject":{"type":"uri","value":"http://example.com/s"},"predicate":{"type":"uri","value":"http://example.com/p"},"object":{"type":"bnode","value":"foo"}}"#
+        );
+        let deserialized: Triple = serde_json::from_str(&jsn)?;
+        assert_eq!(deserialized, triple);
+
+        Ok(())
+    }
+
+    #[test]
+    #[cfg(feature = "serde")]
+    fn serde_from_reader() -> Result<(), serde_json::Error> {
+        let triple = Triple::new(
+            NamedNode::new_unchecked("http://example.com/s"),
+            NamedNode::new_unchecked("http://example.com/p"),
+            NamedNode::new_unchecked("http://example.com/o"),
+        );
+        let jsn = serde_json::to_string(&triple)?;
+        let deserialized: Triple = serde_json::from_reader(jsn.as_bytes())?;
+        assert_eq!(deserialized, triple);
+
+        // Test triples with all possible combinations of terms
+        let triple = Triple::new(
+            NamedNode::new_unchecked("http://example.com/s"),
+            NamedNode::new_unchecked("http://example.com/p"),
+            Literal::new_simple_literal("foo"),
+        );
+        let jsn = serde_json::to_string(&triple)?;
+        let deserialized: Triple = serde_json::from_reader(jsn.as_bytes())?;
+        assert_eq!(deserialized, triple);
+
+        let triple = Triple::new(
+            NamedNode::new_unchecked("http://example.com/s"),
+            NamedNode::new_unchecked("http://example.com/p"),
+            BlankNode::new("foo").unwrap(),
+        );
+
+        let jsn = serde_json::to_string(&triple).unwrap();
+        let deserialized: Triple = serde_json::from_reader(jsn.as_bytes())?;
+        assert_eq!(deserialized, triple);
+
+        Ok(())
+    }
+
+    #[test]
+    #[cfg(feature = "serde")]
+    #[cfg(feature = "rdf-12")]
+    fn serde_star() -> Result<(), serde_json::Error> {
+        let triple = Triple::new(
+            NamedNode::new_unchecked("http://example.com/s"),
+            NamedNode::new_unchecked("http://example.com/p"),
+            Term::Triple(Box::new(Triple::new(
+                NamedNode::new_unchecked("http://example.com/s"),
+                NamedNode::new_unchecked("http://example.com/p"),
+                NamedNode::new_unchecked("http://example.com/o"),
+            ))),
+        );
+
+        let jsn = serde_json::to_string(&triple)?;
+        assert_eq!(
+            jsn,
+            r#"{"subject":{"type":"uri","value":"http://example.com/s"},"predicate":{"type":"uri","value":"http://example.com/p"},"object":{"type":"triple","subject":{"type":"uri","value":"http://example.com/s"},"predicate":{"type":"uri","value":"http://example.com/p"},"object":{"type":"uri","value":"http://example.com/o"}}}"#
+        );
+        let deserialized: Triple = serde_json::from_str(&jsn)?;
+        assert_eq!(deserialized, triple);
+
+        Ok(())
+    }
+
+    #[test]
+    #[cfg(feature = "serde")]
+    fn serde_quad() -> Result<(), serde_json::Error> {
+        let quad = Quad::new(
+            NamedNode::new_unchecked("http://example.com/s"),
+            NamedNode::new_unchecked("http://example.com/p"),
+            NamedNode::new_unchecked("http://example.com/o"),
+            NamedNode::new_unchecked("http://example.com/g"),
+        );
+        let jsn = serde_json::to_string(&quad)?;
+        assert_eq!(
+            jsn,
+            r#"{"subject":{"type":"uri","value":"http://example.com/s"},"predicate":{"type":"uri","value":"http://example.com/p"},"object":{"type":"uri","value":"http://example.com/o"},"graph":{"type":"uri","value":"http://example.com/g"}}"#
+        );
+        let deserialized: Quad = serde_json::from_str(&jsn)?;
+        assert_eq!(deserialized, quad);
+
+        // Test quads with all possible combinations of terms
+        let quad = Quad::new(
+            NamedNode::new_unchecked("http://example.com/s"),
+            NamedNode::new_unchecked("http://example.com/p"),
+            Literal::new_simple_literal("foo"),
+            NamedNode::new_unchecked("http://example.com/g"),
+        );
+        let jsn = serde_json::to_string(&quad)?;
+        assert_eq!(
+            jsn,
+            r#"{"subject":{"type":"uri","value":"http://example.com/s"},"predicate":{"type":"uri","value":"http://example.com/p"},"object":{"type":"literal","value":"foo"},"graph":{"type":"uri","value":"http://example.com/g"}}"#
+        );
+        let deserialized: Quad = serde_json::from_str(&jsn)?;
+        assert_eq!(deserialized, quad);
+
+        let quad = Quad::new(
+            NamedNode::new_unchecked("http://example.com/s"),
+            NamedNode::new_unchecked("http://example.com/p"),
+            BlankNode::new("foo").unwrap(),
+            NamedNode::new_unchecked("http://example.com/g"),
+        );
+
+        let jsn = serde_json::to_string(&quad).unwrap();
+        assert_eq!(
+            jsn,
+            r#"{"subject":{"type":"uri","value":"http://example.com/s"},"predicate":{"type":"uri","value":"http://example.com/p"},"object":{"type":"bnode","value":"foo"},"graph":{"type":"uri","value":"http://example.com/g"}}"#
+        );
+        let deserialized: Quad = serde_json::from_str(&jsn)?;
+        assert_eq!(deserialized, quad);
+
+        // Test quads with a blank node graph name
+        let quad = Quad::new(
+            NamedNode::new_unchecked("http://example.com/s"),
+            NamedNode::new_unchecked("http://example.com/p"),
+            NamedNode::new_unchecked("http://example.com/o"),
+            BlankNode::new("foo").unwrap(),
+        );
+        let jsn = serde_json::to_string(&quad)?;
+        assert_eq!(
+            jsn,
+            r#"{"subject":{"type":"uri","value":"http://example.com/s"},"predicate":{"type":"uri","value":"http://example.com/p"},"object":{"type":"uri","value":"http://example.com/o"},"graph":{"type":"bnode","value":"foo"}}"#
+        );
+        let deserialized: Quad = serde_json::from_str(&jsn)?;
+        assert_eq!(deserialized, quad);
+
+        // Test quads with the default graph name
+        let quad = Quad::new(
+            NamedNode::new_unchecked("http://example.com/s"),
+            NamedNode::new_unchecked("http://example.com/p"),
+            NamedNode::new_unchecked("http://example.com/o"),
+            GraphName::DefaultGraph,
+        );
+        let jsn = serde_json::to_string(&quad)?;
+        assert_eq!(
+            jsn,
+            r#"{"subject":{"type":"uri","value":"http://example.com/s"},"predicate":{"type":"uri","value":"http://example.com/p"},"object":{"type":"uri","value":"http://example.com/o"},"graph":{"type":"default"}}"#
+        );
+        let deserialized: Quad = serde_json::from_str(&jsn)?;
+        assert_eq!(deserialized, quad);
+
+        Ok(())
+    }
+
+    #[test]
+    #[cfg(feature = "serde")]
+    fn serde_quad_from_reader() -> Result<(), serde_json::Error> {
+        let quad = Quad::new(
+            NamedNode::new_unchecked("http://example.com/s"),
+            NamedNode::new_unchecked("http://example.com/p"),
+            NamedNode::new_unchecked("http://example.com/o"),
+            NamedNode::new_unchecked("http://example.com/g"),
+        );
+        let jsn = serde_json::to_string(&quad)?;
+        let deserialized: Quad = serde_json::from_reader(jsn.as_bytes())?;
+        assert_eq!(deserialized, quad);
+
+        // Test quads with all possible combinations of terms
+        let quad = Quad::new(
+            NamedNode::new_unchecked("http://example.com/s"),
+            NamedNode::new_unchecked("http://example.com/p"),
+            Literal::new_simple_literal("foo"),
+            NamedNode::new_unchecked("http://example.com/g"),
+        );
+        let jsn = serde_json::to_string(&quad)?;
+        let deserialized: Quad = serde_json::from_reader(jsn.as_bytes())?;
+        assert_eq!(deserialized, quad);
+
+        let quad = Quad::new(
+            NamedNode::new_unchecked("http://example.com/s"),
+            NamedNode::new_unchecked("http://example.com/p"),
+            BlankNode::new("foo").unwrap(),
+            NamedNode::new_unchecked("http://example.com/g"),
+        );
+
+        let jsn = serde_json::to_string(&quad).unwrap();
+        let deserialized: Quad = serde_json::from_reader(jsn.as_bytes())?;
+        assert_eq!(deserialized, quad);
+
+        // Test quads with a blank node graph name
+        let quad = Quad::new(
+            NamedNode::new_unchecked("http://example.com/s"),
+            NamedNode::new_unchecked("http://example.com/p"),
+            NamedNode::new_unchecked("http://example.com/o"),
+            BlankNode::new("foo").unwrap(),
+        );
+        let jsn = serde_json::to_string(&quad)?;
+        let deserialized: Quad = serde_json::from_reader(jsn.as_bytes())?;
+        assert_eq!(deserialized, quad);
+
+        // Test quads with the default graph name
+        let quad = Quad::new(
+            NamedNode::new_unchecked("http://example.com/s"),
+            NamedNode::new_unchecked("http://example.com/p"),
+            NamedNode::new_unchecked("http://example.com/o"),
+            GraphName::DefaultGraph,
+        );
+        let jsn = serde_json::to_string(&quad)?;
+        let deserialized: Quad = serde_json::from_reader(jsn.as_bytes())?;
+        assert_eq!(deserialized, quad);
+
+        Ok(())
+    }
+
+    #[test]
+    #[cfg(feature = "serde")]
+    #[cfg(feature = "rdf-12")]
+    fn serde_quad_star() -> Result<(), serde_json::Error> {
+        let quad = Quad::new(
+            NamedNode::new_unchecked("http://example.com/s"),
+            NamedNode::new_unchecked("http://example.com/p"),
+            Term::Triple(Box::new(Triple::new(
+                NamedNode::new_unchecked("http://example.com/s"),
+                NamedNode::new_unchecked("http://example.com/p"),
+                NamedNode::new_unchecked("http://example.com/o"),
+            ))),
+            NamedNode::new_unchecked("http://example.com/g"),
+        );
+
+        let jsn = serde_json::to_string(&quad)?;
+        assert_eq!(
+            jsn,
+            r#"{"subject":{"type":"uri","value":"http://example.com/s"},"predicate":{"type":"uri","value":"http://example.com/p"},"object":{"type":"triple","subject":{"type":"uri","value":"http://example.com/s"},"predicate":{"type":"uri","value":"http://example.com/p"},"object":{"type":"uri","value":"http://example.com/o"}},"graph":{"type":"uri","value":"http://example.com/g"}}"#
+        );
+        let deserialized: Quad = serde_json::from_str(&jsn)?;
+        assert_eq!(deserialized, quad);
+
+        Ok(())
+    }
+
+    #[test]
+    #[cfg(feature = "serde")]
+    fn test_deserialize_owned() {
+        fn assert_deserialize_owned<T: DeserializeOwned>() {}
+
+        // If the type does not implement DeserializeOwned, this call will fail to compile.
+        assert_deserialize_owned::<Term>();
+        assert_deserialize_owned::<Triple>();
+        assert_deserialize_owned::<Quad>();
     }
 }

@@ -1,7 +1,10 @@
 use itertools::Itertools;
-use tombi_ast::AstNode;
+use tombi_ast::{AstNode, GetHeaderSchemarAccessors};
+use tombi_comment_directive::value::{
+    TableCommonLintRules, TableFormatRules, TombiValueDirectiveContent,
+};
 use tombi_document_tree::IntoDocumentTreeAndErrors;
-use tombi_schema_store::{Accessor, CurrentSchema, SchemaContext};
+use tombi_schema_store::{CurrentSchema, SchemaContext};
 use tombi_syntax::SyntaxElement;
 
 use crate::rule::table_keys_order::{sorted_accessors, table_keys_order};
@@ -11,10 +14,23 @@ pub async fn root_table_keys_order<'a>(
     table_or_array_of_tables: Vec<tombi_ast::TableOrArrayOfTable>,
     current_schema: Option<&'a CurrentSchema<'a>>,
     schema_context: &'a SchemaContext<'a>,
+    comment_directive: Option<TombiValueDirectiveContent<TableFormatRules, TableCommonLintRules>>,
 ) -> Vec<crate::Change> {
     if key_values.is_empty() && table_or_array_of_tables.is_empty() {
         return Vec::with_capacity(0);
     }
+
+    if comment_directive
+        .as_ref()
+        .and_then(|c| c.table_keys_order_disabled())
+        .unwrap_or(false)
+    {
+        return Vec::with_capacity(0);
+    }
+
+    let order = comment_directive
+        .as_ref()
+        .and_then(|comment_directive| comment_directive.table_keys_order().map(Into::into));
 
     let mut changes = table_keys_order(
         &tombi_document_tree::Value::Table(
@@ -26,6 +42,7 @@ pub async fn root_table_keys_order<'a>(
         key_values,
         current_schema,
         schema_context,
+        comment_directive,
     )
     .await;
 
@@ -44,12 +61,7 @@ pub async fn root_table_keys_order<'a>(
         .map(|table| {
             (
                 table
-                    .header()
-                    .map(|key| {
-                        key.keys()
-                            .map(|key| Accessor::Key(key.to_raw_text(schema_context.toml_version)))
-                            .collect_vec()
-                    })
+                    .get_header_accessor(schema_context.toml_version)
                     .unwrap_or_default(),
                 table,
             )
@@ -66,6 +78,7 @@ pub async fn root_table_keys_order<'a>(
         targets,
         current_schema,
         schema_context,
+        order,
     )
     .await
     .into_iter()

@@ -25,7 +25,7 @@ class ExecutedStatus(StrEnum):
     ERROR = "error" #The result was an error that needs to be handled
     EARLY_CONDITION = "early_condition" #The flow raised an early condition error meaning that a time condition was not met so we know how much time to wait before retrying
     FLOW_ACTION_ERROR = "flow_action_error" #The flow raised an error meaning that an action failed
-
+    SKIPPED = "skipped" #The flow was skipped because the next call time was not met
 
 class ExecutionFlowResult(BaseModel):
     """
@@ -50,6 +50,7 @@ class WorkflowExecution(CompanyAssetModel):
     result: Optional[ExecutedStatus] = Field(default=None)
     execution_description: list[str] = Field(default_factory=list)
     ended_at: Optional[datetime] = Field(default=None)
+    is_smart_follow_up: bool = Field()
 
     @classmethod
     def start_execution(cls, flow_state:FlowStateAssignedToChat, flow_name:str) -> WorkflowExecution:
@@ -59,7 +60,8 @@ class WorkflowExecution(CompanyAssetModel):
             company_id = flow_state.company_id,
             name = flow_name,
             assigned_at = flow_state.assigned_at,
-            started_at = datetime.now(tz=ZoneInfo("UTC"))
+            started_at = datetime.now(tz=ZoneInfo("UTC")),
+            is_smart_follow_up = flow_state.is_smart_follow_up
                     )
 
     def add_execution_step(self, step: str) -> None:

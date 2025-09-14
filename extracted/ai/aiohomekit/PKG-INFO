@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: aiohomekit
-Version: 3.2.15
+Version: 3.2.16
 Summary: An asyncio HomeKit client
 License: Apache-2.0
 Keywords: HomeKit,home,automation

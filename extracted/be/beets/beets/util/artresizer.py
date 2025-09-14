@@ -54,7 +54,7 @@ def resize_url(url: str, maxwidth: int, quality: int = 0) -> str:
     if quality > 0:
         params["q"] = quality
 
-    return "{}?{}".format(PROXY_URL, urlencode(params))
+    return f"{PROXY_URL}?{urlencode(params)}"
 
 
 class LocalBackendNotAvailableError(Exception):
@@ -214,9 +214,9 @@ class IMBackend(LocalBackend):
         else:
             return cls._version
 
-    convert_cmd: list[str | bytes]
-    identify_cmd: list[str | bytes]
-    compare_cmd: list[str | bytes]
+    convert_cmd: list[str]
+    identify_cmd: list[str]
+    compare_cmd: list[str]
 
     def __init__(self) -> None:
         """Initialize a wrapper around ImageMagick for local image operations.
@@ -255,7 +255,7 @@ class IMBackend(LocalBackend):
             path_out = get_temp_filename(__name__, "resize_IM_", path_in)
 
         log.debug(
-            "artresizer: ImageMagick resizing {0} to {1}",
+            "artresizer: ImageMagick resizing {} to {}",
             displayable_path(path_in),
             displayable_path(path_out),
         )
@@ -265,7 +265,7 @@ class IMBackend(LocalBackend):
         # with regards to the height.
         # ImageMagick already seems to default to no interlace, but we include
         # it here for the sake of explicitness.
-        cmd: list[str | bytes] = self.convert_cmd + [
+        cmd: list[str] = self.convert_cmd + [
             syspath(path_in, prefix=False),
             "-resize",
             f"{maxwidth}x>",
@@ -287,7 +287,7 @@ class IMBackend(LocalBackend):
             util.command_output(cmd)
         except subprocess.CalledProcessError:
             log.warning(
-                "artresizer: IM convert failed for {0}",
+                "artresizer: IM convert failed for {}",
                 displayable_path(path_in),
             )
             return path_in
@@ -295,7 +295,7 @@ class IMBackend(LocalBackend):
         return path_out
 
     def get_size(self, path_in: bytes) -> tuple[int, int] | None:
-        cmd: list[str | bytes] = self.identify_cmd + [
+        cmd: list[str] = self.identify_cmd + [
             "-format",
             "%w %h",
             syspath(path_in, prefix=False),
@@ -306,9 +306,9 @@ class IMBackend(LocalBackend):
         except subprocess.CalledProcessError as exc:
             log.warning("ImageMagick size query failed")
             log.debug(
-                "`convert` exited with (status {}) when "
+                "`convert` exited with (status {.returncode}) when "
                 "getting size with command {}:\n{}",
-                exc.returncode,
+                exc,
                 cmd,
                 exc.output.strip(),
             )
@@ -441,8 +441,8 @@ class IMBackend(LocalBackend):
         convert_proc.wait()
         if convert_proc.returncode:
             log.debug(
-                "ImageMagick convert failed with status {}: {!r}",
-                convert_proc.returncode,
+                "ImageMagick convert failed with status {.returncode}: {!r}",
+                convert_proc,
                 convert_stderr,
             )
             return None
@@ -452,7 +452,7 @@ class IMBackend(LocalBackend):
         if compare_proc.returncode:
             if compare_proc.returncode != 1:
                 log.debug(
-                    "ImageMagick compare failed: {0}, {1}",
+                    "ImageMagick compare failed: {}, {}",
                     displayable_path(im2),
                     displayable_path(im1),
                 )
@@ -472,7 +472,7 @@ class IMBackend(LocalBackend):
             log.debug("IM output is not a number: {0!r}", out_str)
             return None
 
-        log.debug("ImageMagick compare score: {0}", phash_diff)
+        log.debug("ImageMagick compare score: {}", phash_diff)
         return phash_diff <= compare_threshold
 
     @property
@@ -480,10 +480,11 @@ class IMBackend(LocalBackend):
         return True
 
     def write_metadata(self, file: bytes, metadata: Mapping[str, str]) -> None:
-        assignments = list(
-            chain.from_iterable(("-set", k, v) for k, v in metadata.items())
+        assignments = chain.from_iterable(
+            ("-set", k, v) for k, v in metadata.items()
         )
-        command = self.convert_cmd + [file, *assignments, file]
+        str_file = os.fsdecode(file)
+        command = self.convert_cmd + [str_file, *assignments, str_file]
 
         util.command_output(command)
 
@@ -522,7 +523,7 @@ class PILBackend(LocalBackend):
         from PIL import Image
 
         log.debug(
-            "artresizer: PIL resizing {0} to {1}",
+            "artresizer: PIL resizing {} to {}",
             displayable_path(path_in),
             displayable_path(path_out),
         )
@@ -551,7 +552,7 @@ class PILBackend(LocalBackend):
                 for i in range(5):
                     # 5 attempts is an arbitrary choice
                     filesize = os.stat(syspath(path_out)).st_size
-                    log.debug("PIL Pass {0} : Output size: {1}B", i, filesize)
+                    log.debug("PIL Pass {} : Output size: {}B", i, filesize)
                     if filesize <= max_filesize:
                         return path_out
                     # The relationship between filesize & quality will be
@@ -568,7 +569,7 @@ class PILBackend(LocalBackend):
                         progressive=False,
                     )
                 log.warning(
-                    "PIL Failed to resize file to below {0}B", max_filesize
+                    "PIL Failed to resize file to below {}B", max_filesize
                 )
                 return path_out
 
@@ -576,7 +577,7 @@ class PILBackend(LocalBackend):
                 return path_out
         except OSError:
             log.error(
-                "PIL cannot create thumbnail for '{0}'",
+                "PIL cannot create thumbnail for '{}'",
                 displayable_path(path_in),
             )
             return path_in
@@ -695,7 +696,7 @@ class ArtResizer:
         for backend_cls in BACKEND_CLASSES:
             try:
                 self.local_method = backend_cls()
-                log.debug(f"artresizer: method is {self.local_method.NAME}")
+                log.debug("artresizer: method is {.local_method.NAME}", self)
                 break
             except LocalBackendNotAvailableError:
                 continue

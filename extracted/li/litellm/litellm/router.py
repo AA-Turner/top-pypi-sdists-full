@@ -3046,7 +3046,7 @@ class Router:
             from litellm.router_utils.common_utils import add_model_file_id_mappings
 
             verbose_router_logger.debug(
-                f"Inside _atext_completion()- model: {model}; kwargs: {kwargs}"
+                f"Inside _acreate_file()- model: {model}; kwargs: {kwargs}"
             )
             parent_otel_span = _get_parent_otel_span_from_kwargs(kwargs)
             healthy_deployments = await self.async_get_healthy_deployments(
@@ -4031,7 +4031,7 @@ class Router:
             else:
                 raise
 
-            verbose_router_logger.info(
+            verbose_router_logger.debug(
                 f"Retrying request with num_retries: {num_retries}"
             )
             # decides how long to sleep before retry
@@ -4681,7 +4681,7 @@ class Router:
         elif self._has_default_fallbacks():  # default fallbacks set
             return True
 
-        verbose_router_logger.info(
+        verbose_router_logger.debug(
             "Content Policy Error occurred. No available fallbacks. Returning original response. model={}, content_policy_fallbacks={}".format(
                 model, content_policy_fallbacks
             )

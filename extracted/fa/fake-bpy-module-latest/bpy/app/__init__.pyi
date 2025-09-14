@@ -38,10 +38,10 @@ def is_job_running(job_type: bpy.stub_internal.rna_enums.WmJobTypeItems) -> bool
     :rtype: bool
     """
 
-def undo_memory_info() -> int:
+def memory_usage_undo() -> int:
     """Get undo memory usage information.
 
-    :return: total_memory.
+    :return: Memory usage of the undo stack in bytes.
     :rtype: int
     """
 

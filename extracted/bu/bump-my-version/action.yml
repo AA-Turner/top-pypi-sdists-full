@@ -31,7 +31,7 @@ runs:
   using: 'composite'
   steps:
     - name: Checkout the code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
       with:
         persist-credentials: false
     - name: Setting up git config
@@ -43,13 +43,13 @@ runs:
         git config --global user.name "$(gh api /users/${GITHUB_ACTOR} | jq .name -r)"
         git config -l
     - name: Install Python
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: '3.12'
         cache: 'pip'
     - name: Install bump-my-version
       shell: bash
-      run: pip install "bump-my-version==1.2.1"
+      run: pip install "bump-my-version==1.2.2"
     - name: Pass Inputs to Shell
       id: bump
       shell: bash

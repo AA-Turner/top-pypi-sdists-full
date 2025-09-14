@@ -1,6 +1,6 @@
+#[cfg(feature = "rdf-12")]
+use crate::BaseDirection;
 use crate::vocab::xsd;
-#[cfg(feature = "rdf-star")]
-use crate::Subject;
 use crate::{
     BlankNode, BlankNodeIdParseError, GraphName, IriParseError, LanguageTagParseError, Literal,
     NamedNode, Quad, Term, Triple, Variable, VariableNameParseError,
@@ -212,7 +212,7 @@ impl FromStr for Quad {
                     "Literals are not allowed in graph name position",
                 ));
             }
-            #[cfg(feature = "rdf-star")]
+            #[cfg(feature = "rdf-12")]
             Term::Triple(_) => {
                 return Err(TermParseError::msg(
                     "Triple terms are not allowed in graph name position",
@@ -299,7 +299,23 @@ fn read_blank_node(s: &str) -> Result<(BlankNode, &str), TermParseError> {
         let mut end = remain
             .find(|v: char| {
                 v.is_whitespace()
-                    || matches!(v, '<' | '?' | '$' | '"' | '\'' | '>' | '@' | '^' | ':')
+                    || matches!(
+                        v,
+                        '<' | '?'
+                            | '$'
+                            | '"'
+                            | '\''
+                            | '>'
+                            | '@'
+                            | '^'
+                            | ':'
+                            | '('
+                            | ')'
+                            | '{'
+                            | '}'
+                            | '['
+                            | ']'
+                    )
             })
             .unwrap_or(remain.len());
         if let Some(pos) = remain[..end].find("..") {
@@ -338,6 +354,24 @@ fn read_literal(s: &str) -> Result<(Literal, &str), TermParseError> {
                             .find(|v| !matches!(v, 'a'..='z' | 'A'..='Z' | '-'))
                             .unwrap_or(remain.len());
                         let (language, remain) = remain.split_at(end);
+                        #[cfg(feature = "rdf-12")]
+                        if let Some((language, direction)) = language.split_once("--") {
+                            return Ok((
+                                Literal::new_directional_language_tagged_literal(value, language, match direction {
+                                    "ltr" => BaseDirection::Ltr,
+                                    "rtl" => BaseDirection::Rtl,
+                                    _ => return Err(TermParseError(TermParseErrorKind::Msg(format!("The only two possible base directions are 'rtl' and 'ltr', found '{direction}'"))))
+                                }).map_err(
+                                    |error| {
+                                        TermParseError(TermParseErrorKind::LanguageTag {
+                                            value: language.to_owned(),
+                                            error,
+                                        })
+                                    },
+                                )?,
+                                remain,
+                            ));
+                        }
                         Ok((
                             Literal::new_language_tagged_literal(value, language).map_err(
                                 |error| {
@@ -452,23 +486,23 @@ fn read_term(s: &str, number_of_recursive_calls: usize) -> Result<(Term, &str), 
         ));
     }
     let s = s.trim();
-    #[allow(unused_variables)]
-    if let Some(remain) = s.strip_prefix("<<") {
-        #[cfg(feature = "rdf-star")]
+    #[allow(unused_variables, clippy::allow_attributes)]
+    if let Some(remain) = s.strip_prefix("<<(") {
+        #[cfg(feature = "rdf-12")]
         {
             let (triple, remain) = read_triple(remain, number_of_recursive_calls + 1)?;
             let remain = remain.trim_start();
-            if let Some(remain) = remain.strip_prefix(">>") {
+            if let Some(remain) = remain.strip_prefix(")>>") {
                 Ok((triple.into(), remain))
             } else {
                 Err(TermParseError::msg(
-                    "Nested triple serialization must be enclosed between << and >>",
+                    "Triple term serialization must be enclosed between <<( and )>>",
                 ))
             }
         }
-        #[cfg(not(feature = "rdf-star"))]
+        #[cfg(not(feature = "rdf-12"))]
         {
-            Err(TermParseError::msg("RDF-star is not supported"))
+            Err(TermParseError::msg("RDF 1.2 is not supported"))
         }
     } else if s.starts_with('<') {
         let (term, remain) = read_named_node(s)?;
@@ -500,8 +534,12 @@ fn read_triple(
                         "Literals are not allowed in subject position",
                     ));
                 }
-                #[cfg(feature = "rdf-star")]
-                Term::Triple(s) => Subject::Triple(s),
+                #[cfg(feature = "rdf-12")]
+                Term::Triple(_) => {
+                    return Err(TermParseError::msg(
+                        "Triple terms are not allowed in subject position",
+                    ));
+                }
             },
             predicate,
             object,
@@ -568,7 +606,7 @@ impl TermParseError {
 }
 
 #[cfg(test)]
-#[cfg(feature = "rdf-star")]
+#[cfg(feature = "rdf-12")]
 mod tests {
     use super::*;
 
@@ -583,7 +621,7 @@ mod tests {
             NamedNode::new_unchecked("http://example.com/\u{e9}\u{e9}").into()
         );
         assert_eq!(
-            Term::from_str("<< _:s <http://example.com/p> \"o\" >>").unwrap(),
+            Term::from_str("<<( _:s <http://example.com/p> \"o\" )>>").unwrap(),
             Triple::new(
                 BlankNode::new("s").unwrap(),
                 NamedNode::new("http://example.com/p").unwrap(),

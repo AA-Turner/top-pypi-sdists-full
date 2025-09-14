@@ -17,6 +17,7 @@
 # You should have received a copy of the GNU Lesser Public License
 # along with this program.  If not, see [http://www.gnu.org/licenses/].
 """This modules contains objects that represents Telegram Replies"""
+
 from collections.abc import Sequence
 from typing import TYPE_CHECKING, Optional, Union
 
@@ -90,7 +91,7 @@ class ExternalReplyInfo(TelegramObject):
             the file.
         has_media_spoiler (:obj:`bool`, optional): :obj:`True`, if the message media is covered by
             a spoiler animation.
-        checklist (:class:`telegram.Checklist`, optional): Message is a checklist
+        checklist (:class:`telegram.Checklist`, optional): Message is a checklist.
 
             .. versionadded:: 22.3
         contact (:class:`telegram.Contact`, optional): Message is a shared contact, information
@@ -142,7 +143,7 @@ class ExternalReplyInfo(TelegramObject):
             the file.
         has_media_spoiler (:obj:`bool`): Optional. :obj:`True`, if the message media is covered by
             a spoiler animation.
-        checklist (:class:`telegram.Checklist`): Optional. Message is a checklist
+        checklist (:class:`telegram.Checklist`): Optional. Message is a checklist.
 
             .. versionadded:: 22.3
         contact (:class:`telegram.Contact`): Optional. Message is a shared contact, information
@@ -381,7 +382,8 @@ class ReplyParameters(TelegramObject):
             chat, or in the chat :paramref:`chat_id` if it is specified.
         chat_id (:obj:`int` | :obj:`str`, optional): If the message to be replied to is from a
             different chat, |chat_id_channel|
-            Not supported for messages sent on behalf of a business account.
+            Not supported for messages sent on behalf of a business account and messages from
+            channel direct messages chats.
         allow_sending_without_reply (:obj:`bool`, optional): |allow_sending_without_reply| Can be
             used only for replies in the same chat and forum topic.
         quote (:obj:`str`, optional): Quoted part of the message to be replied to; 0-1024
@@ -398,13 +400,18 @@ class ReplyParameters(TelegramObject):
             :paramref:`quote_parse_mode`.
         quote_position (:obj:`int`, optional): Position of the quote in the original message in
             UTF-16 code units.
+        checklist_task_id (:obj:`int`, optional): Identifier of the specific checklist task to be
+            replied to.
+
+            .. versionadded:: 22.4
 
     Attributes:
         message_id (:obj:`int`): Identifier of the message that will be replied to in the current
             chat, or in the chat :paramref:`chat_id` if it is specified.
         chat_id (:obj:`int` | :obj:`str`): Optional. If the message to be replied to is from a
             different chat, |chat_id_channel|
-            Not supported for messages sent on behalf of a business account.
+            Not supported for messages sent on behalf of a business account and messages from
+            channel direct messages chats.
         allow_sending_without_reply (:obj:`bool`): Optional. |allow_sending_without_reply| Can be
             used only for replies in the same chat and forum topic.
         quote (:obj:`str`): Optional. Quoted part of the message to be replied to; 0-1024
@@ -420,11 +427,16 @@ class ReplyParameters(TelegramObject):
             :paramref:`quote_parse_mode`.
         quote_position (:obj:`int`): Optional. Position of the quote in the original message in
             UTF-16 code units.
+        checklist_task_id (:obj:`int`): Optional. Identifier of the specific checklist task to be
+            replied to.
+
+            .. versionadded:: 22.4
     """
 
     __slots__ = (
         "allow_sending_without_reply",
         "chat_id",
+        "checklist_task_id",
         "message_id",
         "quote",
         "quote_entities",
@@ -437,6 +449,7 @@ class ReplyParameters(TelegramObject):
         message_id: int,
         chat_id: Optional[Union[int, str]] = None,
         allow_sending_without_reply: ODVInput[bool] = DEFAULT_NONE,
+        checklist_task_id: Optional[int] = None,
         quote: Optional[str] = None,
         quote_parse_mode: ODVInput[str] = DEFAULT_NONE,
         quote_entities: Optional[Sequence[MessageEntity]] = None,
@@ -455,6 +468,7 @@ class ReplyParameters(TelegramObject):
             quote_entities
         )
         self.quote_position: Optional[int] = quote_position
+        self.checklist_task_id: Optional[int] = checklist_task_id
 
         self._id_attrs = (self.message_id,)
 

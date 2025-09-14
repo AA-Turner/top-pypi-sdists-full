@@ -333,10 +333,6 @@ def lc_frequency():
 	frequency=1/(decc(2*math.pi)*decc(math.sqrt(farads*inductance),cf=20))
 	return unit_registry.Quantity(frequency,"hertz")
 
-
-
-
-
 def area_of_circle_diameter():
 	'''
 A = πr²
@@ -445,5 +441,59 @@ Here:
 						'cmds':['taxable item',],
 						'desc':f'is item taxable?[taxable=True,non-taxable=False]',
 						'exec':lambda: Taxable.general_taxable(None),
+					},
+					f'{uuid1()}':{
+						'cmds':['price * rate = tax',],
+						'desc':f'multiply a price times its tax rate ; {Fore.orange_red_1}Add this value to the price for the {Fore.light_steel_blue}Total{Style.reset}',
+						'exec':lambda: price_by_tax(total=False),
+					},
+					f'{uuid1()}':{
+						'cmds':['( price + crv ) * rate = tax',],
+						'desc':f'multiply a (price+crv) times its tax rate ; {Fore.orange_red_1}Add this value to the price for the {Fore.light_steel_blue}Total{Style.reset}',
+						'exec':lambda: price_plus_crv_by_tax(total=False),
+					},
+					f'{uuid1()}':{
+						'cmds':['(price * rate) + price = total',],
+						'desc':f'multiply a price times its tax rate + price return the total',
+						'exec':lambda: price_by_tax(total=True),
+					},
+					f'{uuid1()}':{
+						'cmds':['( price + crv ) + (( price + crv ) * rate) = total',],
+						'desc':f'multiply a (price+crv) times its tax rate plus (price+crv) and return the total',
+						'exec':lambda: price_plus_crv_by_tax(total=True),
+					},
+					f'{uuid1()}':{
+						'cmds':['tax add',],
+						'desc':'''AddNewTaxRate() -> None
+
+add a new taxrate to db.''',
+						'exec':lambda: AddNewTaxRate(),
+					},
+					f'{uuid1()}':{
+						'cmds':['tax get',],
+						'desc':	'''GetTaxRate() -> TaxRate:Decimal
+
+search for and return a Decimal/decc
+taxrate for use by prompt.
+''',
+						'exec':lambda: GetTaxRate(),
+					},
+					f'{uuid1()}':{
+						'cmds':['tax delete',],
+						'desc':'''DeleteTaxRate() -> None
+
+search for and delete selected
+taxrate.
+''',
+						'exec':lambda: DeleteTaxRate(),
+					},
+					f'{uuid1()}':{
+						'cmds':['tax edit',],
+						'desc':'''EditTaxRate() -> None
+
+search for and edit selected
+taxrate.
+''',
+						'exec':lambda: EditTaxRate(),
 					},
 }

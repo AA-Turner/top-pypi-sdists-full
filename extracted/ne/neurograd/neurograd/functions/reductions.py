@@ -67,15 +67,18 @@ class Mean(Function, Module):
             for ax in axes:
                 ax_norm = ax if ax >= 0 else len(x.shape) + ax
                 n *= x.shape[ax_norm]
-        # In-place division to avoid intermediate array
-        grad_output = grad_output.copy() / n
-        # Expand and broadcast gradient
+        
+        # Expand grad_output if keepdims=False
+        go = grad_output
         if self.axis is not None and not self.keepdims:
             axes = (self.axis,) if isinstance(self.axis, int) else self.axis
             for ax in sorted(axes):
                 ax_norm = ax if ax >= 0 else len(x.shape) + ax
-                grad_output = xp.expand_dims(grad_output, axis=ax_norm)
-        return xp.broadcast_to(grad_output, x.shape)
+                go = xp.expand_dims(go, axis=ax_norm)
+        
+        # Broadcast and scale by 1/n - avoid creating intermediate copy
+        go = xp.broadcast_to(go, x.shape)
+        return go / n
 
 class Max(Function, Module):
     name = "Max"
@@ -172,10 +175,12 @@ class Std(Function, Module):
         self.keepdims = keepdims
         self.eps = eps
     def forward(self, x: xp.ndarray) -> xp.ndarray:
+        # Use stable two-pass algorithm for variance, then sqrt
         self.mean = _reduce(x, self.axis, xp.mean, keepdims=True, dtype=xp.float32)
         centered = x - self.mean
-        self.var = _reduce(centered**2, self.axis, xp.mean, keepdims=True, dtype=xp.float32)
-        self.std_vals = xp.sqrt(self.var + self.eps)
+        self.var = _reduce(centered * centered, self.axis, xp.mean, keepdims=True, dtype=xp.float32)
+        # Add eps to prevent sqrt of negative values due to numerical errors
+        self.std_vals = xp.sqrt(xp.maximum(self.var, 0.0) + self.eps)
         if self.keepdims:
             return self.std_vals
         else:
@@ -226,9 +231,11 @@ class Var(Function, Module):
         self.ddof = ddof
         self.eps = eps
     def forward(self, x: xp.ndarray) -> xp.ndarray:
-        self.mean = _reduce(x, self.axis, xp.mean, keepdims=True, dtype=xp.float32)
-        centered = x - self.mean
-        var_vals = _reduce(centered**2, self.axis, xp.mean, keepdims=self.keepdims, dtype=xp.float32)
+        # Use stable two-pass algorithm: var = E[(X - mean)²] instead of E[X²] - E[X]²
+        mean_vals = _reduce(x, self.axis, xp.mean, keepdims=True, dtype=xp.float32)
+        centered = x - mean_vals
+        var_vals = _reduce(centered * centered, self.axis, xp.mean, keepdims=True, dtype=xp.float32)
+        
         # Apply Bessel's correction if needed
         if self.ddof > 0:
             if self.axis is None:
@@ -240,13 +247,25 @@ class Var(Function, Module):
                     ax_norm = ax if ax >= 0 else x.ndim + ax
                     n *= x.shape[ax_norm]
             var_vals = var_vals * n / (n - self.ddof)
+        
+        # Cache for backward pass
+        self.mean = mean_vals
+        
+        # Handle keepdims
+        if not self.keepdims and self.axis is not None:
+            axes = (self.axis,) if isinstance(self.axis, int) else self.axis
+            axes = tuple(ax if ax >= 0 else x.ndim + ax for ax in axes)
+            var_vals = xp.squeeze(var_vals, axis=axes)
+        elif not self.keepdims and self.axis is None:
+            var_vals = var_vals.reshape(())
+            
         return var_vals
+        
     def backward(self, grad_output: xp.ndarray) -> xp.ndarray:
         x = self.parent_tensors[0]
         if not x.requires_grad:
             return None
-        # Use cached mean to avoid recomputation
-        mean = self.mean
+        
         # Count elements along the reduced axes
         if self.axis is None:
             n = x.size
@@ -256,22 +275,109 @@ class Var(Function, Module):
             for ax in axes:
                 ax_norm = ax if ax >= 0 else x.ndim + ax
                 n *= x.shape[ax_norm]
-        # Denominator n - ddof, avoid divide-by-zero or negative
+        
+        # Denominator for Bessel correction
         denom = builtins.max(n - self.ddof, self.eps)
-        # d/dx var(x) = 2(x - mean)/(n - ddof)
-        # Combine operations to reduce intermediates
-        base_grad = 2.0 * (x.data - mean) / denom
-        # If keepdims=False, expand grad_output back along reduced axes
+        scale_factor = 2.0 / denom
+        
+        # Expand grad_output if keepdims=False
         go = grad_output
         if self.axis is not None and not self.keepdims:
             axes = (self.axis,) if isinstance(self.axis, int) else self.axis
             for ax in sorted(axes):
                 ax_norm = ax if ax >= 0 else x.ndim + ax
                 go = xp.expand_dims(go, axis=ax_norm)
-        # Broadcast and apply chain rule
+        
+        # Broadcast grad_output to input shape and compute gradient efficiently
         go = xp.broadcast_to(go, x.shape)
-        base_grad = base_grad * go  # Use explicit multiplication to avoid in-place modification
-        return base_grad
+        
+        # Compute gradient: d/dx var(x) = 2(x - mean)/(n - ddof)
+        # Optimize to avoid creating large temporary arrays
+        centered_scaled = (x.data - self.mean) * scale_factor
+        grad = go * centered_scaled
+        
+        return grad
+
+class MeanVar(Function, Module):
+    """Fused mean and variance computation for efficiency"""
+    name = "MeanVar"
+    def __init__(self, axis=None, keepdims=False, ddof=0):
+        Function.__init__(self)
+        Module.__init__(self)
+        self.axis = axis
+        self.keepdims = keepdims
+        self.ddof = ddof
+    
+    def forward(self, x: xp.ndarray) -> tuple:
+        # Use stable two-pass algorithm for variance: var = E[(X - mean)²]
+        mean_vals = _reduce(x, self.axis, xp.mean, keepdims=True, dtype=xp.float32)
+        centered = x - mean_vals
+        var_vals = _reduce(centered * centered, self.axis, xp.mean, keepdims=True, dtype=xp.float32)
+        
+        # Apply Bessel's correction if needed
+        if self.ddof > 0:
+            if self.axis is None:
+                n = x.size
+            else:
+                axes = (self.axis,) if isinstance(self.axis, int) else self.axis
+                n = 1
+                for ax in axes:
+                    ax_norm = ax if ax >= 0 else x.ndim + ax
+                    n *= x.shape[ax_norm]
+            var_vals = var_vals * n / (n - self.ddof)
+        
+        # Handle keepdims for output
+        if not self.keepdims and self.axis is not None:
+            axes = (self.axis,) if isinstance(self.axis, int) else self.axis
+            axes = tuple(ax if ax >= 0 else x.ndim + ax for ax in axes)
+            mean_out = xp.squeeze(mean_vals, axis=axes)
+            var_out = xp.squeeze(var_vals, axis=axes)
+        elif not self.keepdims and self.axis is None:
+            mean_out = mean_vals.reshape(())
+            var_out = var_vals.reshape(())
+        else:
+            mean_out = mean_vals
+            var_out = var_vals
+            
+        # Cache for backward pass
+        self.mean_keepdims = mean_vals
+        
+        return mean_out, var_out
+    
+    def backward(self, grad_mean: xp.ndarray, grad_var: xp.ndarray):
+        x = self.parent_tensors[0]
+        if not x.requires_grad:
+            return None
+        
+        # Count elements
+        if self.axis is None:
+            n = x.size
+        else:
+            axes = (self.axis,) if isinstance(self.axis, int) else self.axis
+            n = 1
+            for ax in axes:
+                ax_norm = ax if ax >= 0 else x.ndim + ax
+                n *= x.shape[ax_norm]
+        
+        # Denominator for Bessel correction
+        denom = max(n - self.ddof, 1e-8)
+        
+        # Expand gradients if keepdims=False
+        if self.axis is not None and not self.keepdims:
+            axes = (self.axis,) if isinstance(self.axis, int) else self.axis
+            for ax in sorted(axes):
+                ax_norm = ax if ax >= 0 else x.ndim + ax
+                grad_mean = xp.expand_dims(grad_mean, axis=ax_norm)
+                grad_var = xp.expand_dims(grad_var, axis=ax_norm)
+        
+        # Broadcast to input shape
+        grad_mean = xp.broadcast_to(grad_mean, x.shape)
+        grad_var = xp.broadcast_to(grad_var, x.shape)
+        
+        # Combined gradient: mean contributes 1/n, var contributes 2(x-mean)/(n-ddof)
+        grad_total = grad_mean / n + grad_var * (2.0 / denom) * (x.data - self.mean_keepdims)
+        
+        return grad_total
 
 def sum(x, axis=None, keepdims=False):
     return Sum(axis=axis, keepdims=keepdims)(x)
@@ -285,3 +391,6 @@ def std(x, axis=None, keepdims=False):
     return Std(axis=axis, keepdims=keepdims)(x)
 def var(x, axis=None, keepdims=False):
     return Var(axis=axis, keepdims=keepdims)(x)
+def mean_var(x, axis=None, keepdims=False, ddof=0):
+    """Compute mean and variance in a single pass"""
+    return MeanVar(axis=axis, keepdims=keepdims, ddof=ddof)(x)

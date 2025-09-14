@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyqrackising
-Version: 2.0.3
+Version: 3.0.1
 Summary: Near-ideal closed-form solutions for transverse field Ising model (TFIM)
 Home-page: https://github.com/vm6502q/PyQrackIsing
 Author: Dan Strano

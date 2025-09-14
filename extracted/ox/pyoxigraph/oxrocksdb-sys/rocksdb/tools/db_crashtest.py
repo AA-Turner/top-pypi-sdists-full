@@ -107,7 +107,8 @@ default_params = {
     "iterpercent": 10,
     "lock_wal_one_in": lambda: random.choice([10000, 1000000]),
     "mark_for_compaction_one_file_in": lambda: 10 * random.randint(0, 1),
-    "max_background_compactions": 20,
+    "max_background_compactions": lambda: random.choice([2, 20]),
+    "num_bottom_pri_threads": lambda: random.choice([0, 1, 20]),
     "max_bytes_for_level_base": 10485760,
     # max_key has to be the same across invocations for verification to work, hence no lambda
     "max_key": random.choice([100000, 25000000]),
@@ -177,7 +178,7 @@ default_params = {
     "verify_checksum": 1,
     "write_buffer_size": lambda: random.choice([1024 * 1024, 4 * 1024 * 1024]),
     "writepercent": 35,
-    "format_version": lambda: random.choice([2, 3, 4, 5, 6, 6]),
+    "format_version": lambda: random.choice([2, 3, 4, 5, 6, 7, 7]),
     "index_block_restart_interval": lambda: random.choice(range(1, 16)),
     "use_multiget": lambda: random.randint(0, 1),
     "use_get_entity": lambda: random.choice([0] * 7 + [1]),
@@ -345,8 +346,18 @@ default_params = {
     "enable_remote_compaction": lambda: random.choice([0, 1]),
     "auto_refresh_iterator_with_snapshot": lambda: random.choice([0, 1]),
     "memtable_op_scan_flush_trigger": lambda: random.choice([0, 10, 100, 1000]),
+    "memtable_avg_op_scan_flush_trigger": lambda: random.choice([0, 2, 20, 200]),
     "ingest_wbwi_one_in": lambda: random.choice([0, 0, 100, 500]),
+    "universal_reduce_file_locking": lambda: random.randint(0, 1),
+    "compression_manager": lambda: random.choice(
+        ["mixed"] * 1
+        + ["none"] * 2
+        + ["autoskip"] * 2
+        + ["randommixed"] * 2
+        + ["custom"] * 3
+    ),
 }
+
 _TEST_DIR_ENV_VAR = "TEST_TMPDIR"
 # If TEST_TMPDIR_EXPECTED is not specified, default value will be TEST_TMPDIR
 _TEST_EXPECTED_DIR_ENV_VAR = "TEST_TMPDIR_EXPECTED"
@@ -513,6 +524,7 @@ cf_consistency_params = {
     "ingest_external_file_one_in": 0,
     # `CfConsistencyStressTest::TestIterateAgainstExpected()` is not implemented.
     "verify_iterator_with_expected_state_one_in": 0,
+    "memtablerep": random.choice(["skip_list"] * 9 + ["vector"]),
 }
 
 # For pessimistic transaction db
@@ -714,6 +726,10 @@ def finalize_and_sanitize(src_params):
             dest_params["use_direct_io_for_flush_and_compaction"] = 0
         else:
             dest_params["mock_direct_io"] = True
+
+    if dest_params.get("memtablerep") == "vector":
+        dest_params["inplace_update_support"] = 0
+        dest_params["paranoid_memory_checks"] = 0
 
     if dest_params["test_batches_snapshots"] == 1:
         dest_params["enable_compaction_filter"] = 0
@@ -942,8 +958,6 @@ def finalize_and_sanitize(src_params):
         # disable atomic flush.
         if dest_params["test_best_efforts_recovery"] == 0:
             dest_params["disable_wal"] = 0
-    if dest_params.get("allow_concurrent_memtable_write", 1) == 1:
-        dest_params["memtablerep"] = "skip_list"
     if (
         dest_params.get("enable_compaction_filter", 0) == 1
         or dest_params.get("inplace_update_support", 0) == 1
@@ -994,10 +1008,33 @@ def finalize_and_sanitize(src_params):
             # have to disable metadata write fault injection to other file
             dest_params["exclude_wal_from_write_fault_injection"] = 1
             dest_params["metadata_write_fault_one_in"] = 0
-    # Enabling block_align with compression is not supported
-    if dest_params.get("block_align") == 1:
-        dest_params["compression_type"] = "none"
-        dest_params["bottommost_compression_type"] = "none"
+    # Disabling block align if mixed manager is being used
+    if dest_params.get("compression_manager") == "custom":
+        if dest_params.get("block_align") == 1:
+            dest_params["block_align"] = 0
+        if dest_params["format_version"] < 7:
+            dest_params["format_version"] = 7
+    elif (
+        dest_params.get("compression_manager") == "mixed"
+        or dest_params.get("compression_manager") == "randommixed"
+    ):
+        dest_params["block_align"] = 0
+    elif dest_params.get("compression_manager") == "autoskip":
+        # ensuring the compression is being used
+        if dest_params.get("compression_type") == "none":
+            dest_params["compression_type"] = random.choice(
+                ["snappy", "zlib", "lz4", "lz4hc", "xpress", "zstd"]
+            )
+        if dest_params.get("bottommost_compression_type") == "none":
+            dest_params["bottommost_compression_type"] = random.choice(
+                ["snappy", "zlib", "lz4", "lz4hc", "xpress", "zstd"]
+            )
+        dest_params["block_align"] = 0
+    else:
+        # Enabling block_align with compression is not supported
+        if dest_params.get("block_align") == 1:
+            dest_params["compression_type"] = "none"
+            dest_params["bottommost_compression_type"] = "none"
     # If periodic_compaction_seconds is not set, daily_offpeak_time_utc doesn't do anything
     if dest_params.get("periodic_compaction_seconds") == 0:
         dest_params["daily_offpeak_time_utc"] = ""

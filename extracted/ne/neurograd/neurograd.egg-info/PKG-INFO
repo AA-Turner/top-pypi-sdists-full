@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: neurograd
-Version: 3.0.8
+Version: 3.6.9
 Summary: A Pure Python Deep Learning Framework with Automatic Differentiation
 Home-page: https://github.com/b-ionut-r/neurograd
 Author: Bujor Ionut Raul

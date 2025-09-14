@@ -1,4 +1,6 @@
 use oxiri::{Iri, IriParseError};
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
 use std::cmp::Ordering;
 use std::fmt;
 
@@ -232,5 +234,65 @@ impl<'a> From<Iri<&'a str>> for NamedNodeRef<'a> {
         Self {
             iri: iri.into_inner(),
         }
+    }
+}
+
+#[cfg(feature = "serde")]
+impl Serialize for NamedNode {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        self.as_ref().serialize(serializer)
+    }
+}
+
+#[cfg(feature = "serde")]
+impl Serialize for NamedNodeRef<'_> {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        #[derive(Serialize)]
+        #[serde(rename = "NamedNode")]
+        struct Value<'a> {
+            value: &'a str,
+        }
+        Value {
+            value: self.as_str(),
+        }
+        .serialize(serializer)
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de> Deserialize<'de> for NamedNode {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(rename = "NamedNode")]
+        struct Value {
+            value: String,
+        }
+        Self::new(Value::deserialize(deserializer)?.value).map_err(de::Error::custom)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn named_node_construction() {
+        assert_eq!(
+            "http://example.org/",
+            NamedNode::new("http://example.org/").unwrap().iri
+        );
+    }
+
+    #[test]
+    #[cfg(feature = "serde")]
+    fn test_serde() {
+        let n = NamedNode::new("http://example.com/foo").unwrap();
+        let json = serde_json::to_string(&n).unwrap();
+        assert_eq!(json, "{\"value\":\"http://example.com/foo\"}");
+        let n2: NamedNode = serde_json::from_str(&json).unwrap();
+        assert_eq!(n2, n);
     }
 }

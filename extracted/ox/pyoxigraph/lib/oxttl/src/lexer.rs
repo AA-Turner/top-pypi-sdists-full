@@ -4,6 +4,8 @@ use crate::toolkit::{TokenRecognizer, TokenRecognizerError};
 use memchr::{memchr, memchr2};
 use oxilangtag::LanguageTag;
 use oxiri::Iri;
+#[cfg(feature = "rdf-12")]
+use oxrdf::BaseDirection;
 use oxrdf::NamedNode;
 use std::borrow::Cow;
 use std::cmp::min;
@@ -22,10 +24,15 @@ pub enum N3Token<'a> {
     Variable(Cow<'a, str>),
     BlankNodeLabel(&'a str),
     String(String),
+    LongString(String),
     Integer(&'a str),
     Decimal(&'a str),
     Double(&'a str),
-    LangTag(&'a str),
+    LangTag {
+        language: &'a str,
+        #[cfg(feature = "rdf-12")]
+        direction: Option<BaseDirection>,
+    },
     Punctuation(&'a str),
     PlainKeyword(&'a str),
 }
@@ -44,7 +51,7 @@ pub struct N3LexerOptions {
 
 pub struct N3Lexer {
     mode: N3LexerMode,
-    unchecked: bool,
+    lenient: bool,
 }
 
 // TODO: there are a lot of 'None' (missing data) returned even if the stream is ending!!!
@@ -62,7 +69,13 @@ impl TokenRecognizer for N3Lexer {
     ) -> Option<(usize, Result<N3Token<'a>, TokenRecognizerError>)> {
         match *data.first()? {
             b'<' => match *data.get(1)? {
-                b'<' => Some((2, Ok(N3Token::Punctuation("<<")))),
+                b'<' => {
+                    if *data.get(2)? == b'(' {
+                        Some((3, Ok(N3Token::Punctuation("<<("))))
+                    } else {
+                        Some((2, Ok(N3Token::Punctuation("<<"))))
+                    }
+                }
                 b'=' if self.mode == N3LexerMode::N3 => {
                     if let Some((consumed, result)) = self.recognize_iri(data, options) {
                         Some(if let Ok(result) = result {
@@ -99,7 +112,7 @@ impl TokenRecognizer for N3Lexer {
                 }
             }
             b'_' => match data.get(1)? {
-                b':' => Self::recognize_blank_node_label(data),
+                b':' => Self::recognize_blank_node_label(data, is_ending),
                 c => Some((
                     1,
                     Err((0, format!("Unexpected character '{}'", char::from(*c))).into()),
@@ -136,7 +149,13 @@ impl TokenRecognizer for N3Lexer {
                 }
             }
             b'(' => Some((1, Ok(N3Token::Punctuation("(")))),
-            b')' => Some((1, Ok(N3Token::Punctuation(")")))),
+            b')' => {
+                if *data.get(1)? == b'>' && *data.get(2)? == b'>' {
+                    Some((3, Ok(N3Token::Punctuation(")>>"))))
+                } else {
+                    Some((1, Ok(N3Token::Punctuation(")"))))
+                }
+            }
             b'[' => Some((1, Ok(N3Token::Punctuation("[")))),
             b']' => Some((1, Ok(N3Token::Punctuation("]")))),
             b'{' => {
@@ -164,6 +183,7 @@ impl TokenRecognizer for N3Lexer {
                     Some((1, Ok(N3Token::Punctuation("="))))
                 }
             }
+            b'~' => Some((1, Ok(N3Token::Punctuation("~")))),
             b'0'..=b'9' | b'+' | b'-' => Self::recognize_number(data, is_ending),
             b'?' => self.recognize_variable(data, is_ending),
             _ => self.recognize_pname_or_keyword(data, is_ending),
@@ -172,8 +192,8 @@ impl TokenRecognizer for N3Lexer {
 }
 
 impl N3Lexer {
-    pub fn new(mode: N3LexerMode, unchecked: bool) -> Self {
-        Self { mode, unchecked }
+    pub fn new(mode: N3LexerMode, lenient: bool) -> Self {
+        Self { mode, lenient }
     }
 
     fn recognize_iri(
@@ -217,7 +237,7 @@ impl N3Lexer {
         let iri = string_from_utf8(iri, position.clone())?;
         Ok(N3Token::IriRef(
             if let Some(base_iri) = options.base_iri.as_ref() {
-                if self.unchecked {
+                if self.lenient {
                     base_iri.resolve_unchecked(&iri)
                 } else {
                     base_iri
@@ -225,7 +245,7 @@ impl N3Lexer {
                         .map_err(|e| (position, e.to_string()))?
                 }
                 .into_inner()
-            } else if self.unchecked {
+            } else if self.lenient {
                 iri
             } else {
                 Iri::parse(iri)
@@ -375,7 +395,7 @@ impl N3Lexer {
                         } else if c == '\\' {
                             i += 1;
                             let a = char::from(*data.get(i)?);
-                            if self.unchecked
+                            if self.lenient
                                 || matches!(
                                     a,
                                     '_' | '~'
@@ -425,14 +445,14 @@ impl N3Lexer {
                             {
                                 return Some((0, Ok((Cow::Borrowed(""), false))));
                             }
-                            if !self.unchecked {
+                            if !self.lenient {
                                 might_be_invalid_iri |=
                                     Self::is_possible_pn_chars_base_but_not_valid_iri(c)
                                         || c == ':';
                             }
                             i += consumed;
                         } else if Self::is_possible_pn_chars(c) || c == ':' {
-                            if !self.unchecked {
+                            if !self.lenient {
                                 might_be_invalid_iri |=
                                     Self::is_possible_pn_chars_base_but_not_valid_iri(c)
                                         || c == ':';
@@ -503,17 +523,20 @@ impl N3Lexer {
 
     fn recognize_blank_node_label(
         data: &[u8],
+        is_ending: bool,
     ) -> Option<(usize, Result<N3Token<'_>, TokenRecognizerError>)> {
         // [141s]  BLANK_NODE_LABEL  ::=  '_:' (PN_CHARS_U | [0-9]) ((PN_CHARS | '.')* PN_CHARS)?
         let mut i = 2;
-        loop {
-            match Self::recognize_unicode_char(&data[i..], i)? {
+        while let Some(c) = Self::recognize_unicode_char(&data[i..], i) {
+            match c {
                 Ok((c, consumed)) => {
                     if (i == 2 && (Self::is_possible_pn_chars_u(c) || c.is_ascii_digit()))
                         || (i > 2 && Self::is_possible_pn_chars(c))
                     {
                         // Ok
-                    } else if i > 2 && c == '.' {
+                    } else if i == 2 {
+                        return Some((i, Err((0..i, "A blank node ID cannot be empty").into())));
+                    } else if c == '.' {
                         if data[i - 1] == b'.' {
                             i -= 1;
                             return Some((
@@ -521,11 +544,6 @@ impl N3Lexer {
                                 str_from_utf8(&data[2..i], 2..i).map(N3Token::BlankNodeLabel),
                             ));
                         }
-                    } else if i == 2 {
-                        return Some((
-                            i,
-                            Err((0..i, "A blank node ID should not be empty").into()),
-                        ));
                     } else if data[i - 1] == b'.' {
                         i -= 1;
                         return Some((
@@ -543,13 +561,26 @@ impl N3Lexer {
                 Err(e) => return Some((e.location.end, Err(e))),
             }
         }
+        is_ending.then(|| {
+            if data[i - 1] == b'.' {
+                i -= 1;
+            }
+            (
+                i,
+                if i > 2 {
+                    str_from_utf8(&data[2..i], 2..i).map(N3Token::BlankNodeLabel)
+                } else {
+                    Err((0..i, "A blank node ID cannot be empty").into())
+                },
+            )
+        })
     }
 
     fn recognize_lang_tag<'a>(
         &self,
         data: &'a [u8],
     ) -> Option<(usize, Result<N3Token<'a>, TokenRecognizerError>)> {
-        // [144s]  LANGTAG  ::=  '@' [a-zA-Z]+ ('-' [a-zA-Z0-9]+)*
+        // [39] 	LANG_DIR 	::= 	'@' [a-zA-Z]+ ('-' [a-zA-Z0-9]+)* ('--' [a-zA-Z]+)?
         let mut is_last_block_empty = true;
         for (i, c) in data[1..].iter().enumerate() {
             if c.is_ascii_alphabetic() {
@@ -560,11 +591,27 @@ impl N3Lexer {
                     Err((1..2, "A language code should always start with a letter").into()),
                 ));
             } else if is_last_block_empty {
-                return Some((i, self.parse_lang_tag(&data[1..i], 1..i - 1)));
+                if *c != b'-' {
+                    return Some((i, self.parse_lang_tag(&data[1..i], None, 1..i - 1)));
+                }
+                // We start with '--', we are in a direction
+                let after_dir = i
+                    + 2
+                    + data[i + 2..]
+                        .iter()
+                        .take_while(|c| c.is_ascii_alphabetic())
+                        .count();
+                if after_dir == data.len() {
+                    return None; // Read everything
+                }
+                return Some((
+                    after_dir,
+                    self.parse_lang_tag(&data[1..i], Some(&data[i + 2..after_dir]), 1..after_dir),
+                ));
             } else if *c == b'-' {
                 is_last_block_empty = true;
             } else {
-                return Some((i + 1, self.parse_lang_tag(&data[1..=i], 1..i)));
+                return Some((i + 1, self.parse_lang_tag(&data[1..=i], None, 1..i)));
             }
         }
         None
@@ -573,16 +620,46 @@ impl N3Lexer {
     fn parse_lang_tag<'a>(
         &self,
         lang_tag: &'a [u8],
+        direction: Option<&'a [u8]>,
         position: Range<usize>,
     ) -> Result<N3Token<'a>, TokenRecognizerError> {
+        #[cfg(not(feature = "rdf-12"))]
+        if let Some(direction) = direction {
+            return Err((
+                position.end - direction.len()..position.end,
+                "Literal base direction are only allowed in RDF 1.2",
+            )
+                .into());
+        }
+
         let lang_tag = str_from_utf8(lang_tag, position.clone())?;
-        Ok(N3Token::LangTag(if self.unchecked {
-            lang_tag
-        } else {
-            LanguageTag::parse(lang_tag)
-                .map_err(|e| (position.clone(), e.to_string()))?
-                .into_inner()
-        }))
+        Ok(N3Token::LangTag {
+            language: if self.lenient {
+                lang_tag
+            } else {
+                LanguageTag::parse(lang_tag)
+                    .map_err(|e| (position.clone(), e.to_string()))?
+                    .into_inner()
+            },
+            #[cfg(feature = "rdf-12")]
+            direction: direction
+                .map(|direction| {
+                    Ok(match direction {
+                        b"ltr" => BaseDirection::Ltr,
+                        b"rtl" => BaseDirection::Rtl,
+                        _ => {
+                            return Err((
+                                position.end - direction.len()..position.end,
+                                format!(
+                                    "The allowed base directions are --ltr and --rtl, found --{}",
+                                    String::from_utf8_lossy(direction)
+                                ),
+                            ));
+                        }
+                    })
+                })
+                .transpose()?,
+        })
     }
     fn recognize_string(
         &self,
@@ -595,7 +672,7 @@ impl N3Lexer {
         let mut i = 1;
         loop {
             let mut end = memchr2(delimiter, b'\\', &data[i..])?;
-            if !self.unchecked {
+            if !self.lenient {
                 // We check also line jumps
                 if let Some(line_jump_end) = memchr2(b'\n', b'\r', &data[i..i + end]) {
                     end = line_jump_end;
@@ -660,7 +737,7 @@ impl N3Lexer {
             match data[i] {
                 c if c == delimiter => {
                     if *data.get(i + 1)? == delimiter && *data.get(i + 2)? == delimiter {
-                        return Some((i + 3, Ok(N3Token::String(string))));
+                        return Some((i + 3, Ok(N3Token::LongString(string))));
                     }
                     i += 1;
                     string.push(char::from(delimiter));
@@ -796,7 +873,7 @@ impl N3Lexer {
             b'u' => match Self::recognize_hex_char(&data[2..], 4, 'u', position) {
                 Ok(c) => Some((5, Ok(c?))),
                 Err(e) => {
-                    if self.unchecked {
+                    if self.lenient {
                         match Self::recognize_utf16_surrogate_pair(&data[2..], position) {
                             Ok(c) => Some((11, Ok(c?))),
                             Err(e) => Some((5, Err(e))),
@@ -985,7 +1062,7 @@ impl N3Lexer {
                     position..=position,
                     "Invalid UTF-8 character encoding",
                 )
-                    .into()))
+                    .into()));
             }
         }
 

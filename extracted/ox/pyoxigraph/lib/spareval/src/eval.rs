@@ -1,14 +1,18 @@
-#[cfg(feature = "rdf-star")]
-use crate::dataset::{ExpressionSubject, ExpressionTriple};
+#[cfg(feature = "sparql-12")]
+use crate::dataset::ExpressionTriple;
 use crate::dataset::{ExpressionTerm, InternalQuad, QueryableDataset};
 use crate::error::QueryEvaluationError;
 use crate::model::{QuerySolutionIter, QueryTripleIter};
 use crate::service::ServiceHandlerRegistry;
-use crate::CustomFunctionRegistry;
+use crate::{
+    AggregateFunctionAccumulator, CustomAggregateFunctionRegistry, CustomFunctionRegistry,
+};
 use json_event_parser::{JsonEvent, WriterJsonSerializer};
 use md5::{Digest, Md5};
 use oxiri::Iri;
 use oxrdf::vocab::{rdf, xsd};
+#[cfg(feature = "sparql-12")]
+use oxrdf::{BaseDirection, NamedOrBlankNode};
 use oxrdf::{BlankNode, Literal, NamedNode, Term, Triple, Variable};
 #[cfg(feature = "sep-0002")]
 use oxsdatatypes::{Date, Duration, Time, TimezoneOffset, YearMonthDuration};
@@ -19,7 +23,7 @@ use rustc_hash::{FxBuildHasher, FxHashMap, FxHashSet, FxHasher};
 use sha1::Sha1;
 use sha2::{Sha256, Sha384, Sha512};
 use spargebra::algebra::{AggregateFunction, Function, PropertyPathExpression};
-#[cfg(feature = "rdf-star")]
+#[cfg(feature = "sparql-12")]
 use spargebra::term::GroundTriple;
 use spargebra::term::{
     GroundTerm, GroundTermPattern, NamedNodePattern, TermPattern, TriplePattern,
@@ -32,38 +36,49 @@ use std::borrow::Cow;
 use std::cell::{Cell, RefCell};
 use std::cmp::Ordering;
 use std::hash::{Hash, Hasher};
-use std::iter::{empty, once, Peekable};
+use std::iter::{Peekable, empty, once};
+use std::marker::PhantomData;
 use std::rc::Rc;
-use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
+use std::sync::{Arc, atomic};
 use std::{fmt, io};
 // TODO: make expression raise error when relevant (storage I/O)
 
 const REGEX_SIZE_LIMIT: usize = 1_000_000;
 
 /// Wrapper on top of [`QueryableDataset`]
-struct EvalDataset<D: QueryableDataset> {
+struct EvalDataset<'a, D: QueryableDataset<'a>> {
     dataset: Rc<D>,
+    cancellation_token: CancellationToken,
+    _lifetime: PhantomData<&'a ()>,
 }
 
-impl<D: QueryableDataset> EvalDataset<D> {
+impl<'a, D: QueryableDataset<'a>> EvalDataset<'a, D> {
     fn internal_quads_for_pattern(
         &self,
         subject: Option<&D::InternalTerm>,
         predicate: Option<&D::InternalTerm>,
         object: Option<&D::InternalTerm>,
         graph_name: Option<Option<&D::InternalTerm>>,
-    ) -> impl Iterator<Item = Result<InternalQuad<D>, QueryEvaluationError>> + 'static {
+    ) -> impl Iterator<Item = Result<InternalQuad<D::InternalTerm>, QueryEvaluationError>> + use<'a, D>
+    {
+        let cancellation_token = self.cancellation_token.clone();
         self.dataset
             .internal_quads_for_pattern(subject, predicate, object, graph_name)
-            .map(|r| r.map_err(|e| QueryEvaluationError::Dataset(Box::new(e))))
+            .map(move |r| {
+                cancellation_token.ensure_alive()?;
+                r.map_err(|e| QueryEvaluationError::Dataset(Box::new(e)))
+            })
     }
 
     fn internal_named_graphs(
         &self,
-    ) -> impl Iterator<Item = Result<D::InternalTerm, QueryEvaluationError>> {
-        self.dataset
-            .internal_named_graphs()
-            .map(|r| r.map_err(|e| QueryEvaluationError::Dataset(Box::new(e))))
+    ) -> impl Iterator<Item = Result<D::InternalTerm, QueryEvaluationError>> + use<'a, D> {
+        let cancellation_token = self.cancellation_token.clone();
+        self.dataset.internal_named_graphs().map(move |r| {
+            cancellation_token.ensure_alive()?;
+            r.map_err(|e| QueryEvaluationError::Dataset(Box::new(e)))
+        })
     }
 
     fn contains_internal_graph_name(
@@ -76,6 +91,7 @@ impl<D: QueryableDataset> EvalDataset<D> {
     }
 
     fn internalize_term(&self, term: Term) -> Result<D::InternalTerm, QueryEvaluationError> {
+        self.cancellation_token.ensure_alive()?;
         self.dataset
             .internalize_term(term)
             .map_err(|e| QueryEvaluationError::Dataset(Box::new(e)))
@@ -115,20 +131,22 @@ impl<D: QueryableDataset> EvalDataset<D> {
     }
 }
 
-impl<D: QueryableDataset> Clone for EvalDataset<D> {
+impl<'a, D: QueryableDataset<'a>> Clone for EvalDataset<'a, D> {
     #[inline]
     fn clone(&self) -> Self {
         Self {
             dataset: Rc::clone(&self.dataset),
+            cancellation_token: self.cancellation_token.clone(),
+            _lifetime: self._lifetime,
         }
     }
 }
 
-pub struct InternalTuple<D: QueryableDataset> {
-    inner: Vec<Option<D::InternalTerm>>,
+pub struct InternalTuple<T> {
+    inner: Vec<Option<T>>,
 }
 
-impl<D: QueryableDataset> InternalTuple<D> {
+impl<T> InternalTuple<T> {
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
             inner: Vec::with_capacity(capacity),
@@ -143,21 +161,25 @@ impl<D: QueryableDataset> InternalTuple<D> {
         self.inner.get(index).is_some_and(Option::is_some)
     }
 
-    pub fn get(&self, index: usize) -> Option<&D::InternalTerm> {
+    pub fn get(&self, index: usize) -> Option<&T> {
         self.inner.get(index).unwrap_or(&None).as_ref()
     }
+}
 
-    pub fn iter(&self) -> impl Iterator<Item = Option<D::InternalTerm>> + '_ {
+impl<T: Clone> InternalTuple<T> {
+    pub fn iter(&self) -> impl Iterator<Item = Option<T>> + '_ {
         self.inner.iter().cloned()
     }
 
-    pub fn set(&mut self, index: usize, value: D::InternalTerm) {
+    pub fn set(&mut self, index: usize, value: T) {
         if self.inner.len() <= index {
             self.inner.resize(index + 1, None);
         }
         self.inner[index] = Some(value);
     }
+}
 
+impl<T: Clone + Eq> InternalTuple<T> {
     pub fn combine_with(&self, other: &Self) -> Option<Self> {
         if self.inner.len() < other.inner.len() {
             let mut result = other.inner.clone();
@@ -193,7 +215,7 @@ impl<D: QueryableDataset> InternalTuple<D> {
     }
 }
 
-impl<D: QueryableDataset> Clone for InternalTuple<D> {
+impl<T: Clone> Clone for InternalTuple<T> {
     fn clone(&self) -> Self {
         Self {
             inner: self.inner.clone(),
@@ -201,58 +223,64 @@ impl<D: QueryableDataset> Clone for InternalTuple<D> {
     }
 }
 
-impl<D: QueryableDataset> PartialEq for InternalTuple<D> {
+impl<T: Eq> PartialEq for InternalTuple<T> {
     #[inline]
-    fn eq(&self, other: &InternalTuple<D>) -> bool {
+    fn eq(&self, other: &InternalTuple<T>) -> bool {
         self.inner == other.inner
     }
 }
 
-impl<D: QueryableDataset> Eq for InternalTuple<D> {}
+impl<T: Eq> Eq for InternalTuple<T> {}
 
-impl<D: QueryableDataset> Hash for InternalTuple<D> {
+impl<T: Hash> Hash for InternalTuple<T> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.inner.hash(state)
     }
 }
 
-impl<D: QueryableDataset> IntoIterator for InternalTuple<D> {
-    type Item = Option<D::InternalTerm>;
-    type IntoIter = std::vec::IntoIter<Option<D::InternalTerm>>;
+impl<T> IntoIterator for InternalTuple<T> {
+    type Item = Option<T>;
+    type IntoIter = std::vec::IntoIter<Option<T>>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.inner.into_iter()
     }
 }
 
-type InternalTuplesIterator<D> =
-    Box<dyn Iterator<Item = Result<InternalTuple<D>, QueryEvaluationError>>>;
+type InternalTuplesIterator<'a, T> =
+    Box<dyn Iterator<Item = Result<InternalTuple<T>, QueryEvaluationError>> + 'a>;
 
-pub struct SimpleEvaluator<D: QueryableDataset> {
-    dataset: EvalDataset<D>,
+pub struct SimpleEvaluator<'a, D: QueryableDataset<'a>> {
+    dataset: EvalDataset<'a, D>,
     base_iri: Option<Rc<Iri<String>>>,
     now: DateTime,
     service_handler: Rc<ServiceHandlerRegistry>,
     custom_functions: Rc<CustomFunctionRegistry>,
+    custom_aggregate_functions: Rc<CustomAggregateFunctionRegistry>,
     run_stats: bool,
 }
 
-impl<D: QueryableDataset> SimpleEvaluator<D> {
+impl<'a, D: QueryableDataset<'a>> SimpleEvaluator<'a, D> {
     pub fn new(
         dataset: D,
         base_iri: Option<Rc<Iri<String>>>,
         service_handler: Rc<ServiceHandlerRegistry>,
         custom_functions: Rc<CustomFunctionRegistry>,
+        custom_aggregate_functions: Rc<CustomAggregateFunctionRegistry>,
+        cancellation_token: CancellationToken,
         run_stats: bool,
     ) -> Self {
         Self {
             dataset: EvalDataset {
                 dataset: Rc::new(dataset),
+                cancellation_token,
+                _lifetime: PhantomData,
             },
             base_iri,
             now: DateTime::now(),
             service_handler,
             custom_functions,
+            custom_aggregate_functions,
             run_stats,
         }
     }
@@ -262,7 +290,7 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
         pattern: &GraphPattern,
         substitutions: impl IntoIterator<Item = (Variable, Term)>,
     ) -> (
-        Result<QuerySolutionIter, QueryEvaluationError>,
+        Result<QuerySolutionIter<'a>, QueryEvaluationError>,
         Rc<EvalNodeWithStats>,
     ) {
         let mut variables = Vec::new();
@@ -320,7 +348,7 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
         template: &[TriplePattern],
         substitutions: impl IntoIterator<Item = (Variable, Term)>,
     ) -> (
-        Result<QueryTripleIter, QueryEvaluationError>,
+        Result<QueryTripleIter<'a>, QueryEvaluationError>,
         Rc<EvalNodeWithStats>,
     ) {
         let mut variables = Vec::new();
@@ -369,7 +397,7 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
         pattern: &GraphPattern,
         substitutions: impl IntoIterator<Item = (Variable, Term)>,
     ) -> (
-        Result<QueryTripleIter, QueryEvaluationError>,
+        Result<QueryTripleIter<'a>, QueryEvaluationError>,
         Rc<EvalNodeWithStats>,
     ) {
         let mut variables = Vec::new();
@@ -395,7 +423,10 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
         pattern: &GraphPattern,
         encoded_variables: &mut Vec<Variable>,
     ) -> (
-        Rc<dyn Fn(InternalTuple<D>) -> InternalTuplesIterator<D>>,
+        Rc<
+            dyn Fn(InternalTuple<D::InternalTerm>) -> InternalTuplesIterator<'a, D::InternalTerm>
+                + 'a,
+        >,
         Rc<EvalNodeWithStats>,
     ) {
         let mut stat_children = Vec::new();
@@ -433,7 +464,9 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
         pattern: &GraphPattern,
         encoded_variables: &mut Vec<Variable>,
         stat_children: &mut Vec<Rc<EvalNodeWithStats>>,
-    ) -> Rc<dyn Fn(InternalTuple<D>) -> InternalTuplesIterator<D>> {
+    ) -> Rc<
+        dyn Fn(InternalTuple<D::InternalTerm>) -> InternalTuplesIterator<'a, D::InternalTerm> + 'a,
+    > {
         match pattern {
             GraphPattern::Values {
                 variables,
@@ -458,7 +491,7 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
                                         GroundTerm::Literal(literal) => {
                                             self.encode_term(literal.clone())
                                         }
-                                        #[cfg(feature = "rdf-star")]
+                                        #[cfg(feature = "sparql-12")]
                                         GroundTerm::Triple(triple) => self.encode_triple(triple),
                                     }?,
                                 );
@@ -527,7 +560,7 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
                 Rc::new(move |from| {
                     let input_subject = match subject_selector.get_pattern_value(
                         &from,
-                        #[cfg(feature = "rdf-star")]
+                        #[cfg(feature = "sparql-12")]
                         &dataset,
                     ) {
                         Ok(value) => value,
@@ -535,7 +568,7 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
                     };
                     let input_predicate = match predicate_selector.get_pattern_value(
                         &from,
-                        #[cfg(feature = "rdf-star")]
+                        #[cfg(feature = "sparql-12")]
                         &dataset,
                     ) {
                         Ok(value) => value,
@@ -543,7 +576,7 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
                     };
                     let input_object = match object_selector.get_pattern_value(
                         &from,
-                        #[cfg(feature = "rdf-star")]
+                        #[cfg(feature = "sparql-12")]
                         &dataset,
                     ) {
                         Ok(value) => value,
@@ -552,7 +585,7 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
                     let input_graph_name = if let Some(graph_name_selector) = &graph_name_selector {
                         match graph_name_selector.get_pattern_value(
                             &from,
-                            #[cfg(feature = "rdf-star")]
+                            #[cfg(feature = "sparql-12")]
                             &dataset,
                         ) {
                             Ok(value) => value,
@@ -572,35 +605,35 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
                     let predicate_selector = predicate_selector.clone();
                     let object_selector = object_selector.clone();
                     let graph_name_selector = graph_name_selector.clone();
-                    #[cfg(feature = "rdf-star")]
+                    #[cfg(feature = "sparql-12")]
                     let dataset = dataset.clone();
                     Box::new(
                         iter.map(move |quad| {
                             let quad = quad?;
                             let mut new_tuple = from.clone();
-                            if !put_pattern_value(
+                            if !put_pattern_value::<D>(
                                 &subject_selector,
                                 quad.subject,
                                 &mut new_tuple,
-                                #[cfg(feature = "rdf-star")]
+                                #[cfg(feature = "sparql-12")]
                                 &dataset,
                             )? {
                                 return Ok(None);
                             }
-                            if !put_pattern_value(
+                            if !put_pattern_value::<D>(
                                 &predicate_selector,
                                 quad.predicate,
                                 &mut new_tuple,
-                                #[cfg(feature = "rdf-star")]
+                                #[cfg(feature = "sparql-12")]
                                 &dataset,
                             )? {
                                 return Ok(None);
                             }
-                            if !put_pattern_value(
+                            if !put_pattern_value::<D>(
                                 &object_selector,
                                 quad.object,
                                 &mut new_tuple,
-                                #[cfg(feature = "rdf-star")]
+                                #[cfg(feature = "sparql-12")]
                                 &dataset,
                             )? {
                                 return Ok(None);
@@ -609,11 +642,11 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
                                 let Some(quad_graph_name) = quad.graph_name else {
                                     return Err(QueryEvaluationError::UnexpectedDefaultGraph);
                                 };
-                                if !put_pattern_value(
+                                if !put_pattern_value::<D>(
                                     graph_name_selector,
                                     quad_graph_name,
                                     &mut new_tuple,
-                                    #[cfg(feature = "rdf-star")]
+                                    #[cfg(feature = "sparql-12")]
                                     &dataset,
                                 )? {
                                     return Ok(None);
@@ -667,7 +700,7 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
                 Rc::new(move |from| {
                     let input_subject = match subject_selector.get_pattern_value(
                         &from,
-                        #[cfg(feature = "rdf-star")]
+                        #[cfg(feature = "sparql-12")]
                         &dataset,
                     ) {
                         Ok(value) => value,
@@ -678,7 +711,7 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
                     };
                     let input_object = match object_selector.get_pattern_value(
                         &from,
-                        #[cfg(feature = "rdf-star")]
+                        #[cfg(feature = "sparql-12")]
                         &dataset,
                     ) {
                         Ok(value) => value,
@@ -687,7 +720,7 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
                     let input_graph_name = if let Some(graph_name_selector) = &graph_name_selector {
                         match graph_name_selector.get_pattern_value(
                             &from,
-                            #[cfg(feature = "rdf-star")]
+                            #[cfg(feature = "sparql-12")]
                             &dataset,
                         ) {
                             Ok(value) => value,
@@ -712,7 +745,7 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
                         }
                         (Some(input_subject), None, Some(input_graph_name)) => {
                             let object_selector = object_selector.clone();
-                            #[cfg(feature = "rdf-star")]
+                            #[cfg(feature = "sparql-12")]
                             let dataset = dataset.clone();
                             Box::new(
                                 path_eval
@@ -724,11 +757,11 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
                                     .map(move |o| {
                                         let o = o?;
                                         let mut new_tuple = from.clone();
-                                        if !put_pattern_value(
+                                        if !put_pattern_value::<D>(
                                             &object_selector,
                                             o,
                                             &mut new_tuple,
-                                            #[cfg(feature = "rdf-star")]
+                                            #[cfg(feature = "sparql-12")]
                                             &dataset,
                                         )? {
                                             return Ok(None);
@@ -740,7 +773,7 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
                         }
                         (None, Some(input_object), Some(input_graph_name)) => {
                             let subject_selector = subject_selector.clone();
-                            #[cfg(feature = "rdf-star")]
+                            #[cfg(feature = "sparql-12")]
                             let dataset = dataset.clone();
                             Box::new(
                                 path_eval
@@ -752,11 +785,11 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
                                     .map(move |s| {
                                         let s = s?;
                                         let mut new_tuple = from.clone();
-                                        if !put_pattern_value(
+                                        if !put_pattern_value::<D>(
                                             &subject_selector,
                                             s,
                                             &mut new_tuple,
-                                            #[cfg(feature = "rdf-star")]
+                                            #[cfg(feature = "sparql-12")]
                                             &dataset,
                                         )? {
                                             return Ok(None);
@@ -769,7 +802,7 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
                         (None, None, Some(input_graph_name)) => {
                             let subject_selector = subject_selector.clone();
                             let object_selector = object_selector.clone();
-                            #[cfg(feature = "rdf-star")]
+                            #[cfg(feature = "sparql-12")]
                             let dataset = dataset.clone();
                             Box::new(
                                 path_eval
@@ -777,20 +810,20 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
                                     .map(move |t| {
                                         let (s, o) = t?;
                                         let mut new_tuple = from.clone();
-                                        if !put_pattern_value(
+                                        if !put_pattern_value::<D>(
                                             &subject_selector,
                                             s,
                                             &mut new_tuple,
-                                            #[cfg(feature = "rdf-star")]
+                                            #[cfg(feature = "sparql-12")]
                                             &dataset,
                                         )? {
                                             return Ok(None);
                                         }
-                                        if !put_pattern_value(
+                                        if !put_pattern_value::<D>(
                                             &object_selector,
                                             o,
                                             &mut new_tuple,
-                                            #[cfg(feature = "rdf-star")]
+                                            #[cfg(feature = "sparql-12")]
                                             &dataset,
                                         )? {
                                             return Ok(None);
@@ -802,7 +835,7 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
                         }
                         (Some(input_subject), Some(input_object), None) => {
                             let graph_name_selector = graph_name_selector.clone();
-                            #[cfg(feature = "rdf-star")]
+                            #[cfg(feature = "sparql-12")]
                             let dataset = dataset.clone();
                             Box::new(
                                 path_eval
@@ -820,11 +853,11 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
                                                     QueryEvaluationError::UnexpectedDefaultGraph,
                                                 );
                                             };
-                                            if !put_pattern_value(
+                                            if !put_pattern_value::<D>(
                                                 graph_name_selector,
                                                 g,
                                                 &mut new_tuple,
-                                                #[cfg(feature = "rdf-star")]
+                                                #[cfg(feature = "sparql-12")]
                                                 &dataset,
                                             )? {
                                                 return Ok(None);
@@ -838,7 +871,7 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
                         (Some(input_subject), None, None) => {
                             let object_selector = object_selector.clone();
                             let graph_name_selector = graph_name_selector.clone();
-                            #[cfg(feature = "rdf-star")]
+                            #[cfg(feature = "sparql-12")]
                             let dataset = dataset.clone();
                             Box::new(
                                 path_eval
@@ -846,11 +879,11 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
                                     .map(move |t| {
                                         let (o, g) = t?;
                                         let mut new_tuple = from.clone();
-                                        if !put_pattern_value(
+                                        if !put_pattern_value::<D>(
                                             &object_selector,
                                             o,
                                             &mut new_tuple,
-                                            #[cfg(feature = "rdf-star")]
+                                            #[cfg(feature = "sparql-12")]
                                             &dataset,
                                         )? {
                                             return Ok(None);
@@ -861,11 +894,11 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
                                                     QueryEvaluationError::UnexpectedDefaultGraph,
                                                 );
                                             };
-                                            if !put_pattern_value(
+                                            if !put_pattern_value::<D>(
                                                 graph_name_selector,
                                                 g,
                                                 &mut new_tuple,
-                                                #[cfg(feature = "rdf-star")]
+                                                #[cfg(feature = "sparql-12")]
                                                 &dataset,
                                             )? {
                                                 return Ok(None);
@@ -879,7 +912,7 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
                         (None, Some(input_object), None) => {
                             let subject_selector = subject_selector.clone();
                             let graph_name_selector = graph_name_selector.clone();
-                            #[cfg(feature = "rdf-star")]
+                            #[cfg(feature = "sparql-12")]
                             let dataset = dataset.clone();
                             Box::new(
                                 path_eval
@@ -887,11 +920,11 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
                                     .map(move |t| {
                                         let (s, g) = t?;
                                         let mut new_tuple = from.clone();
-                                        if !put_pattern_value(
+                                        if !put_pattern_value::<D>(
                                             &subject_selector,
                                             s,
                                             &mut new_tuple,
-                                            #[cfg(feature = "rdf-star")]
+                                            #[cfg(feature = "sparql-12")]
                                             &dataset,
                                         )? {
                                             return Ok(None);
@@ -902,11 +935,11 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
                                                     QueryEvaluationError::UnexpectedDefaultGraph,
                                                 );
                                             };
-                                            if !put_pattern_value(
+                                            if !put_pattern_value::<D>(
                                                 graph_name_selector,
                                                 g,
                                                 &mut new_tuple,
-                                                #[cfg(feature = "rdf-star")]
+                                                #[cfg(feature = "sparql-12")]
                                                 &dataset,
                                             )? {
                                                 return Ok(None);
@@ -921,7 +954,7 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
                             let subject_selector = subject_selector.clone();
                             let object_selector = object_selector.clone();
                             let graph_name_selector = graph_name_selector.clone();
-                            #[cfg(feature = "rdf-star")]
+                            #[cfg(feature = "sparql-12")]
                             let dataset = dataset.clone();
                             Box::new(
                                 path_eval
@@ -929,20 +962,20 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
                                     .map(move |t| {
                                         let (s, o, g) = t?;
                                         let mut new_tuple = from.clone();
-                                        if !put_pattern_value(
+                                        if !put_pattern_value::<D>(
                                             &subject_selector,
                                             s,
                                             &mut new_tuple,
-                                            #[cfg(feature = "rdf-star")]
+                                            #[cfg(feature = "sparql-12")]
                                             &dataset,
                                         )? {
                                             return Ok(None);
                                         }
-                                        if !put_pattern_value(
+                                        if !put_pattern_value::<D>(
                                             &object_selector,
                                             o,
                                             &mut new_tuple,
-                                            #[cfg(feature = "rdf-star")]
+                                            #[cfg(feature = "sparql-12")]
                                             &dataset,
                                         )? {
                                             return Ok(None);
@@ -953,11 +986,11 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
                                                     QueryEvaluationError::UnexpectedDefaultGraph,
                                                 );
                                             };
-                                            if !put_pattern_value(
+                                            if !put_pattern_value::<D>(
                                                 graph_name_selector,
                                                 g,
                                                 &mut new_tuple,
-                                                #[cfg(feature = "rdf-star")]
+                                                #[cfg(feature = "sparql-12")]
                                                 &dataset,
                                             )? {
                                                 return Ok(None);
@@ -984,7 +1017,7 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
                 Rc::new(move |from| {
                     let input_graph_name = match graph_name_selector.get_pattern_value(
                         &from,
-                        #[cfg(feature = "rdf-star")]
+                        #[cfg(feature = "sparql-12")]
                         &dataset,
                     ) {
                         Ok(value) => value,
@@ -998,7 +1031,7 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
                         }
                     } else {
                         let graph_name_selector = graph_name_selector.clone();
-                        #[cfg(feature = "rdf-star")]
+                        #[cfg(feature = "sparql-12")]
                         let dataset = dataset.clone();
                         Box::new(
                             dataset
@@ -1006,11 +1039,11 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
                                 .map(move |graph_name| {
                                     let graph_name = graph_name?;
                                     let mut new_tuple = from.clone();
-                                    if !put_pattern_value(
+                                    if !put_pattern_value::<D>(
                                         &graph_name_selector,
                                         graph_name,
                                         &mut new_tuple,
-                                        #[cfg(feature = "rdf-star")]
+                                        #[cfg(feature = "sparql-12")]
                                         &dataset,
                                     )? {
                                         return Ok(None);
@@ -1397,7 +1430,7 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
                 let (mut child, child_stats) =
                     self.graph_pattern_evaluator(inner, encoded_variables);
                 stat_children.push(child_stats);
-                #[allow(clippy::shadow_same)]
+                #[expect(clippy::shadow_same)]
                 let start = *start;
                 if start > 0 {
                     child = Rc::new(move |from| Box::new(child(from).skip(start)));
@@ -1478,7 +1511,7 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
                     let mut errors = Vec::default();
                     let mut accumulators_for_group = FxHashMap::<
                         Vec<Option<D::InternalTerm>>,
-                        Vec<AccumulatorWrapper<D>>,
+                        Vec<AccumulatorWrapper<'_, D::InternalTerm>>,
                     >::default();
                     if key_variables.is_empty() {
                         // There is always a single group if there is no GROUP BY
@@ -1507,7 +1540,7 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
                                     accumulator_builders.iter().map(|c| c()).collect::<Vec<_>>()
                                 });
                             for accumulator in key_accumulators {
-                                accumulator.add(&tuple);
+                                accumulator.accumulate(&tuple);
                             }
                         });
                     let accumulator_variables = accumulator_variables.clone();
@@ -1545,7 +1578,7 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
                 inner,
                 silent,
             } => {
-                #[allow(clippy::shadow_same)]
+                #[expect(clippy::shadow_same)]
                 let silent = *silent;
                 let service_name = match TupleSelector::from_named_node_pattern(
                     name,
@@ -1586,15 +1619,15 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
 
     fn evaluate_service(
         &self,
-        service_name: &TupleSelector<D>,
+        service_name: &TupleSelector<D::InternalTerm>,
         graph_pattern: &spargebra::algebra::GraphPattern,
         variables: Rc<[Variable]>,
-        from: &InternalTuple<D>,
-    ) -> Result<InternalTuplesIterator<D>, QueryEvaluationError> {
+        from: &InternalTuple<D::InternalTerm>,
+    ) -> Result<InternalTuplesIterator<'a, D::InternalTerm>, QueryEvaluationError> {
         let service_name = service_name
             .get_pattern_value(
                 from,
-                #[cfg(feature = "rdf-star")]
+                #[cfg(feature = "sparql-12")]
                 &self.dataset,
             )?
             .ok_or(QueryEvaluationError::UnboundService)?;
@@ -1602,11 +1635,9 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
             Term::NamedNode(service_name) => service_name,
             term => return Err(QueryEvaluationError::InvalidServiceName(term)),
         };
-        let iter = self.service_handler.handle(
-            service_name,
-            graph_pattern.clone(),
-            self.base_iri.as_ref().map(ToString::to_string),
-        )?;
+        let iter =
+            self.service_handler
+                .handle(&service_name, graph_pattern, self.base_iri.as_deref())?;
         Ok(encode_bindings(self.dataset.clone(), variables, iter))
     }
 
@@ -1615,7 +1646,7 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
         expression: &AggregateExpression,
         encoded_variables: &mut Vec<Variable>,
         stat_children: &mut Vec<Rc<EvalNodeWithStats>>,
-    ) -> Box<dyn Fn() -> AccumulatorWrapper<D>> {
+    ) -> Box<dyn Fn() -> AccumulatorWrapper<'a, D::InternalTerm> + 'a> {
         match expression {
             AggregateExpression::CountSolutions { distinct } => {
                 if *distinct {
@@ -1757,7 +1788,27 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
                         })
                     }
                 }
-                AggregateFunction::Custom(_) => Box::new(move || AccumulatorWrapper::Failing),
+                AggregateFunction::Custom(function_name) => {
+                    if let Some(function) = self.custom_aggregate_functions.get(function_name) {
+                        let evaluator =
+                            self.expression_evaluator(expr, encoded_variables, stat_children);
+                        let function = Arc::clone(function);
+                        if *distinct {
+                            Box::new(move || AccumulatorWrapper::DistinctExpression {
+                                evaluator: Rc::clone(&evaluator),
+                                seen: FxHashSet::default(),
+                                accumulator: Some(Box::new(CustomAccumulator(function()))),
+                            })
+                        } else {
+                            Box::new(move || AccumulatorWrapper::Expression {
+                                evaluator: Rc::clone(&evaluator),
+                                accumulator: Some(Box::new(CustomAccumulator(function()))),
+                            })
+                        }
+                    } else {
+                        Box::new(move || AccumulatorWrapper::Failing)
+                    }
+                }
             },
         }
     }
@@ -1765,12 +1816,13 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
     /// Evaluates an expression and returns an internal term
     ///
     /// Returns None if building such expression would mean to convert back to an internal term at the end.
+    #[expect(clippy::type_complexity)]
     fn internal_expression_evaluator(
         &self,
         expression: &Expression,
         encoded_variables: &mut Vec<Variable>,
         stat_children: &mut Vec<Rc<EvalNodeWithStats>>,
-    ) -> Option<Rc<dyn Fn(&InternalTuple<D>) -> Option<D::InternalTerm>>> {
+    ) -> Option<Rc<dyn Fn(&InternalTuple<D::InternalTerm>) -> Option<D::InternalTerm> + 'a>> {
         Some(match expression {
             Expression::NamedNode(t) => {
                 let t = self.encode_term(t.clone()).ok();
@@ -1832,12 +1884,12 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
     }
 
     /// Evaluate an expression and return its effective boolean value
-    fn effective_boolean_value_expression_evaluator(
+    pub(crate) fn effective_boolean_value_expression_evaluator(
         &self,
         expression: &Expression,
         encoded_variables: &mut Vec<Variable>,
         stat_children: &mut Vec<Rc<EvalNodeWithStats>>,
-    ) -> Rc<dyn Fn(&InternalTuple<D>) -> Option<bool>> {
+    ) -> Rc<dyn Fn(&InternalTuple<D::InternalTerm>) -> Option<bool> + 'a> {
         // TODO: avoid dyn?
         if let Some(eval) =
             self.internal_expression_evaluator(expression, encoded_variables, stat_children)
@@ -1854,12 +1906,12 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
     }
 
     /// Evaluate an expression and return an explicit ExpressionTerm
-    fn expression_evaluator(
+    pub(crate) fn expression_evaluator(
         &self,
         expression: &Expression,
         encoded_variables: &mut Vec<Variable>,
         stat_children: &mut Vec<Rc<EvalNodeWithStats>>,
-    ) -> Rc<dyn Fn(&InternalTuple<D>) -> Option<ExpressionTerm>> {
+    ) -> Rc<dyn Fn(&InternalTuple<D::InternalTerm>) -> Option<ExpressionTerm> + 'a> {
         match expression {
             Expression::NamedNode(t) => {
                 let t = ExpressionTerm::from(Term::from(t.clone()));
@@ -1908,11 +1960,7 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
                             None => error = true,
                         }
                     }
-                    if error {
-                        None
-                    } else {
-                        Some(false.into())
-                    }
+                    if error { None } else { Some(false.into()) }
                 })
             }
             Expression::And(inner) => {
@@ -1935,11 +1983,7 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
                             None => error = true,
                         }
                     }
-                    if error {
-                        None
-                    } else {
-                        Some(true.into())
-                    }
+                    if error { None } else { Some(true.into()) }
                 })
             }
             Expression::Equal(a, b) => {
@@ -2288,7 +2332,7 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
                             Term::NamedNode(term) => term.into_string(),
                             Term::BlankNode(_) => return None,
                             Term::Literal(term) => term.destruct().0,
-                            #[cfg(feature = "rdf-star")]
+                            #[cfg(feature = "sparql-12")]
                             Term::Triple(_) => return None,
                         }))
                     })
@@ -2299,10 +2343,12 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
                     Rc::new(move |tuple| {
                         Some(ExpressionTerm::StringLiteral(match e(tuple)? {
                             ExpressionTerm::LangStringLiteral { language, .. } => language,
+                            #[cfg(feature = "sparql-12")]
+                            ExpressionTerm::DirLangStringLiteral { language, .. } => language,
                             ExpressionTerm::NamedNode(_) | ExpressionTerm::BlankNode(_) => {
-                                return None
+                                return None;
                             }
-                            #[cfg(feature = "rdf-star")]
+                            #[cfg(feature = "sparql-12")]
                             ExpressionTerm::Triple(_) => return None,
                             _ => String::new(),
                         }))
@@ -2342,6 +2388,27 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
                         )
                     })
                 }
+                #[cfg(feature = "sparql-12")]
+                Function::LangDir => {
+                    let e =
+                        self.expression_evaluator(&parameters[0], encoded_variables, stat_children);
+                    Rc::new(move |tuple| {
+                        Some(ExpressionTerm::StringLiteral(match e(tuple)? {
+                            ExpressionTerm::DirLangStringLiteral { direction, .. } => {
+                                match direction {
+                                    BaseDirection::Ltr => "ltr".into(),
+                                    BaseDirection::Rtl => "rtl".into(),
+                                }
+                            }
+                            ExpressionTerm::NamedNode(_) | ExpressionTerm::BlankNode(_) => {
+                                return None;
+                            }
+                            #[cfg(feature = "sparql-12")]
+                            ExpressionTerm::Triple(_) => return None,
+                            _ => String::new(),
+                        }))
+                    })
+                }
                 Function::Datatype => {
                     let e =
                         self.expression_evaluator(&parameters[0], encoded_variables, stat_children);
@@ -2349,6 +2416,10 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
                         Some(ExpressionTerm::NamedNode(match e(tuple)? {
                             ExpressionTerm::StringLiteral(_) => xsd::STRING.into(),
                             ExpressionTerm::LangStringLiteral { .. } => rdf::LANG_STRING.into(),
+                            #[cfg(feature = "sparql-12")]
+                            ExpressionTerm::DirLangStringLiteral { .. } => {
+                                rdf::DIR_LANG_STRING.into()
+                            }
                             ExpressionTerm::BooleanLiteral(_) => xsd::BOOLEAN.into(),
                             ExpressionTerm::IntegerLiteral(_) => xsd::INTEGER.into(),
                             ExpressionTerm::DecimalLiteral(_) => xsd::DECIMAL.into(),
@@ -2381,9 +2452,9 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
                             }
                             ExpressionTerm::OtherTypedLiteral { datatype, .. } => datatype,
                             ExpressionTerm::NamedNode(_) | ExpressionTerm::BlankNode(_) => {
-                                return None
+                                return None;
                             }
-                            #[cfg(feature = "rdf-star")]
+                            #[cfg(feature = "sparql-12")]
                             ExpressionTerm::Triple(_) => return None,
                         }))
                     })
@@ -3020,6 +3091,40 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
                         )
                     })
                 }
+                #[cfg(feature = "sparql-12")]
+                Function::StrLangDir => {
+                    let lexical_form =
+                        self.expression_evaluator(&parameters[0], encoded_variables, stat_children);
+                    let lang_tag =
+                        self.expression_evaluator(&parameters[1], encoded_variables, stat_children);
+                    let direction =
+                        self.expression_evaluator(&parameters[2], encoded_variables, stat_children);
+                    Rc::new(move |tuple| {
+                        let ExpressionTerm::StringLiteral(value) = lexical_form(tuple)? else {
+                            return None;
+                        };
+                        let ExpressionTerm::StringLiteral(language) = lang_tag(tuple)? else {
+                            return None;
+                        };
+                        let ExpressionTerm::StringLiteral(direction) = direction(tuple)? else {
+                            return None;
+                        };
+                        let direction = match direction.as_str() {
+                            "ltr" => BaseDirection::Ltr,
+                            "rtl" => BaseDirection::Rtl,
+                            _ => return None,
+                        };
+                        Some(
+                            Term::from(
+                                Literal::new_directional_language_tagged_literal(
+                                    value, language, direction,
+                                )
+                                .ok()?,
+                            )
+                            .into(),
+                        )
+                    })
+                }
                 Function::StrDt => {
                     let lexical_form =
                         self.expression_evaluator(&parameters[0], encoded_variables, stat_children);
@@ -3059,7 +3164,7 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
                                 ExpressionTerm::NamedNode(_) | ExpressionTerm::BlankNode(_) => {
                                     false
                                 }
-                                #[cfg(feature = "rdf-star")]
+                                #[cfg(feature = "sparql-12")]
                                 ExpressionTerm::Triple(_) => false,
                                 _ => true,
                             }
@@ -3080,6 +3185,31 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
                                     | ExpressionTerm::DoubleLiteral(_)
                             )
                             .into(),
+                        )
+                    })
+                }
+                #[cfg(feature = "sparql-12")]
+                Function::HasLang => {
+                    let e =
+                        self.expression_evaluator(&parameters[0], encoded_variables, stat_children);
+                    Rc::new(move |tuple| {
+                        Some(
+                            matches!(
+                                e(tuple)?,
+                                ExpressionTerm::LangStringLiteral { .. }
+                                    | ExpressionTerm::DirLangStringLiteral { .. }
+                            )
+                            .into(),
+                        )
+                    })
+                }
+                #[cfg(feature = "sparql-12")]
+                Function::HasLangDir => {
+                    let e =
+                        self.expression_evaluator(&parameters[0], encoded_variables, stat_children);
+                    Rc::new(move |tuple| {
+                        Some(
+                            matches!(e(tuple)?, ExpressionTerm::DirLangStringLiteral { .. }).into(),
                         )
                     })
                 }
@@ -3120,7 +3250,7 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
                         })
                     }
                 }
-                #[cfg(feature = "rdf-star")]
+                #[cfg(feature = "sparql-12")]
                 Function::Triple => {
                     let s =
                         self.expression_evaluator(&parameters[0], encoded_variables, stat_children);
@@ -3132,7 +3262,7 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
                         Some(ExpressionTriple::new(s(tuple)?, p(tuple)?, o(tuple)?)?.into())
                     })
                 }
-                #[cfg(feature = "rdf-star")]
+                #[cfg(feature = "sparql-12")]
                 Function::Subject => {
                     let e =
                         self.expression_evaluator(&parameters[0], encoded_variables, stat_children);
@@ -3144,7 +3274,7 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
                         }
                     })
                 }
-                #[cfg(feature = "rdf-star")]
+                #[cfg(feature = "sparql-12")]
                 Function::Predicate => {
                     let e =
                         self.expression_evaluator(&parameters[0], encoded_variables, stat_children);
@@ -3156,7 +3286,7 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
                         }
                     })
                 }
-                #[cfg(feature = "rdf-star")]
+                #[cfg(feature = "sparql-12")]
                 Function::Object => {
                     let e =
                         self.expression_evaluator(&parameters[0], encoded_variables, stat_children);
@@ -3168,7 +3298,7 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
                         }
                     })
                 }
-                #[cfg(feature = "rdf-star")]
+                #[cfg(feature = "sparql-12")]
                 Function::IsTriple => {
                     let e =
                         self.expression_evaluator(&parameters[0], encoded_variables, stat_children);
@@ -3192,6 +3322,9 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
                     }
                     match function_name.as_ref() {
                         xsd::STRING => {
+                            if parameters.len() != 1 {
+                                return Rc::new(move |_| None);
+                            }
                             let e = self.expression_evaluator(
                                 &parameters[0],
                                 encoded_variables,
@@ -3202,12 +3335,15 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
                                     Term::NamedNode(term) => term.into_string(),
                                     Term::BlankNode(_) => return None,
                                     Term::Literal(term) => term.destruct().0,
-                                    #[cfg(feature = "rdf-star")]
+                                    #[cfg(feature = "sparql-12")]
                                     Term::Triple(_) => return None,
                                 }))
                             })
                         }
                         xsd::BOOLEAN => {
+                            if parameters.len() != 1 {
+                                return Rc::new(move |_| None);
+                            }
                             let e = self.expression_evaluator(
                                 &parameters[0],
                                 encoded_variables,
@@ -3226,6 +3362,9 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
                             })
                         }
                         xsd::DOUBLE => {
+                            if parameters.len() != 1 {
+                                return Rc::new(move |_| None);
+                            }
                             let e = self.expression_evaluator(
                                 &parameters[0],
                                 encoded_variables,
@@ -3244,6 +3383,9 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
                             })
                         }
                         xsd::FLOAT => {
+                            if parameters.len() != 1 {
+                                return Rc::new(move |_| None);
+                            }
                             let e = self.expression_evaluator(
                                 &parameters[0],
                                 encoded_variables,
@@ -3262,6 +3404,9 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
                             })
                         }
                         xsd::INTEGER => {
+                            if parameters.len() != 1 {
+                                return Rc::new(move |_| None);
+                            }
                             let e = self.expression_evaluator(
                                 &parameters[0],
                                 encoded_variables,
@@ -3284,6 +3429,9 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
                             })
                         }
                         xsd::DECIMAL => {
+                            if parameters.len() != 1 {
+                                return Rc::new(move |_| None);
+                            }
                             let e = self.expression_evaluator(
                                 &parameters[0],
                                 encoded_variables,
@@ -3305,6 +3453,9 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
                         }
                         #[cfg(feature = "sep-0002")]
                         xsd::DATE => {
+                            if parameters.len() != 1 {
+                                return Rc::new(move |_| None);
+                            }
                             let e = self.expression_evaluator(
                                 &parameters[0],
                                 encoded_variables,
@@ -3323,6 +3474,9 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
                         }
                         #[cfg(feature = "sep-0002")]
                         xsd::TIME => {
+                            if parameters.len() != 1 {
+                                return Rc::new(move |_| None);
+                            }
                             let e = self.expression_evaluator(
                                 &parameters[0],
                                 encoded_variables,
@@ -3338,6 +3492,9 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
                             })
                         }
                         xsd::DATE_TIME => {
+                            if parameters.len() != 1 {
+                                return Rc::new(move |_| None);
+                            }
                             let e = self.expression_evaluator(
                                 &parameters[0],
                                 encoded_variables,
@@ -3355,6 +3512,9 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
                         }
                         #[cfg(feature = "sep-0002")]
                         xsd::DURATION => {
+                            if parameters.len() != 1 {
+                                return Rc::new(move |_| None);
+                            }
                             let e = self.expression_evaluator(
                                 &parameters[0],
                                 encoded_variables,
@@ -3372,6 +3532,9 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
                         }
                         #[cfg(feature = "sep-0002")]
                         xsd::YEAR_MONTH_DURATION => {
+                            if parameters.len() != 1 {
+                                return Rc::new(move |_| None);
+                            }
                             let e = self.expression_evaluator(
                                 &parameters[0],
                                 encoded_variables,
@@ -3390,6 +3553,9 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
                         }
                         #[cfg(feature = "sep-0002")]
                         xsd::DAY_TIME_DURATION => {
+                            if parameters.len() != 1 {
+                                return Rc::new(move |_| None);
+                            }
                             let e = self.expression_evaluator(
                                 &parameters[0],
                                 encoded_variables,
@@ -3406,7 +3572,116 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
                                 }))
                             })
                         }
-                        // TODO: gYear...
+                        #[cfg(feature = "calendar-ext")]
+                        xsd::G_YEAR => {
+                            if parameters.len() != 1 {
+                                return Rc::new(move |_| None);
+                            }
+                            let e = self.expression_evaluator(
+                                &parameters[0],
+                                encoded_variables,
+                                stat_children,
+                            );
+                            Rc::new(move |tuple| {
+                                Some(ExpressionTerm::GYearLiteral(match e(tuple)? {
+                                    ExpressionTerm::GYearLiteral(value) => value,
+                                    ExpressionTerm::GYearMonthLiteral(value) => {
+                                        value.try_into().ok()?
+                                    }
+                                    ExpressionTerm::DateLiteral(value) => value.try_into().ok()?,
+                                    ExpressionTerm::DateTimeLiteral(value) => {
+                                        value.try_into().ok()?
+                                    }
+                                    ExpressionTerm::StringLiteral(value) => value.parse().ok()?,
+                                    _ => return None,
+                                }))
+                            })
+                        }
+                        #[cfg(feature = "calendar-ext")]
+                        xsd::G_YEAR_MONTH => {
+                            if parameters.len() != 1 {
+                                return Rc::new(move |_| None);
+                            }
+                            let e = self.expression_evaluator(
+                                &parameters[0],
+                                encoded_variables,
+                                stat_children,
+                            );
+                            Rc::new(move |tuple| {
+                                Some(ExpressionTerm::GYearMonthLiteral(match e(tuple)? {
+                                    ExpressionTerm::GYearMonthLiteral(value) => value,
+                                    ExpressionTerm::DateLiteral(value) => value.into(),
+                                    ExpressionTerm::DateTimeLiteral(value) => {
+                                        value.try_into().ok()?
+                                    }
+                                    ExpressionTerm::StringLiteral(value) => value.parse().ok()?,
+                                    _ => return None,
+                                }))
+                            })
+                        }
+                        #[cfg(feature = "calendar-ext")]
+                        xsd::G_MONTH => {
+                            if parameters.len() != 1 {
+                                return Rc::new(move |_| None);
+                            }
+                            let e = self.expression_evaluator(
+                                &parameters[0],
+                                encoded_variables,
+                                stat_children,
+                            );
+                            Rc::new(move |tuple| {
+                                Some(ExpressionTerm::GMonthLiteral(match e(tuple)? {
+                                    ExpressionTerm::GMonthLiteral(value) => value,
+                                    ExpressionTerm::GYearMonthLiteral(value) => value.into(),
+                                    ExpressionTerm::GMonthDayLiteral(value) => value.into(),
+                                    ExpressionTerm::DateLiteral(value) => value.into(),
+                                    ExpressionTerm::DateTimeLiteral(value) => value.into(),
+                                    ExpressionTerm::StringLiteral(value) => value.parse().ok()?,
+                                    _ => return None,
+                                }))
+                            })
+                        }
+                        #[cfg(feature = "calendar-ext")]
+                        xsd::G_MONTH_DAY => {
+                            if parameters.len() != 1 {
+                                return Rc::new(move |_| None);
+                            }
+                            let e = self.expression_evaluator(
+                                &parameters[0],
+                                encoded_variables,
+                                stat_children,
+                            );
+                            Rc::new(move |tuple| {
+                                Some(ExpressionTerm::GMonthDayLiteral(match e(tuple)? {
+                                    ExpressionTerm::GMonthDayLiteral(value) => value,
+                                    ExpressionTerm::DateLiteral(value) => value.into(),
+                                    ExpressionTerm::DateTimeLiteral(value) => value.into(),
+                                    ExpressionTerm::StringLiteral(value) => value.parse().ok()?,
+                                    _ => return None,
+                                }))
+                            })
+                        }
+                        #[cfg(feature = "calendar-ext")]
+                        xsd::G_DAY => {
+                            if parameters.len() != 1 {
+                                return Rc::new(move |_| None);
+                            }
+                            let e = self.expression_evaluator(
+                                &parameters[0],
+                                encoded_variables,
+                                stat_children,
+                            );
+                            Rc::new(move |tuple| {
+                                Some(ExpressionTerm::GDayLiteral(match e(tuple)? {
+                                    ExpressionTerm::GDayLiteral(value) => value,
+                                    ExpressionTerm::GMonthDayLiteral(value) => value.into(),
+                                    ExpressionTerm::DateLiteral(value) => value.into(),
+                                    ExpressionTerm::DateTimeLiteral(value) => value.into(),
+                                    ExpressionTerm::StringLiteral(value) => value.parse().ok()?,
+                                    _ => return None,
+                                }))
+                            })
+                        }
                         _ => Rc::new(|_| None),
                     }
                 }
@@ -3419,7 +3694,7 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
         parameters: &[Expression],
         encoded_variables: &mut Vec<Variable>,
         stat_children: &mut Vec<Rc<EvalNodeWithStats>>,
-    ) -> Rc<dyn Fn(&InternalTuple<D>) -> Option<ExpressionTerm>> {
+    ) -> Rc<dyn Fn(&InternalTuple<D::InternalTerm>) -> Option<ExpressionTerm> + 'a> {
         let arg = self.expression_evaluator(&parameters[0], encoded_variables, stat_children);
         Rc::new(move |tuple| {
             let ExpressionTerm::StringLiteral(input) = arg(tuple)? else {
@@ -3434,7 +3709,7 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
         self.dataset.internalize_term(term.into())
     }
 
-    #[cfg(feature = "rdf-star")]
+    #[cfg(feature = "sparql-12")]
     fn encode_triple(
         &self,
         triple: &GroundTriple,
@@ -3447,7 +3722,7 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
     fn encode_property_path(
         &self,
         path: &PropertyPathExpression,
-    ) -> Result<Rc<PropertyPath<D>>, QueryEvaluationError> {
+    ) -> Result<Rc<PropertyPath<D::InternalTerm>>, QueryEvaluationError> {
         Ok(Rc::new(match path {
             PropertyPathExpression::NamedNode(node) => {
                 PropertyPath::Path(self.encode_term(node.clone())?)
@@ -3480,7 +3755,7 @@ impl<D: QueryableDataset> SimpleEvaluator<D> {
     }
 }
 
-impl<D: QueryableDataset> Clone for SimpleEvaluator<D> {
+impl<'a, D: QueryableDataset<'a>> Clone for SimpleEvaluator<'a, D> {
     fn clone(&self) -> Self {
         Self {
             dataset: self.dataset.clone(),
@@ -3488,12 +3763,39 @@ impl<D: QueryableDataset> Clone for SimpleEvaluator<D> {
             now: self.now,
             service_handler: Rc::clone(&self.service_handler),
             custom_functions: Rc::clone(&self.custom_functions),
+            custom_aggregate_functions: Rc::clone(&self.custom_aggregate_functions),
             run_stats: self.run_stats,
         }
     }
 }
 
-fn to_string_and_language(term: ExpressionTerm) -> Option<(String, Option<String>)> {
+#[cfg(feature = "sparql-12")]
+type LanguageWithMaybeBaseDirection = (String, Option<BaseDirection>);
+#[cfg(not(feature = "sparql-12"))]
+type LanguageWithMaybeBaseDirection = String;
+
+#[cfg(feature = "sparql-12")]
+fn to_string_and_language(
+    term: ExpressionTerm,
+) -> Option<(String, Option<LanguageWithMaybeBaseDirection>)> {
+    match term {
+        ExpressionTerm::StringLiteral(value) => Some((value, None)),
+        ExpressionTerm::LangStringLiteral { value, language } => {
+            Some((value, Some((language, None))))
+        }
+        ExpressionTerm::DirLangStringLiteral {
+            value,
+            language,
+            direction,
+        } => Some((value, Some((language, Some(direction))))),
+        _ => None,
+    }
+}
+
+#[cfg(not(feature = "sparql-12"))]
+fn to_string_and_language(
+    term: ExpressionTerm,
+) -> Option<(String, Option<LanguageWithMaybeBaseDirection>)> {
     match term {
         ExpressionTerm::StringLiteral(value) => Some((value, None)),
         ExpressionTerm::LangStringLiteral { value, language } => Some((value, Some(language))),
@@ -3501,7 +3803,31 @@ fn to_string_and_language(term: ExpressionTerm) -> Option<(String, Option<String
     }
 }
 
-fn build_plain_literal(value: String, language: Option<String>) -> ExpressionTerm {
+#[cfg(feature = "sparql-12")]
+fn build_plain_literal(
+    value: String,
+    language: Option<LanguageWithMaybeBaseDirection>,
+) -> ExpressionTerm {
+    if let Some((language, direction)) = language {
+        if let Some(direction) = direction {
+            ExpressionTerm::DirLangStringLiteral {
+                value,
+                language,
+                direction,
+            }
+        } else {
+            ExpressionTerm::LangStringLiteral { value, language }
+        }
+    } else {
+        ExpressionTerm::StringLiteral(value)
+    }
+}
+
+#[cfg(not(feature = "sparql-12"))]
+fn build_plain_literal(
+    value: String,
+    language: Option<LanguageWithMaybeBaseDirection>,
+) -> ExpressionTerm {
     if let Some(language) = language {
         ExpressionTerm::LangStringLiteral { value, language }
     } else {
@@ -3512,7 +3838,7 @@ fn build_plain_literal(value: String, language: Option<String>) -> ExpressionTer
 fn to_argument_compatible_strings(
     arg1: ExpressionTerm,
     arg2: ExpressionTerm,
-) -> Option<(String, String, Option<String>)> {
+) -> Option<(String, String, Option<LanguageWithMaybeBaseDirection>)> {
     let (value1, language1) = to_string_and_language(arg1)?;
     let (value2, language2) = to_string_and_language(arg2)?;
     (language2.is_none() || language1 == language2).then_some((value1, value2, language1))
@@ -3572,14 +3898,14 @@ fn compile_pattern(pattern: &str, flags: Option<&str>) -> Option<Regex> {
     regex_builder.build().ok()
 }
 
-fn decode_bindings<D: QueryableDataset>(
-    dataset: EvalDataset<D>,
-    iter: InternalTuplesIterator<D>,
+fn decode_bindings<'a, D: QueryableDataset<'a>>(
+    dataset: EvalDataset<'a, D>,
+    iter: InternalTuplesIterator<'a, D::InternalTerm>,
     variables: Arc<[Variable]>,
-) -> QuerySolutionIter {
+) -> QuerySolutionIter<'a> {
     let tuple_size = variables.len();
-    QuerySolutionIter::new(
-        Arc::clone(&variables),
+    QuerySolutionIter::from_tuples(
+        variables,
         Box::new(iter.map(move |values| {
             let mut result = vec![None; tuple_size];
             for (i, value) in values?.iter().enumerate() {
@@ -3587,17 +3913,17 @@ fn decode_bindings<D: QueryableDataset>(
                     result[i] = Some(dataset.externalize_term(term)?)
                 }
             }
-            Ok((Arc::clone(&variables), result).into())
+            Ok(result)
         })),
     )
 }
 
 // this is used to encode results from a BindingIterator into an InternalTuplesIterator. This happens when SERVICE clauses are evaluated
-fn encode_bindings<D: QueryableDataset>(
-    dataset: EvalDataset<D>,
+fn encode_bindings<'a, D: QueryableDataset<'a>>(
+    dataset: EvalDataset<'a, D>,
     variables: Rc<[Variable]>,
-    iter: QuerySolutionIter,
-) -> InternalTuplesIterator<D> {
+    iter: QuerySolutionIter<'a>,
+) -> InternalTuplesIterator<'a, D::InternalTerm> {
     Box::new(iter.map(move |solution| {
         let mut encoded_terms = InternalTuple::with_capacity(variables.len());
         for (variable, term) in &solution? {
@@ -3612,11 +3938,11 @@ fn encode_bindings<D: QueryableDataset>(
     }))
 }
 
-fn encode_initial_bindings<D: QueryableDataset>(
-    dataset: &EvalDataset<D>,
+fn encode_initial_bindings<'a, D: QueryableDataset<'a>>(
+    dataset: &EvalDataset<'a, D>,
     variables: &[Variable],
     values: impl IntoIterator<Item = (Variable, Term)>,
-) -> Result<InternalTuple<D>, QueryEvaluationError> {
+) -> Result<InternalTuple<D::InternalTerm>, QueryEvaluationError> {
     let mut encoded_terms = InternalTuple::with_capacity(variables.len());
     for (variable, term) in values {
         if !put_variable_value(
@@ -3633,11 +3959,11 @@ fn encode_initial_bindings<D: QueryableDataset>(
     Ok(encoded_terms)
 }
 
-fn put_variable_value<D: QueryableDataset>(
+fn put_variable_value<T: Clone>(
     selector: &Variable,
     variables: &[Variable],
-    value: D::InternalTerm,
-    tuple: &mut InternalTuple<D>,
+    value: T,
+    tuple: &mut InternalTuple<T>,
 ) -> bool {
     for (i, v) in variables.iter().enumerate() {
         if selector == v {
@@ -3648,42 +3974,42 @@ fn put_variable_value<D: QueryableDataset>(
     false
 }
 
-enum AccumulatorWrapper<D: QueryableDataset> {
+enum AccumulatorWrapper<'a, T> {
     CountTuple {
         count: u64,
     },
     CountDistinctTuple {
-        seen: FxHashSet<InternalTuple<D>>,
+        seen: FxHashSet<InternalTuple<T>>,
         count: u64,
     },
     CountInternal {
-        evaluator: Rc<dyn Fn(&InternalTuple<D>) -> Option<D::InternalTerm>>,
+        evaluator: Rc<dyn Fn(&InternalTuple<T>) -> Option<T> + 'a>,
         count: u64,
     },
     CountDistinctInternal {
-        seen: FxHashSet<D::InternalTerm>,
-        evaluator: Rc<dyn Fn(&InternalTuple<D>) -> Option<D::InternalTerm>>,
+        seen: FxHashSet<T>,
+        evaluator: Rc<dyn Fn(&InternalTuple<T>) -> Option<T> + 'a>,
         count: u64,
     },
     Sample {
         // TODO: add internal variant
-        evaluator: Rc<dyn Fn(&InternalTuple<D>) -> Option<ExpressionTerm>>,
+        evaluator: Rc<dyn Fn(&InternalTuple<T>) -> Option<ExpressionTerm> + 'a>,
         value: Option<ExpressionTerm>,
     },
     Expression {
-        evaluator: Rc<dyn Fn(&InternalTuple<D>) -> Option<ExpressionTerm>>,
+        evaluator: Rc<dyn Fn(&InternalTuple<T>) -> Option<ExpressionTerm> + 'a>,
         accumulator: Option<Box<dyn Accumulator>>,
     },
     DistinctExpression {
         seen: FxHashSet<ExpressionTerm>,
-        evaluator: Rc<dyn Fn(&InternalTuple<D>) -> Option<ExpressionTerm>>,
+        evaluator: Rc<dyn Fn(&InternalTuple<T>) -> Option<ExpressionTerm> + 'a>,
         accumulator: Option<Box<dyn Accumulator>>,
     },
     Failing,
 }
 
-impl<D: QueryableDataset> AccumulatorWrapper<D> {
-    fn add(&mut self, tuple: &InternalTuple<D>) {
+impl<T: Clone + Eq + Hash> AccumulatorWrapper<'_, T> {
+    fn accumulate(&mut self, tuple: &InternalTuple<T>) {
         match self {
             Self::CountTuple { count } => {
                 *count += 1;
@@ -3730,7 +4056,7 @@ impl<D: QueryableDataset> AccumulatorWrapper<D> {
                 let Some(accumulator) = accumulator else {
                     return;
                 };
-                accumulator.add(value);
+                accumulator.accumulate(value);
             }
             Self::DistinctExpression {
                 seen,
@@ -3748,7 +4074,7 @@ impl<D: QueryableDataset> AccumulatorWrapper<D> {
                     return;
                 };
                 if seen.insert(value.clone()) {
-                    accumulator.add(value);
+                    accumulator.accumulate(value);
                 }
             }
             Self::Failing => (),
@@ -3773,7 +4099,7 @@ impl<D: QueryableDataset> AccumulatorWrapper<D> {
 }
 
 trait Accumulator {
-    fn add(&mut self, element: ExpressionTerm);
+    fn accumulate(&mut self, element: ExpressionTerm);
 
     fn finish(&mut self) -> Option<ExpressionTerm>;
 }
@@ -3784,7 +4110,7 @@ struct CountAccumulator {
 }
 
 impl Accumulator for CountAccumulator {
-    fn add(&mut self, _element: ExpressionTerm) {
+    fn accumulate(&mut self, _element: ExpressionTerm) {
         self.count += 1;
     }
 
@@ -3806,7 +4132,7 @@ impl Default for SumAccumulator {
 }
 
 impl Accumulator for SumAccumulator {
-    fn add(&mut self, element: ExpressionTerm) {
+    fn accumulate(&mut self, element: ExpressionTerm) {
         let Some(sum) = &self.sum else {
             return;
         };
@@ -3843,8 +4169,8 @@ struct AvgAccumulator {
 }
 
 impl Accumulator for AvgAccumulator {
-    fn add(&mut self, element: ExpressionTerm) {
-        self.sum.add(element);
+    fn accumulate(&mut self, element: ExpressionTerm) {
+        self.sum.accumulate(element);
         self.count += 1;
     }
 
@@ -3874,13 +4200,13 @@ impl Accumulator for AvgAccumulator {
 }
 
 #[derive(Default)]
-#[allow(clippy::option_option)]
+#[expect(clippy::option_option)]
 struct MinAccumulator {
     min: Option<Option<ExpressionTerm>>,
 }
 
 impl Accumulator for MinAccumulator {
-    fn add(&mut self, element: ExpressionTerm) {
+    fn accumulate(&mut self, element: ExpressionTerm) {
         if let Some(min) = &self.min {
             if cmp_terms(Some(&element), min.as_ref()) == Ordering::Less {
                 self.min = Some(Some(element));
@@ -3896,13 +4222,13 @@ impl Accumulator for MinAccumulator {
 }
 
 #[derive(Default)]
-#[allow(clippy::option_option)]
+#[expect(clippy::option_option)]
 struct MaxAccumulator {
     max: Option<Option<ExpressionTerm>>,
 }
 
 impl Accumulator for MaxAccumulator {
-    fn add(&mut self, element: ExpressionTerm) {
+    fn accumulate(&mut self, element: ExpressionTerm) {
         if let Some(max) = &self.max {
             if cmp_terms(Some(&element), max.as_ref()) == Ordering::Greater {
                 self.max = Some(Some(element))
@@ -3917,10 +4243,10 @@ impl Accumulator for MaxAccumulator {
     }
 }
 
-#[allow(clippy::option_option)]
+#[expect(clippy::option_option)]
 struct GroupConcatAccumulator {
     concat: Option<String>,
-    language: Option<Option<String>>,
+    language: Option<Option<LanguageWithMaybeBaseDirection>>,
     separator: Rc<str>,
 }
 
@@ -3935,7 +4261,7 @@ impl GroupConcatAccumulator {
 }
 
 impl Accumulator for GroupConcatAccumulator {
-    fn add(&mut self, element: ExpressionTerm) {
+    fn accumulate(&mut self, element: ExpressionTerm) {
         let Some(concat) = self.concat.as_mut() else {
             return;
         };
@@ -3958,6 +4284,18 @@ impl Accumulator for GroupConcatAccumulator {
         self.concat
             .take()
             .map(|result| build_plain_literal(result, self.language.take().flatten()))
+    }
+}
+
+struct CustomAccumulator(Box<dyn AggregateFunctionAccumulator + Send + Sync>);
+
+impl Accumulator for CustomAccumulator {
+    fn accumulate(&mut self, element: ExpressionTerm) {
+        self.0.accumulate(element.into())
+    }
+
+    fn finish(&mut self) -> Option<ExpressionTerm> {
+        Some(self.0.finish()?.into())
     }
 }
 
@@ -3994,6 +4332,8 @@ fn equals(a: &ExpressionTerm, b: &ExpressionTerm) -> Option<bool> {
         ExpressionTerm::NamedNode(_)
         | ExpressionTerm::BlankNode(_)
         | ExpressionTerm::LangStringLiteral { .. } => Some(a == b),
+        #[cfg(feature = "sparql-12")]
+        ExpressionTerm::DirLangStringLiteral { .. } => Some(a == b),
         ExpressionTerm::StringLiteral(a) => match b {
             ExpressionTerm::StringLiteral(b) => Some(a == b),
             ExpressionTerm::OtherTypedLiteral { .. } => None,
@@ -4004,7 +4344,9 @@ fn equals(a: &ExpressionTerm, b: &ExpressionTerm) -> Option<bool> {
             ExpressionTerm::NamedNode(_)
             | ExpressionTerm::BlankNode(_)
             | ExpressionTerm::LangStringLiteral { .. } => Some(false),
-            #[cfg(feature = "rdf-star")]
+            #[cfg(feature = "sparql-12")]
+            ExpressionTerm::DirLangStringLiteral { .. } => Some(false),
+            #[cfg(feature = "sparql-12")]
             ExpressionTerm::Triple(_) => Some(false),
             _ => None,
         },
@@ -4116,7 +4458,7 @@ fn equals(a: &ExpressionTerm, b: &ExpressionTerm) -> Option<bool> {
             ExpressionTerm::OtherTypedLiteral { .. } => None,
             _ => Some(false),
         },
-        #[cfg(feature = "rdf-star")]
+        #[cfg(feature = "sparql-12")]
         ExpressionTerm::Triple(a) => {
             if let ExpressionTerm::Triple(b) = b {
                 triple_equals(a, b)
@@ -4127,23 +4469,9 @@ fn equals(a: &ExpressionTerm, b: &ExpressionTerm) -> Option<bool> {
     }
 }
 
-#[cfg(feature = "rdf-star")]
+#[cfg(feature = "sparql-12")]
 fn triple_equals(a: &ExpressionTriple, b: &ExpressionTriple) -> Option<bool> {
-    Some(
-        match &a.subject {
-            ExpressionSubject::NamedNode(_) | ExpressionSubject::BlankNode(_) => {
-                a.subject == b.subject
-            }
-            ExpressionSubject::Triple(a) => {
-                if let ExpressionSubject::Triple(b) = &b.subject {
-                    triple_equals(a, b)?
-                } else {
-                    false
-                }
-            }
-        } && a.predicate == b.predicate
-            && equals(&a.object, &b.object)?,
-    )
+    Some(a.subject == b.subject && a.predicate == b.predicate && equals(&a.object, &b.object)?)
 }
 
 /// Comparison for ordering
@@ -4160,7 +4488,7 @@ fn cmp_terms(a: Option<&ExpressionTerm>, b: Option<&ExpressionTerm>) -> Ordering
                     ExpressionTerm::NamedNode(b) => a.as_str().cmp(b.as_str()),
                     _ => Ordering::Less,
                 },
-                #[cfg(feature = "rdf-star")]
+                #[cfg(feature = "sparql-12")]
                 ExpressionTerm::Triple(a) => match b {
                     ExpressionTerm::Triple(b) => cmp_triples(a, b),
                     _ => Ordering::Greater,
@@ -4169,7 +4497,7 @@ fn cmp_terms(a: Option<&ExpressionTerm>, b: Option<&ExpressionTerm>) -> Ordering
                     ExpressionTerm::NamedNode(_) | ExpressionTerm::BlankNode(_) => {
                         Ordering::Greater
                     }
-                    #[cfg(feature = "rdf-star")]
+                    #[cfg(feature = "sparql-12")]
                     ExpressionTerm::Triple(_) => Ordering::Less,
                     _ => {
                         if let Some(ord) = partial_cmp_literals(a, b) {
@@ -4195,24 +4523,16 @@ fn cmp_terms(a: Option<&ExpressionTerm>, b: Option<&ExpressionTerm>) -> Ordering
     }
 }
 
-#[cfg(feature = "rdf-star")]
+#[cfg(feature = "sparql-12")]
 fn cmp_triples(a: &ExpressionTriple, b: &ExpressionTriple) -> Ordering {
     match match &a.subject {
-        ExpressionSubject::BlankNode(a) => match &b.subject {
-            ExpressionSubject::BlankNode(b) => a.as_str().cmp(b.as_str()),
-            ExpressionSubject::NamedNode(_) => Ordering::Less,
-            #[cfg(feature = "rdf-star")]
-            ExpressionSubject::Triple(_) => Ordering::Less,
+        NamedOrBlankNode::BlankNode(a) => match &b.subject {
+            NamedOrBlankNode::BlankNode(b) => a.as_str().cmp(b.as_str()),
+            NamedOrBlankNode::NamedNode(_) => Ordering::Less,
         },
-        ExpressionSubject::NamedNode(a) => match &b.subject {
-            ExpressionSubject::BlankNode(_) => Ordering::Greater,
-            ExpressionSubject::NamedNode(b) => a.as_str().cmp(b.as_str()),
-            #[cfg(feature = "rdf-star")]
-            ExpressionSubject::Triple(_) => Ordering::Less,
-        },
-        ExpressionSubject::Triple(a) => match &b.subject {
-            ExpressionSubject::Triple(b) => cmp_triples(a, b),
-            _ => Ordering::Greater,
+        NamedOrBlankNode::NamedNode(a) => match &b.subject {
+            NamedOrBlankNode::BlankNode(_) => Ordering::Greater,
+            NamedOrBlankNode::NamedNode(b) => a.as_str().cmp(b.as_str()),
         },
     } {
         Ordering::Equal => match a.predicate.as_str().cmp(b.predicate.as_str()) {
@@ -4228,7 +4548,7 @@ fn partial_cmp(a: &ExpressionTerm, b: &ExpressionTerm) -> Option<Ordering> {
     if a == b {
         return Some(Ordering::Equal);
     }
-    #[cfg(feature = "rdf-star")]
+    #[cfg(feature = "sparql-12")]
     if let ExpressionTerm::Triple(a) = a {
         return if let ExpressionTerm::Triple(b) = b {
             partial_cmp_triples(a, b)
@@ -4257,7 +4577,24 @@ fn partial_cmp_literals(a: &ExpressionTerm, b: &ExpressionTerm) -> Option<Orderi
                 language: lb,
             } = b
             {
-                if la == lb {
+                if la == lb { va.partial_cmp(vb) } else { None }
+            } else {
+                None
+            }
+        }
+        #[cfg(feature = "sparql-12")]
+        ExpressionTerm::DirLangStringLiteral {
+            value: va,
+            language: la,
+            direction: da,
+        } => {
+            if let ExpressionTerm::DirLangStringLiteral {
+                value: vb,
+                language: lb,
+                direction: db,
+            } = b
+            {
+                if la == lb && da == db {
                     va.partial_cmp(vb)
                 } else {
                     None
@@ -4382,24 +4719,18 @@ fn partial_cmp_literals(a: &ExpressionTerm, b: &ExpressionTerm) -> Option<Orderi
     }
 }
 
-#[cfg(feature = "rdf-star")]
+#[cfg(feature = "sparql-12")]
 fn partial_cmp_triples(a: &ExpressionTriple, b: &ExpressionTriple) -> Option<Ordering> {
     // We compare subjects
     match (&a.subject, &b.subject) {
-        (ExpressionSubject::NamedNode(a), ExpressionSubject::NamedNode(b)) => {
+        (NamedOrBlankNode::NamedNode(a), NamedOrBlankNode::NamedNode(b)) => {
             if a != b {
                 return None;
             }
         }
-        (ExpressionSubject::BlankNode(a), ExpressionSubject::BlankNode(b)) => {
+        (NamedOrBlankNode::BlankNode(a), NamedOrBlankNode::BlankNode(b)) => {
             if a != b {
                 return None;
-            }
-        }
-        (ExpressionSubject::Triple(a), ExpressionSubject::Triple(b)) => {
-            match partial_cmp_triples(a, b)? {
-                Ordering::Equal => (),
-                o => return Some(o),
             }
         }
         _ => return None,
@@ -4585,18 +4916,18 @@ impl NumericBinaryOperands {
     }
 }
 
-enum TupleSelector<D: QueryableDataset> {
-    Constant(D::InternalTerm),
+enum TupleSelector<T> {
+    Constant(T),
     Variable(usize),
-    #[cfg(feature = "rdf-star")]
-    TriplePattern(Rc<TripleTupleSelector<D>>),
+    #[cfg(feature = "sparql-12")]
+    TriplePattern(Rc<TripleTupleSelector<T>>),
 }
 
-impl<D: QueryableDataset> TupleSelector<D> {
-    fn from_ground_term_pattern(
+impl<T> TupleSelector<T> {
+    fn from_ground_term_pattern<'a>(
         term_pattern: &GroundTermPattern,
         variables: &mut Vec<Variable>,
-        dataset: &EvalDataset<D>,
+        dataset: &EvalDataset<'a, impl QueryableDataset<'a, InternalTerm = T>>,
     ) -> Result<Self, QueryEvaluationError> {
         Ok(match term_pattern {
             GroundTermPattern::Variable(variable) => {
@@ -4608,7 +4939,7 @@ impl<D: QueryableDataset> TupleSelector<D> {
             GroundTermPattern::Literal(term) => {
                 Self::Constant(dataset.internalize_term(term.as_ref().into())?)
             }
-            #[cfg(feature = "rdf-star")]
+            #[cfg(feature = "sparql-12")]
             GroundTermPattern::Triple(triple) => {
                 match (
                     Self::from_ground_term_pattern(&triple.subject, variables, dataset)?,
@@ -4642,10 +4973,10 @@ impl<D: QueryableDataset> TupleSelector<D> {
         })
     }
 
-    fn from_named_node_pattern(
+    fn from_named_node_pattern<'a>(
         named_node_pattern: &NamedNodePattern,
         variables: &mut Vec<Variable>,
-        dataset: &EvalDataset<D>,
+        dataset: &EvalDataset<'a, impl QueryableDataset<'a, InternalTerm = T>>,
     ) -> Result<Self, QueryEvaluationError> {
         Ok(match named_node_pattern {
             NamedNodePattern::Variable(variable) => {
@@ -4656,17 +4987,29 @@ impl<D: QueryableDataset> TupleSelector<D> {
             }
         })
     }
+}
 
-    #[cfg_attr(not(feature = "rdf-star"), allow(clippy::unnecessary_wraps))]
-    fn get_pattern_value(
+impl<T: Clone> TupleSelector<T> {
+    #[cfg_attr(
+        not(feature = "sparql-12"),
+        expect(
+            unused_lifetimes,
+            clippy::unnecessary_wraps,
+            clippy::extra_unused_lifetimes
+        )
+    )]
+    fn get_pattern_value<'a>(
         &self,
-        tuple: &InternalTuple<D>,
-        #[cfg(feature = "rdf-star")] dataset: &EvalDataset<D>,
-    ) -> Result<Option<D::InternalTerm>, QueryEvaluationError> {
+        tuple: &InternalTuple<T>,
+        #[cfg(feature = "sparql-12")] dataset: &EvalDataset<
+            'a,
+            impl QueryableDataset<'a, InternalTerm = T>,
+        >,
+    ) -> Result<Option<T>, QueryEvaluationError> {
         Ok(match self {
             Self::Constant(c) => Some(c.clone()),
             Self::Variable(v) => tuple.get(*v).cloned(),
-            #[cfg(feature = "rdf-star")]
+            #[cfg(feature = "sparql-12")]
             Self::TriplePattern(triple) => {
                 let Some(subject) = triple.subject.get_pattern_value(tuple, dataset)? else {
                     return Ok(None);
@@ -4693,30 +5036,30 @@ impl<D: QueryableDataset> TupleSelector<D> {
     }
 }
 
-impl<D: QueryableDataset> Clone for TupleSelector<D> {
+impl<T: Clone> Clone for TupleSelector<T> {
     fn clone(&self) -> Self {
         match self {
             Self::Constant(c) => Self::Constant(c.clone()),
             Self::Variable(v) => Self::Variable(*v),
-            #[cfg(feature = "rdf-star")]
+            #[cfg(feature = "sparql-12")]
             Self::TriplePattern(t) => Self::TriplePattern(Rc::clone(t)),
         }
     }
 }
 
-#[cfg(feature = "rdf-star")]
-struct TripleTupleSelector<D: QueryableDataset> {
-    subject: TupleSelector<D>,
-    predicate: TupleSelector<D>,
-    object: TupleSelector<D>,
+#[cfg(feature = "sparql-12")]
+struct TripleTupleSelector<T> {
+    subject: TupleSelector<T>,
+    predicate: TupleSelector<T>,
+    object: TupleSelector<T>,
 }
 
-#[cfg_attr(not(feature = "rdf-star"), allow(clippy::unnecessary_wraps))]
-fn put_pattern_value<D: QueryableDataset>(
-    selector: &TupleSelector<D>,
+#[cfg_attr(not(feature = "sparql-12"), expect(clippy::unnecessary_wraps))]
+fn put_pattern_value<'a, D: QueryableDataset<'a>>(
+    selector: &TupleSelector<D::InternalTerm>,
     value: D::InternalTerm,
-    tuple: &mut InternalTuple<D>,
-    #[cfg(feature = "rdf-star")] dataset: &EvalDataset<D>,
+    tuple: &mut InternalTuple<D::InternalTerm>,
+    #[cfg(feature = "sparql-12")] dataset: &EvalDataset<'a, D>,
 ) -> Result<bool, QueryEvaluationError> {
     Ok(match selector {
         TupleSelector::Constant(c) => *c == value,
@@ -4728,7 +5071,7 @@ fn put_pattern_value<D: QueryableDataset>(
                 true
             }
         }
-        #[cfg(feature = "rdf-star")]
+        #[cfg(feature = "sparql-12")]
         TupleSelector::TriplePattern(triple) => {
             let ExpressionTerm::Triple(value) = dataset.externalize_expression_term(value)? else {
                 return Ok(false);
@@ -4753,9 +5096,9 @@ fn put_pattern_value<D: QueryableDataset>(
     })
 }
 
-pub fn are_compatible_and_not_disjointed<D: QueryableDataset>(
-    a: &InternalTuple<D>,
-    b: &InternalTuple<D>,
+pub fn are_compatible_and_not_disjointed<T: Clone + Eq>(
+    a: &InternalTuple<T>,
+    b: &InternalTuple<T>,
 ) -> bool {
     let mut found_intersection = false;
     for (a_value, b_value) in a.iter().zip(b.iter()) {
@@ -4769,25 +5112,25 @@ pub fn are_compatible_and_not_disjointed<D: QueryableDataset>(
     found_intersection
 }
 
-pub enum PropertyPath<D: QueryableDataset> {
-    Path(D::InternalTerm),
+pub enum PropertyPath<T> {
+    Path(T),
     Reverse(Rc<Self>),
     Sequence(Rc<Self>, Rc<Self>),
     Alternative(Rc<Self>, Rc<Self>),
     ZeroOrMore(Rc<Self>),
     OneOrMore(Rc<Self>),
     ZeroOrOne(Rc<Self>),
-    NegatedPropertySet(Rc<[D::InternalTerm]>),
+    NegatedPropertySet(Rc<[T]>),
 }
 
-struct PathEvaluator<D: QueryableDataset> {
-    dataset: EvalDataset<D>,
+struct PathEvaluator<'a, D: QueryableDataset<'a>> {
+    dataset: EvalDataset<'a, D>,
 }
 
-impl<D: QueryableDataset> PathEvaluator<D> {
+impl<'a, D: QueryableDataset<'a>> PathEvaluator<'a, D> {
     fn eval_closed_in_graph(
         &self,
-        path: &PropertyPath<D>,
+        path: &PropertyPath<D::InternalTerm>,
         start: &D::InternalTerm,
         end: &D::InternalTerm,
         graph_name: Option<&D::InternalTerm>,
@@ -4860,10 +5203,10 @@ impl<D: QueryableDataset> PathEvaluator<D> {
 
     fn eval_closed_in_unknown_graph(
         &self,
-        path: &PropertyPath<D>,
+        path: &PropertyPath<D::InternalTerm>,
         start: &D::InternalTerm,
         end: &D::InternalTerm,
-    ) -> Box<dyn Iterator<Item = Result<Option<D::InternalTerm>, QueryEvaluationError>>> {
+    ) -> Box<dyn Iterator<Item = Result<Option<D::InternalTerm>, QueryEvaluationError>> + 'a> {
         match path {
             PropertyPath::Path(p) => Box::new(
                 self.dataset
@@ -4958,10 +5301,10 @@ impl<D: QueryableDataset> PathEvaluator<D> {
 
     fn eval_from_in_graph(
         &self,
-        path: &PropertyPath<D>,
+        path: &PropertyPath<D::InternalTerm>,
         start: &D::InternalTerm,
         graph_name: Option<&D::InternalTerm>,
-    ) -> Box<dyn Iterator<Item = Result<D::InternalTerm, QueryEvaluationError>>> {
+    ) -> Box<dyn Iterator<Item = Result<D::InternalTerm, QueryEvaluationError>> + 'a> {
         match path {
             PropertyPath::Path(p) => Box::new(
                 self.dataset
@@ -5033,12 +5376,12 @@ impl<D: QueryableDataset> PathEvaluator<D> {
 
     fn eval_from_in_unknown_graph(
         &self,
-        path: &PropertyPath<D>,
+        path: &PropertyPath<D::InternalTerm>,
         start: &D::InternalTerm,
     ) -> Box<
         dyn Iterator<
-            Item = Result<(D::InternalTerm, Option<D::InternalTerm>), QueryEvaluationError>,
-        >,
+                Item = Result<(D::InternalTerm, Option<D::InternalTerm>), QueryEvaluationError>,
+            > + 'a,
     > {
         match path {
             PropertyPath::Path(p) => Box::new(
@@ -5124,10 +5467,10 @@ impl<D: QueryableDataset> PathEvaluator<D> {
 
     fn eval_to_in_graph(
         &self,
-        path: &PropertyPath<D>,
+        path: &PropertyPath<D::InternalTerm>,
         end: &D::InternalTerm,
         graph_name: Option<&D::InternalTerm>,
-    ) -> Box<dyn Iterator<Item = Result<D::InternalTerm, QueryEvaluationError>>> {
+    ) -> Box<dyn Iterator<Item = Result<D::InternalTerm, QueryEvaluationError>> + 'a> {
         match path {
             PropertyPath::Path(p) => Box::new(
                 self.dataset
@@ -5196,12 +5539,12 @@ impl<D: QueryableDataset> PathEvaluator<D> {
 
     fn eval_to_in_unknown_graph(
         &self,
-        path: &PropertyPath<D>,
+        path: &PropertyPath<D::InternalTerm>,
         end: &D::InternalTerm,
     ) -> Box<
         dyn Iterator<
-            Item = Result<(D::InternalTerm, Option<D::InternalTerm>), QueryEvaluationError>,
-        >,
+                Item = Result<(D::InternalTerm, Option<D::InternalTerm>), QueryEvaluationError>,
+            > + 'a,
     > {
         match path {
             PropertyPath::Path(p) => Box::new(
@@ -5287,10 +5630,11 @@ impl<D: QueryableDataset> PathEvaluator<D> {
 
     fn eval_open_in_graph(
         &self,
-        path: &PropertyPath<D>,
+        path: &PropertyPath<D::InternalTerm>,
         graph_name: Option<&D::InternalTerm>,
-    ) -> Box<dyn Iterator<Item = Result<(D::InternalTerm, D::InternalTerm), QueryEvaluationError>>>
-    {
+    ) -> Box<
+        dyn Iterator<Item = Result<(D::InternalTerm, D::InternalTerm), QueryEvaluationError>> + 'a,
+    > {
         match path {
             PropertyPath::Path(p) => Box::new(
                 self.dataset
@@ -5369,14 +5713,14 @@ impl<D: QueryableDataset> PathEvaluator<D> {
 
     fn eval_open_in_unknown_graph(
         &self,
-        path: &PropertyPath<D>,
+        path: &PropertyPath<D::InternalTerm>,
     ) -> Box<
         dyn Iterator<
-            Item = Result<
-                (D::InternalTerm, D::InternalTerm, Option<D::InternalTerm>),
-                QueryEvaluationError,
-            >,
-        >,
+                Item = Result<
+                    (D::InternalTerm, D::InternalTerm, Option<D::InternalTerm>),
+                    QueryEvaluationError,
+                >,
+            > + 'a,
     > {
         match path {
             PropertyPath::Path(p) => Box::new(
@@ -5455,7 +5799,7 @@ impl<D: QueryableDataset> PathEvaluator<D> {
         &self,
         graph_name: Option<&D::InternalTerm>,
     ) -> impl Iterator<Item = Result<(D::InternalTerm, D::InternalTerm), QueryEvaluationError>>
-    {
+    + use<'a, D> {
         self.dataset
             .internal_quads_for_pattern(None, None, None, Some(graph_name))
             .flat_map_ok(|t| {
@@ -5473,7 +5817,7 @@ impl<D: QueryableDataset> PathEvaluator<D> {
             (D::InternalTerm, D::InternalTerm, Option<D::InternalTerm>),
             QueryEvaluationError,
         >,
-    > {
+    > + use<'a, D> {
         self.dataset
             .internal_quads_for_pattern(None, None, None, None)
             .flat_map_ok(|t| {
@@ -5485,14 +5829,14 @@ impl<D: QueryableDataset> PathEvaluator<D> {
     }
 
     fn run_if_term_is_a_graph_node<
-        T: 'static,
-        I: Iterator<Item = Result<T, QueryEvaluationError>> + 'static,
+        T: 'a,
+        I: Iterator<Item = Result<T, QueryEvaluationError>> + 'a,
     >(
         &self,
         term: &D::InternalTerm,
         graph_name: Option<&D::InternalTerm>,
         f: impl FnOnce() -> I,
-    ) -> Box<dyn Iterator<Item = Result<T, QueryEvaluationError>>> {
+    ) -> Box<dyn Iterator<Item = Result<T, QueryEvaluationError>> + 'a> {
         match self.is_subject_or_object_in_graph(term, graph_name) {
             Ok(true) => Box::new(f()),
             Ok(false) => {
@@ -5522,13 +5866,13 @@ impl<D: QueryableDataset> PathEvaluator<D> {
     }
 
     fn run_if_term_is_a_dataset_node<
-        T: 'static,
-        I: IntoIterator<Item = Result<T, QueryEvaluationError>> + 'static,
+        T: 'a,
+        I: IntoIterator<Item = Result<T, QueryEvaluationError>> + 'a,
     >(
         &self,
         term: &D::InternalTerm,
-        f: impl FnMut(Option<D::InternalTerm>) -> I + 'static,
-    ) -> Box<dyn Iterator<Item = Result<T, QueryEvaluationError>>> {
+        f: impl FnMut(Option<D::InternalTerm>) -> I + 'a,
+    ) -> Box<dyn Iterator<Item = Result<T, QueryEvaluationError>> + 'a> {
         match self
             .find_graphs_where_the_node_is_in(term)
             .collect::<Result<FxHashSet<_>, _>>()
@@ -5541,7 +5885,8 @@ impl<D: QueryableDataset> PathEvaluator<D> {
     fn find_graphs_where_the_node_is_in(
         &self,
         term: &D::InternalTerm,
-    ) -> impl Iterator<Item = Result<Option<D::InternalTerm>, QueryEvaluationError>> {
+    ) -> impl Iterator<Item = Result<Option<D::InternalTerm>, QueryEvaluationError>> + use<'a, D>
+    {
         self.dataset
             .internal_quads_for_pattern(Some(term), None, None, None)
             .chain(
@@ -5552,7 +5897,7 @@ impl<D: QueryableDataset> PathEvaluator<D> {
     }
 }
 
-impl<D: QueryableDataset> Clone for PathEvaluator<D> {
+impl<'a, D: QueryableDataset<'a>> Clone for PathEvaluator<'a, D> {
     fn clone(&self) -> Self {
         Self {
             dataset: self.dataset.clone(),
@@ -5560,14 +5905,14 @@ impl<D: QueryableDataset> Clone for PathEvaluator<D> {
     }
 }
 
-struct CartesianProductJoinIterator<D: QueryableDataset> {
-    probe_iter: Peekable<InternalTuplesIterator<D>>,
-    built: Vec<InternalTuple<D>>,
-    buffered_results: Vec<Result<InternalTuple<D>, QueryEvaluationError>>,
+struct CartesianProductJoinIterator<'a, T> {
+    probe_iter: Peekable<InternalTuplesIterator<'a, T>>,
+    built: Vec<InternalTuple<T>>,
+    buffered_results: Vec<Result<InternalTuple<T>, QueryEvaluationError>>,
 }
 
-impl<D: QueryableDataset> Iterator for CartesianProductJoinIterator<D> {
-    type Item = Result<InternalTuple<D>, QueryEvaluationError>;
+impl<T: Clone + Eq> Iterator for CartesianProductJoinIterator<'_, T> {
+    type Item = Result<InternalTuple<T>, QueryEvaluationError>;
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
@@ -5595,14 +5940,14 @@ impl<D: QueryableDataset> Iterator for CartesianProductJoinIterator<D> {
     }
 }
 
-struct HashJoinIterator<D: QueryableDataset> {
-    probe_iter: Peekable<InternalTuplesIterator<D>>,
-    built: InternalTupleSet<D>,
-    buffered_results: Vec<Result<InternalTuple<D>, QueryEvaluationError>>,
+struct HashJoinIterator<'a, T> {
+    probe_iter: Peekable<InternalTuplesIterator<'a, T>>,
+    built: InternalTupleSet<T>,
+    buffered_results: Vec<Result<InternalTuple<T>, QueryEvaluationError>>,
 }
 
-impl<D: QueryableDataset> Iterator for HashJoinIterator<D> {
-    type Item = Result<InternalTuple<D>, QueryEvaluationError>;
+impl<T: Clone + Eq + Hash> Iterator for HashJoinIterator<'_, T> {
+    type Item = Result<InternalTuple<T>, QueryEvaluationError>;
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
@@ -5633,15 +5978,15 @@ impl<D: QueryableDataset> Iterator for HashJoinIterator<D> {
     }
 }
 
-struct HashLeftJoinIterator<D: QueryableDataset> {
-    left_iter: InternalTuplesIterator<D>,
-    right: InternalTupleSet<D>,
-    buffered_results: Vec<Result<InternalTuple<D>, QueryEvaluationError>>,
-    expression: Rc<dyn Fn(&InternalTuple<D>) -> Option<bool>>,
+struct HashLeftJoinIterator<'a, T> {
+    left_iter: InternalTuplesIterator<'a, T>,
+    right: InternalTupleSet<T>,
+    buffered_results: Vec<Result<InternalTuple<T>, QueryEvaluationError>>,
+    expression: Rc<dyn Fn(&InternalTuple<T>) -> Option<bool> + 'a>,
 }
 
-impl<D: QueryableDataset> Iterator for HashLeftJoinIterator<D> {
-    type Item = Result<InternalTuple<D>, QueryEvaluationError>;
+impl<T: Clone + Eq + Hash> Iterator for HashLeftJoinIterator<'_, T> {
+    type Item = Result<InternalTuple<T>, QueryEvaluationError>;
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
@@ -5679,16 +6024,16 @@ impl<D: QueryableDataset> Iterator for HashLeftJoinIterator<D> {
 }
 
 #[cfg(feature = "sep-0006")]
-struct ForLoopLeftJoinIterator<D: QueryableDataset> {
-    right_evaluator: Rc<dyn Fn(InternalTuple<D>) -> InternalTuplesIterator<D>>,
-    left_iter: InternalTuplesIterator<D>,
-    current_right: InternalTuplesIterator<D>,
-    left_tuple_to_yield: Option<InternalTuple<D>>,
+struct ForLoopLeftJoinIterator<'a, T> {
+    right_evaluator: Rc<dyn Fn(InternalTuple<T>) -> InternalTuplesIterator<'a, T> + 'a>,
+    left_iter: InternalTuplesIterator<'a, T>,
+    current_right: InternalTuplesIterator<'a, T>,
+    left_tuple_to_yield: Option<InternalTuple<T>>,
 }
 
 #[cfg(feature = "sep-0006")]
-impl<D: QueryableDataset> Iterator for ForLoopLeftJoinIterator<D> {
-    type Item = Result<InternalTuple<D>, QueryEvaluationError>;
+impl<T: Clone> Iterator for ForLoopLeftJoinIterator<'_, T> {
+    type Item = Result<InternalTuple<T>, QueryEvaluationError>;
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
@@ -5712,15 +6057,15 @@ impl<D: QueryableDataset> Iterator for ForLoopLeftJoinIterator<D> {
     }
 }
 
-struct UnionIterator<D: QueryableDataset> {
-    plans: Vec<Rc<dyn Fn(InternalTuple<D>) -> InternalTuplesIterator<D>>>,
-    input: InternalTuple<D>,
-    current_iterator: InternalTuplesIterator<D>,
+struct UnionIterator<'a, T> {
+    plans: Vec<Rc<dyn Fn(InternalTuple<T>) -> InternalTuplesIterator<'a, T> + 'a>>,
+    input: InternalTuple<T>,
+    current_iterator: InternalTuplesIterator<'a, T>,
     current_plan: usize,
 }
 
-impl<D: QueryableDataset> Iterator for UnionIterator<D> {
-    type Item = Result<InternalTuple<D>, QueryEvaluationError>;
+impl<T: Clone> Iterator for UnionIterator<'_, T> {
+    type Item = Result<InternalTuple<T>, QueryEvaluationError>;
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
@@ -5736,13 +6081,13 @@ impl<D: QueryableDataset> Iterator for UnionIterator<D> {
     }
 }
 
-struct ConsecutiveDeduplication<D: QueryableDataset> {
-    inner: InternalTuplesIterator<D>,
-    current: Option<InternalTuple<D>>,
+struct ConsecutiveDeduplication<'a, T> {
+    inner: InternalTuplesIterator<'a, T>,
+    current: Option<InternalTuple<T>>,
 }
 
-impl<D: QueryableDataset> Iterator for ConsecutiveDeduplication<D> {
-    type Item = Result<InternalTuple<D>, QueryEvaluationError>;
+impl<T: Eq> Iterator for ConsecutiveDeduplication<'_, T> {
+    type Item = Result<InternalTuple<T>, QueryEvaluationError>;
 
     fn next(&mut self) -> Option<Self::Item> {
         // Basic idea. We buffer the previous result and we only emit it when we know the next one or it's the end
@@ -5774,16 +6119,16 @@ impl<D: QueryableDataset> Iterator for ConsecutiveDeduplication<D> {
     }
 }
 
-struct ConstructIterator<D: QueryableDataset> {
-    eval: SimpleEvaluator<D>,
-    iter: InternalTuplesIterator<D>,
+struct ConstructIterator<'a, D: QueryableDataset<'a>> {
+    eval: SimpleEvaluator<'a, D>,
+    iter: InternalTuplesIterator<'a, D::InternalTerm>,
     template: Vec<TripleTemplate>,
     buffered_results: Vec<Result<Triple, QueryEvaluationError>>,
     already_emitted_results: FxHashSet<Triple>,
     bnodes: Vec<BlankNode>,
 }
 
-impl<D: QueryableDataset> Iterator for ConstructIterator<D> {
+impl<'a, D: QueryableDataset<'a>> Iterator for ConstructIterator<'a, D> {
     type Item = Result<Triple, QueryEvaluationError>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -5826,13 +6171,12 @@ impl<D: QueryableDataset> Iterator for ConstructIterator<D> {
                         };
                         // We allocate new blank nodes for each solution,
                         // triples with blank nodes are likely to be new.
-                        #[cfg(feature = "rdf-star")]
+                        #[cfg(feature = "sparql-12")]
                         let new_triple = triple.subject.is_blank_node()
-                            || triple.subject.is_triple()
                             || triple.object.is_blank_node()
                             || triple.object.is_triple()
                             || self.already_emitted_results.insert(triple.clone());
-                        #[cfg(not(feature = "rdf-star"))]
+                        #[cfg(not(feature = "sparql-12"))]
                         let new_triple = triple.subject.is_blank_node()
                             || triple.object.is_blank_node()
                             || self.already_emitted_results.insert(triple.clone());
@@ -5869,12 +6213,12 @@ pub enum TripleTemplateValue {
     Constant(Term),
     BlankNode(usize),
     Variable(usize),
-    #[cfg(feature = "rdf-star")]
+    #[cfg(feature = "sparql-12")]
     Triple(Box<TripleTemplate>),
 }
 
 impl TripleTemplateValue {
-    #[cfg_attr(not(feature = "rdf-star"), allow(clippy::unnecessary_wraps))]
+    #[cfg_attr(not(feature = "sparql-12"), expect(clippy::unnecessary_wraps))]
     fn from_term_or_variable(
         term_or_variable: &TermPattern,
         variables: &mut Vec<Variable>,
@@ -5885,7 +6229,7 @@ impl TripleTemplateValue {
             TermPattern::NamedNode(node) => Self::Constant(node.clone().into()),
             TermPattern::BlankNode(bnode) => Self::BlankNode(bnode_key(bnodes, bnode)),
             TermPattern::Literal(literal) => Self::Constant(literal.clone().into()),
-            #[cfg(feature = "rdf-star")]
+            #[cfg(feature = "sparql-12")]
             TermPattern::Triple(triple) => {
                 match (
                     Self::from_term_or_variable(&triple.subject, variables, bnodes)?,
@@ -5929,11 +6273,11 @@ impl TripleTemplateValue {
     }
 }
 
-fn get_triple_template_value<D: QueryableDataset>(
+fn get_triple_template_value<'a, D: QueryableDataset<'a>>(
     selector: &TripleTemplateValue,
-    tuple: &InternalTuple<D>,
+    tuple: &InternalTuple<D::InternalTerm>,
     bnodes: &mut Vec<BlankNode>,
-    dataset: &EvalDataset<D>,
+    dataset: &EvalDataset<'a, D>,
 ) -> Option<Term> {
     match selector {
         TripleTemplateValue::Constant(term) => Some(term.clone()),
@@ -5948,7 +6292,7 @@ fn get_triple_template_value<D: QueryableDataset>(
             }
             Some(bnodes[*bnode].clone().into())
         }
-        #[cfg(feature = "rdf-star")]
+        #[cfg(feature = "sparql-12")]
         TripleTemplateValue::Triple(triple) => Some(
             Triple {
                 subject: get_triple_template_value(&triple.subject, tuple, bnodes, dataset)?
@@ -5964,15 +6308,16 @@ fn get_triple_template_value<D: QueryableDataset>(
     }
 }
 
-struct DescribeIterator<D: QueryableDataset> {
-    eval: SimpleEvaluator<D>,
-    tuples_to_describe: InternalTuplesIterator<D>,
+struct DescribeIterator<'a, D: QueryableDataset<'a>> {
+    eval: SimpleEvaluator<'a, D>,
+    tuples_to_describe: InternalTuplesIterator<'a, D::InternalTerm>,
     nodes_described: FxHashSet<D::InternalTerm>,
     nodes_to_describe: Vec<D::InternalTerm>,
-    quads: Box<dyn Iterator<Item = Result<InternalQuad<D>, QueryEvaluationError>>>,
+    quads:
+        Box<dyn Iterator<Item = Result<InternalQuad<D::InternalTerm>, QueryEvaluationError>> + 'a>,
 }
 
-impl<D: QueryableDataset> Iterator for DescribeIterator<D> {
+impl<'a, D: QueryableDataset<'a>> Iterator for DescribeIterator<'a, D> {
     type Item = Result<Triple, QueryEvaluationError>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -6157,13 +6502,13 @@ struct FlatMapOk<
 }
 
 impl<
-        T,
-        E,
-        O,
-        I: Iterator<Item = Result<T, E>>,
-        F: FnMut(T) -> U,
-        U: IntoIterator<Item = Result<O, E>>,
-    > Iterator for FlatMapOk<T, E, O, I, F, U>
+    T,
+    E,
+    O,
+    I: Iterator<Item = Result<T, E>>,
+    F: FnMut(T) -> U,
+    U: IntoIterator<Item = Result<O, E>>,
+> Iterator for FlatMapOk<T, E, O, I, F, U>
 {
     type Item = Result<O, E>;
 
@@ -6217,9 +6562,9 @@ fn write_hexa_bytes(bytes: &[u8], buffer: &mut String) {
     }
 }
 
-fn error_evaluator<D: QueryableDataset>(
+fn error_evaluator<'a, T: 'a>(
     error: QueryEvaluationError,
-) -> Rc<dyn Fn(InternalTuple<D>) -> InternalTuplesIterator<D>> {
+) -> Rc<dyn Fn(InternalTuple<T>) -> InternalTuplesIterator<'a, T> + 'a> {
     let e = RefCell::new(Some(error));
     Rc::new(move |_| {
         if let Some(e) = e.replace(None) {
@@ -6230,46 +6575,24 @@ fn error_evaluator<D: QueryableDataset>(
     })
 }
 
-enum ComparatorFunction<D: QueryableDataset> {
-    Asc(Rc<dyn Fn(&InternalTuple<D>) -> Option<ExpressionTerm>>),
-    Desc(Rc<dyn Fn(&InternalTuple<D>) -> Option<ExpressionTerm>>),
+enum ComparatorFunction<'a, T> {
+    Asc(Rc<dyn Fn(&InternalTuple<T>) -> Option<ExpressionTerm> + 'a>),
+    Desc(Rc<dyn Fn(&InternalTuple<T>) -> Option<ExpressionTerm> + 'a>),
 }
 
-struct InternalTupleSet<D: QueryableDataset> {
+struct InternalTupleSet<T> {
     key: Vec<usize>,
-    map: FxHashMap<u64, Vec<InternalTuple<D>>>,
+    map: FxHashMap<u64, Vec<InternalTuple<T>>>,
     len: usize,
 }
 
-impl<D: QueryableDataset> InternalTupleSet<D> {
+impl<T> InternalTupleSet<T> {
     fn new(key: Vec<usize>) -> Self {
         Self {
             key,
             map: FxHashMap::default(),
             len: 0,
         }
-    }
-
-    fn insert(&mut self, tuple: InternalTuple<D>) {
-        self.map
-            .entry(self.tuple_key(&tuple))
-            .or_default()
-            .push(tuple);
-        self.len += 1;
-    }
-
-    fn get(&self, tuple: &InternalTuple<D>) -> &[InternalTuple<D>] {
-        self.map.get(&self.tuple_key(tuple)).map_or(&[], |v| v)
-    }
-
-    fn tuple_key(&self, tuple: &InternalTuple<D>) -> u64 {
-        let mut hasher = FxHasher::default();
-        for v in &self.key {
-            if let Some(val) = tuple.get(*v) {
-                val.hash(&mut hasher);
-            }
-        }
-        hasher.finish()
     }
 
     fn len(&self) -> usize {
@@ -6281,8 +6604,32 @@ impl<D: QueryableDataset> InternalTupleSet<D> {
     }
 }
 
-impl<D: QueryableDataset> Extend<InternalTuple<D>> for InternalTupleSet<D> {
-    fn extend<T: IntoIterator<Item = InternalTuple<D>>>(&mut self, iter: T) {
+impl<T: Hash> InternalTupleSet<T> {
+    fn insert(&mut self, tuple: InternalTuple<T>) {
+        self.map
+            .entry(self.tuple_key(&tuple))
+            .or_default()
+            .push(tuple);
+        self.len += 1;
+    }
+
+    fn get(&self, tuple: &InternalTuple<T>) -> &[InternalTuple<T>] {
+        self.map.get(&self.tuple_key(tuple)).map_or(&[], |v| v)
+    }
+
+    fn tuple_key(&self, tuple: &InternalTuple<T>) -> u64 {
+        let mut hasher = FxHasher::default();
+        for v in &self.key {
+            if let Some(val) = tuple.get(*v) {
+                val.hash(&mut hasher);
+            }
+        }
+        hasher.finish()
+    }
+}
+
+impl<T: Hash> Extend<InternalTuple<T>> for InternalTupleSet<T> {
+    fn extend<I: IntoIterator<Item = InternalTuple<T>>>(&mut self, iter: I) {
         let iter = iter.into_iter();
         self.map.reserve(iter.size_hint().0);
         for tuple in iter {
@@ -6291,13 +6638,13 @@ impl<D: QueryableDataset> Extend<InternalTuple<D>> for InternalTupleSet<D> {
     }
 }
 
-struct StatsIterator<D: QueryableDataset> {
-    inner: InternalTuplesIterator<D>,
+struct StatsIterator<'a, T> {
+    inner: InternalTuplesIterator<'a, T>,
     stats: Rc<EvalNodeWithStats>,
 }
 
-impl<D: QueryableDataset> Iterator for StatsIterator<D> {
-    type Item = Result<InternalTuple<D>, QueryEvaluationError>;
+impl<T> Iterator for StatsIterator<'_, T> {
+    type Item = Result<InternalTuple<T>, QueryEvaluationError>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let start = Timer::now();
@@ -6522,6 +6869,41 @@ impl Timer {
 
     pub fn elapsed(&self) -> Option<DayTimeDuration> {
         DateTime::now().checked_sub(self.start)
+    }
+}
+
+/// A token that can be used to mark something as canceled.
+///
+/// To cancel run [`CancellationToken::cancel`] and to check if the token is canceled run [`CancellationToken::is_cancelled`].
+#[derive(Clone, Default)]
+pub struct CancellationToken {
+    value: Arc<AtomicBool>,
+}
+
+impl CancellationToken {
+    #[inline]
+    pub fn new() -> Self {
+        Self {
+            value: Arc::new(AtomicBool::new(false)),
+        }
+    }
+
+    #[inline]
+    pub fn cancel(&self) {
+        self.value.store(true, atomic::Ordering::Relaxed);
+    }
+
+    #[inline]
+    pub fn is_cancelled(&self) -> bool {
+        self.value.load(atomic::Ordering::Relaxed)
+    }
+
+    fn ensure_alive(&self) -> Result<(), QueryEvaluationError> {
+        if self.is_cancelled() {
+            Err(QueryEvaluationError::Cancelled)
+        } else {
+            Ok(())
+        }
     }
 }
 

@@ -175,7 +175,7 @@ class Pad(Function, Module):
         if not hasattr(self, "pad_width"):
             raise RuntimeError("pad_width not set; call forward() first.")
         del parent_tensors[0].data
-        ng.flush(gc=False)
+        # ng.flush(gc=False)
         slices = tuple(slice(l, None if u == 0 else -u) for (l, u) in self.pad_width)
         parent_tensors[0].data = output_tensor.data[slices]
 
@@ -197,8 +197,12 @@ class Clone(Function, Module):
         return grad_output if A.requires_grad else None
 
 
+
 class SlidingWindowView(Function, Module):
-    """Smart Vectorized Sliding Window View with as_strided optimization."""
+    """
+    Smart Vectorized Sliding Window View with AutoDiff Support and
+    sliding view buffer to avoid unnecessary memory allocation.
+    """
     def __init__(self, window_shape: Sequence[int],
                  axes: Union[int, Tuple[int, ...]] = (2, 3),
                  strides: Union[int, Tuple[int, ...]] = (1, 1)):
@@ -208,29 +212,25 @@ class SlidingWindowView(Function, Module):
         self.strides = strides if isinstance(strides, tuple) else \
                        tuple(strides for _ in range(len(self.axes)))
         self.window_shape = window_shape if isinstance(window_shape, tuple) else \
-                           tuple(window_shape for _ in range(len(self.axes)))
+                           tuple(window_shape for _ in range(len(axes)))
     def forward(self, A: xp.ndarray) -> xp.ndarray:
-        shape = list(A.shape)
-        strides = list(A.strides)
-        for ax, win_sz, stride in zip(self.axes, self.window_shape, self.strides):
-            shape[ax] = (A.shape[ax] - win_sz) // stride + 1
-            strides[ax] *= stride
-            shape.append(win_sz)
-            strides.append(A.strides[ax])
-        return xp.lib.stride_tricks.as_strided(A, tuple(shape), tuple(strides))
+        slices = [slice(None)] * A.ndim
+        for ax, stride in zip(self.axes, self.strides):
+            slices[ax] = slice(None, None, stride)
+        self.slices = tuple(slices)
+        return xp.lib.stride_tricks.sliding_window_view(
+            A, self.window_shape, self.axes)[self.slices]
     def backward(self, grad_output: xp.ndarray) -> xp.ndarray:
         A = self.parent_tensors[0]
         grad_buffer = xp.zeros(A.shape, dtype=grad_output.dtype)
-        shape = list(grad_buffer.shape)
-        strides = list(grad_buffer.strides)
-        for ax, win_sz, stride in zip(self.axes, self.window_shape, self.strides):
-            shape[ax] = (grad_buffer.shape[ax] - win_sz) // stride + 1
-            strides[ax] *= stride
-            shape.append(win_sz)
-            strides.append(grad_buffer.strides[ax])
-        grad_view = xp.lib.stride_tricks.as_strided(grad_buffer, tuple(shape), tuple(strides))
+        kwargs = {"writeable": True} if xp is np else {}
+        grad_view = xp.lib.stride_tricks.sliding_window_view(
+            grad_buffer, self.window_shape, self.axes, **kwargs
+        )[self.slices]
+        # Accumulate gradients using cached view
         grad_view += grad_output
         return grad_buffer
+    
 
 
 def reshape(A, new_shape):

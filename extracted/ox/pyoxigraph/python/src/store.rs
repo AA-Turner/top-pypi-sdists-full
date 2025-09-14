@@ -1,14 +1,14 @@
 use crate::io::{
-    lookup_rdf_format, map_parse_error, PyRdfFormatInput, PyReadable, PyReadableInput, PyWritable,
-    PyWritableOutput,
+    PyRdfFormatInput, PyReadable, PyReadableInput, PyWritable, PyWritableOutput, lookup_rdf_format,
+    map_parse_error,
 };
 use crate::model::*;
 use crate::sparql::*;
 use oxigraph::io::{RdfParser, RdfSerializer};
 use oxigraph::model::GraphNameRef;
-use oxigraph::sparql::{QueryResults, Update};
+use oxigraph::sparql::QueryResults;
 use oxigraph::store::{self, LoaderError, SerializerError, StorageError, Store};
-use pyo3::exceptions::{PyRuntimeError, PyValueError};
+use pyo3::exceptions::{PyRuntimeError, PySyntaxError, PyValueError};
 use pyo3::prelude::*;
 use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;
@@ -49,7 +49,7 @@ impl PyStore {
     #[new]
     #[pyo3(signature = (path = None))]
     fn new(path: Option<PathBuf>, py: Python<'_>) -> PyResult<Self> {
-        py.allow_threads(|| {
+        py.detach(|| {
             Ok(Self {
                 inner: if let Some(path) = path {
                     Store::open(path)
@@ -64,7 +64,7 @@ impl PyStore {
     #[cfg(target_family = "wasm")]
     #[new]
     fn new(py: Python<'_>) -> PyResult<Self> {
-        py.allow_threads(|| {
+        py.detach(|| {
             Ok(Self {
                 inner: Store::new().map_err(map_storage_error)?,
             })
@@ -83,7 +83,7 @@ impl PyStore {
     #[cfg(not(target_family = "wasm"))]
     #[staticmethod]
     fn read_only(path: &str, py: Python<'_>) -> PyResult<Self> {
-        py.allow_threads(|| {
+        py.detach(|| {
             Ok(Self {
                 inner: Store::open_read_only(path).map_err(map_storage_error)?,
             })
@@ -102,16 +102,16 @@ impl PyStore {
     /// >>> list(store)
     /// [<Quad subject=<NamedNode value=http://example.com> predicate=<NamedNode value=http://example.com/p> object=<Literal value=1 datatype=<NamedNode value=http://www.w3.org/2001/XMLSchema#string>> graph_name=<NamedNode value=http://example.com/g>>]
     fn add(&self, quad: &PyQuad, py: Python<'_>) -> PyResult<()> {
-        py.allow_threads(|| {
+        py.detach(|| {
             self.inner.insert(quad).map_err(map_storage_error)?;
             Ok(())
         })
     }
 
-    /// Adds atomically a set of quads to this store.
+    /// Adds a set of quads to this store.
     ///
-    /// Insertion is done in a transactional manner: either the full operation succeeds or nothing is written to the database.
-    /// The :py:func:`bulk_extend` method is also available for much faster loading of a large number of quads but without transactional guarantees.
+    /// Insertion is done in a transactional manner: either the full operation succeeds, or nothing is written to the database.
+    /// The :py:func:`bulk_extend` method is also available for loading of a very large number of quads without having them all into memory.
     ///
     /// :param quads: the quads to add.
     /// :type quads: collections.abc.Iterable[Quad]
@@ -127,16 +127,15 @@ impl PyStore {
             .try_iter()?
             .map(|q| q?.extract())
             .collect::<PyResult<Vec<PyQuad>>>()?;
-        py.allow_threads(|| {
+        py.detach(|| {
             self.inner.extend(quads).map_err(map_storage_error)?;
             Ok(())
         })
     }
 
-    /// Adds a set of quads to this store.
+    /// Adds a set of quads to this store without keeping them all into memory.
     ///
-    /// This function is designed to be as fast as possible **without** transactional guarantees.
-    /// Only a part of the data might be written to the store.
+    /// It always writes new files to disk, the :py:func:`extend` method is also available for fast insertion of a small number of quads.
     ///
     /// :param quads: the quads to add.
     /// :type quads: collections.abc.Iterable[Quad]
@@ -149,11 +148,11 @@ impl PyStore {
     /// [<Quad subject=<NamedNode value=http://example.com> predicate=<NamedNode value=http://example.com/p> object=<Literal value=1 datatype=<NamedNode value=http://www.w3.org/2001/XMLSchema#string>> graph_name=<NamedNode value=http://example.com/g>>]
     #[cfg(not(target_family = "wasm"))]
     fn bulk_extend(&self, quads: &Bound<'_, PyAny>) -> PyResult<()> {
-        self.inner
-            .bulk_loader()
-            .load_ok_quads::<PyErr, PythonOrStorageError>(
-                quads.try_iter()?.map(|q| q?.extract::<PyQuad>()),
-            )?;
+        let mut loader = self.inner.bulk_loader();
+        loader.load_ok_quads::<PyErr, PythonOrStorageError>(
+            quads.try_iter()?.map(|q| q?.extract::<PyQuad>()),
+        )?;
+        loader.commit().map_err(map_storage_error)?;
         Ok(())
     }
 
@@ -171,7 +170,7 @@ impl PyStore {
     /// >>> list(store)
     /// []
     fn remove(&self, quad: &PyQuad, py: Python<'_>) -> PyResult<()> {
-        py.allow_threads(|| {
+        py.detach(|| {
             self.inner.remove(quad).map_err(map_storage_error)?;
             Ok(())
         })
@@ -195,11 +194,11 @@ impl PyStore {
     /// >>> store.add(Quad(NamedNode('http://example.com'), NamedNode('http://example.com/p'), Literal('1'), NamedNode('http://example.com/g')))
     /// >>> list(store.quads_for_pattern(NamedNode('http://example.com'), None, None, None))
     /// [<Quad subject=<NamedNode value=http://example.com> predicate=<NamedNode value=http://example.com/p> object=<Literal value=1 datatype=<NamedNode value=http://www.w3.org/2001/XMLSchema#string>> graph_name=<NamedNode value=http://example.com/g>>]
-    #[allow(clippy::needless_pass_by_value)]
+    #[expect(clippy::needless_pass_by_value)]
     #[pyo3(signature = (subject, predicate, object, graph_name = None))]
     fn quads_for_pattern(
         &self,
-        subject: Option<PySubjectRef<'_>>,
+        subject: Option<PyNamedOrBlankNodeRef<'_>>,
         predicate: Option<PyNamedNodeRef<'_>>,
         object: Option<PyTermRef<'_>>,
         graph_name: Option<PyGraphNameRef<'_>>,
@@ -220,6 +219,8 @@ impl PyStore {
     /// :type query: str
     /// :param base_iri: the base IRI used to resolve the relative IRIs in the SPARQL query or :py:const:`None` if relative IRI resolution should not be done.
     /// :type base_iri: str or None, optional
+    /// :param prefixes: a set of default prefixes to use during the SPARQL query parsing as a prefix name -> prefix IRI dictionary.
+    /// :type prefixes: dict[str, str] or None, optional
     /// :param use_default_graph_as_union: if the SPARQL query should look for triples in all the dataset graphs by default (i.e. without `GRAPH` operations). Disabled by default.
     /// :type use_default_graph_as_union: bool, optional
     /// :param default_graph: list of the graphs that should be used as the query default graph. By default, the store default graph is used.
@@ -228,8 +229,10 @@ impl PyStore {
     /// :type named_graphs: list[NamedNode or BlankNode] or None, optional
     /// :param substitutions: dictionary of values variables should be substituted with. Substitution follows `RDF-dev SEP-0007 <https://github.com/w3c/sparql-dev/blob/main/SEP/SEP-0007/sep-0007.md>`_.
     /// :type substitutions: dict[Variable, NamedNode or BlankNode or Literal or Triple] or None, optional
-    /// :param custom_functions: dictionary of custom functions mapping function names to their definition. Custom functions takes for input some :py:class:`Term`s and return a :py:class:`Term` or :py:const:`None`.
+    /// :param custom_functions: dictionary of custom functions mapping function names to their definition. Custom functions takes for input some RDF term and returns a RDF term or :py:const:`None`.
     /// :type custom_functions: dict[NamedNode, typing.Callable[[NamedNode or BlankNode or Literal or Triple, ...], NamedNode or BlankNode or Literal or Triple or None]] or None, optional
+    /// :param custom_aggregate_functions: dictionary of custom aggregate functions mapping function names to their definition. Custom aggregate functions take no input and return an object with two methods, `accumulate(self, term: Term)` to add a new term to the accumulator and `finish(self) -> Term` to return the accumulated result.
+    /// :type custom_aggregate_functions: dict[NamedNode, typing.Callable[[], AggregateFunctionAccumulator]] or None, optional
     /// :return: a :py:class:`bool` for ``ASK`` queries, an iterator of :py:class:`Triple` for ``CONSTRUCT`` and ``DESCRIBE`` queries and an iterator of :py:class:`QuerySolution` for ``SELECT`` queries.
     /// :rtype: QuerySolutions or QueryBoolean or QueryTriples
     /// :raises SyntaxError: if the provided query is invalid.
@@ -255,47 +258,47 @@ impl PyStore {
     /// >>> store.add(Quad(NamedNode('http://example.com'), NamedNode('http://example.com/p'), Literal('1')))
     /// >>> bool(store.query('ASK { ?s ?p ?o }'))
     /// True
-    #[pyo3(signature = (query, *, base_iri = None, use_default_graph_as_union = false, default_graph = None, named_graphs = None, substitutions = None, custom_functions = None))]
+    #[expect(clippy::too_many_arguments, clippy::doc_link_with_quotes)]
+    #[pyo3(signature = (query, *, base_iri = None, prefixes = None, use_default_graph_as_union = false, default_graph = None, named_graphs = None, substitutions = None, custom_functions = None, custom_aggregate_functions = None))]
     fn query<'py>(
         &self,
         query: &str,
         base_iri: Option<&str>,
+        prefixes: Option<HashMap<String, String>>,
         use_default_graph_as_union: bool,
         default_graph: Option<&Bound<'_, PyAny>>,
         named_graphs: Option<&Bound<'_, PyAny>>,
         substitutions: Option<HashMap<PyVariable, PyTerm>>,
-        custom_functions: Option<HashMap<PyNamedNode, PyObject>>,
+        custom_functions: Option<HashMap<PyNamedNode, Py<PyAny>>>,
+        custom_aggregate_functions: Option<HashMap<PyNamedNode, Py<PyAny>>>,
         py: Python<'py>,
     ) -> PyResult<Bound<'py, PyAny>> {
-        pub struct UngilQueryResults(QueryResults);
+        pub struct UngilQueryResults(QueryResults<'static>);
 
-        #[allow(unsafe_code)]
+        #[expect(unsafe_code)]
         // SAFETY: To derive Ungil
         unsafe impl Send for UngilQueryResults {}
 
-        let query = parse_query(
+        let mut evaluator = prepare_sparql_query(
+            sparql_evaluator_from_python(
+                base_iri,
+                prefixes,
+                custom_functions,
+                custom_aggregate_functions,
+            )?,
             query,
-            base_iri,
             use_default_graph_as_union,
             default_graph,
             named_graphs,
-            py,
-        )?;
-        let options = query_options_from_python(custom_functions);
-        let substitutions = substitutions
-            .unwrap_or_default()
-            .into_iter()
-            .map(|(k, v)| (k.into(), v.into()));
+        )?
+        .on_store(&self.inner);
+        if let Some(substitutions) = substitutions {
+            for (k, v) in substitutions {
+                evaluator = evaluator.substitute_variable(k, v);
+            }
+        }
         let results = py
-            .allow_threads(|| {
-                Ok(UngilQueryResults(
-                    self.inner.query_opt_with_substituted_variables(
-                        query,
-                        options,
-                        substitutions,
-                    )?,
-                ))
-            })
+            .detach(|| Ok(UngilQueryResults(evaluator.execute()?)))
             .map_err(map_evaluation_error)?
             .0;
         query_results_to_python(py, results)
@@ -303,14 +306,18 @@ impl PyStore {
 
     /// Executes a `SPARQL 1.1 update <https://www.w3.org/TR/sparql11-update/>`_.
     ///
-    /// Updates are applied in a transactional manner: either the full operation succeeds or nothing is written to the database.
+    /// Updates are applied in a transactional manner: either the full operation succeeds, or nothing is written to the database.
     ///
     /// :param update: the update to execute.
     /// :type update: str
     /// :param base_iri: the base IRI used to resolve the relative IRIs in the SPARQL update or :py:const:`None` if relative IRI resolution should not be done.
     /// :type base_iri: str or None, optional
-    /// :param custom_functions: dictionary of custom functions mapping function names to their definition. Custom functions takes for input some :py:class:`Term`s and return a :py:class:`Term` or :py:const:`None`.
+    /// :param prefixes: a set of default prefixes to use during the SPARQL query parsing as a prefix name -> prefix IRI dictionary.
+    /// :type prefixes: dict[str, str] or None, optional
+    /// :param custom_functions: dictionary of custom functions mapping function names to their definition. Custom functions take for input some RDF terms and returns a RDF term or :py:const:`None`.
     /// :type custom_functions: dict[NamedNode, typing.Callable[[NamedNode or BlankNode or Literal or Triple, ...], NamedNode or BlankNode or Literal or Triple or None]] or None, optional
+    /// :param custom_aggregate_functions: dictionary of custom aggregate functions mapping function names to their definition. Custom aggregate functions take no input and return an object with two methods, `accumulate(self, term: Term)` to add a new term to the accumulator and `finish(self) -> Term` to return the accumulated result.
+    /// :type custom_aggregate_functions: dict[NamedNode, typing.Callable[[], AggregateFunctionAccumulator]] or None, optional
     /// :rtype: None
     /// :raises SyntaxError: if the provided update is invalid.
     /// :raises OSError: if an error happens while reading the store.
@@ -337,28 +344,35 @@ impl PyStore {
     /// >>> store.update('DELETE WHERE { <http://example.com> ?p ?o }')
     /// >>> list(store)
     /// []
-    #[pyo3(signature = (update, *, base_iri = None, custom_functions = None))]
+    #[pyo3(signature = (update, *, base_iri = None, prefixes = None, custom_functions = None, custom_aggregate_functions = None))]
     fn update(
         &self,
         update: &str,
         base_iri: Option<&str>,
-        custom_functions: Option<HashMap<PyNamedNode, PyObject>>,
+        prefixes: Option<HashMap<String, String>>,
+        custom_functions: Option<HashMap<PyNamedNode, Py<PyAny>>>,
+        custom_aggregate_functions: Option<HashMap<PyNamedNode, Py<PyAny>>>,
         py: Python<'_>,
     ) -> PyResult<()> {
-        py.allow_threads(|| {
-            let options = query_options_from_python(custom_functions);
-            let update =
-                Update::parse(update, base_iri).map_err(|e| map_evaluation_error(e.into()))?;
-            self.inner
-                .update_opt(update, options)
-                .map_err(map_evaluation_error)
+        py.detach(|| {
+            sparql_evaluator_from_python(
+                base_iri,
+                prefixes,
+                custom_functions,
+                custom_aggregate_functions,
+            )?
+            .parse_update(update)
+            .map_err(|e| PySyntaxError::new_err(e.to_string()))?
+            .on_store(&self.inner)
+            .execute()
+            .map_err(map_update_evaluation_error)
         })
     }
 
-    /// Loads an RDF serialization into the store.
+    /// Loads RDF serialization into the store.
     ///
-    /// Loads are applied in a transactional manner: either the full operation succeeds or nothing is written to the database.
-    /// The :py:func:`bulk_load` method is also available for much faster loading of big files but without transactional guarantees.
+    /// Loads are applied in a transactional manner: either the full operation succeeds, or nothing is written to the database.
+    /// The :py:func:`bulk_load` method is also available for loading big files without loading all its content into memory.
     ///
     /// Beware, the full file is loaded into memory.
     ///
@@ -372,20 +386,18 @@ impl PyStore {
     /// * `N3 <https://w3c.github.io/N3/spec/>`_ (:py:attr:`RdfFormat.N3`)
     /// * `RDF/XML <https://www.w3.org/TR/rdf-syntax-grammar/>`_ (:py:attr:`RdfFormat.RDF_XML`)
     ///
-    /// It supports also some media type and extension aliases.
-    /// For example, ``application/turtle`` could also be used for `Turtle <https://www.w3.org/TR/turtle/>`_
-    /// and ``application/xml`` or ``xml`` for `RDF/XML <https://www.w3.org/TR/rdf-syntax-grammar/>`_.
-    ///
     /// :param input: The :py:class:`str`, :py:class:`bytes` or I/O object to read from. For example, it could be the file content as a string or a file reader opened in binary mode with ``open('my_file.ttl', 'rb')``.
     /// :type input: bytes or str or typing.IO[bytes] or typing.IO[str] or None, optional
     /// :param format: the format of the RDF serialization. If :py:const:`None`, the format is guessed from the file name extension.
     /// :type format: RdfFormat or None, optional
-    /// :param path: The file path to read from. Replaces the ``input`` parameter.
+    /// :param path: The file path to read from. Replace the ``input`` parameter.
     /// :type path: str or os.PathLike[str] or None, optional
     /// :param base_iri: the base IRI used to resolve the relative IRIs in the file or :py:const:`None` if relative IRI resolution should not be done.
     /// :type base_iri: str or None, optional
     /// :param to_graph: if it is a file composed of triples, the graph in which the triples should be stored. By default, the default graph is used.
     /// :type to_graph: NamedNode or BlankNode or DefaultGraph or None, optional
+    /// :param lenient: Skip some data validation during loading, like validating IRIs. This makes parsing faster at the cost of maybe ingesting invalid data.
+    /// :type lenient: bool, optional
     /// :rtype: None
     /// :raises ValueError: if the format is not supported.
     /// :raises SyntaxError: if the provided data is invalid.
@@ -395,8 +407,8 @@ impl PyStore {
     /// >>> store.load(input='<foo> <p> "1" .', format=RdfFormat.TURTLE, base_iri="http://example.com/", to_graph=NamedNode("http://example.com/g"))
     /// >>> list(store)
     /// [<Quad subject=<NamedNode value=http://example.com/foo> predicate=<NamedNode value=http://example.com/p> object=<Literal value=1 datatype=<NamedNode value=http://www.w3.org/2001/XMLSchema#string>> graph_name=<NamedNode value=http://example.com/g>>]
-    #[allow(clippy::needless_pass_by_value)]
-    #[pyo3(signature = (input = None, format = None, *, path = None, base_iri = None, to_graph = None))]
+    #[expect(clippy::needless_pass_by_value)]
+    #[pyo3(signature = (input = None, format = None, *, path = None, base_iri = None, to_graph = None, lenient=false))]
     fn load(
         &self,
         input: Option<PyReadableInput>,
@@ -404,12 +416,13 @@ impl PyStore {
         path: Option<PathBuf>,
         base_iri: Option<&str>,
         to_graph: Option<PyGraphNameRef<'_>>,
+        lenient: bool,
         py: Python<'_>,
     ) -> PyResult<()> {
         let to_graph_name = to_graph.as_ref().map(GraphNameRef::from);
         let input = PyReadable::from_args(&path, input, py)?;
         let format = lookup_rdf_format(format, path.as_deref())?;
-        py.allow_threads(|| {
+        py.detach(|| {
             let mut parser = RdfParser::from_format(format);
             if let Some(base_iri) = base_iri {
                 parser = parser
@@ -419,18 +432,20 @@ impl PyStore {
             if let Some(to_graph_name) = to_graph_name {
                 parser = parser.with_default_graph(to_graph_name);
             }
+            if lenient {
+                parser = parser.lenient();
+            }
             self.inner
                 .load_from_reader(parser, input)
                 .map_err(|e| map_loader_error(e, path))
         })
     }
 
-    /// Loads an RDF serialization into the store.
+    /// Loads some RDF serialization into the store without keeping it all into memory.
     ///
-    /// This function is designed to be as fast as possible on big files **without** transactional guarantees.
-    /// If the file is invalid only a piece of it might be written to the store.
+    /// This function is designed to be as fast as possible on big files.
     ///
-    /// The :py:func:`load` method is also available for loads with transactional guarantees.
+    /// It always writes new files to disk, the :py:func:`load` method is also available for fast insertion of small files.
     ///
     /// It currently supports the following formats:
     ///
@@ -442,20 +457,18 @@ impl PyStore {
     /// * `N3 <https://w3c.github.io/N3/spec/>`_ (:py:attr:`RdfFormat.N3`)
     /// * `RDF/XML <https://www.w3.org/TR/rdf-syntax-grammar/>`_ (:py:attr:`RdfFormat.RDF_XML`)
     ///
-    /// It supports also some media type and extension aliases.
-    /// For example, ``application/turtle`` could also be used for `Turtle <https://www.w3.org/TR/turtle/>`_
-    /// and ``application/xml`` or ``xml`` for `RDF/XML <https://www.w3.org/TR/rdf-syntax-grammar/>`_.
-    ///
     /// :param input: The :py:class:`str`, :py:class:`bytes` or I/O object to read from. For example, it could be the file content as a string or a file reader opened in binary mode with ``open('my_file.ttl', 'rb')``.
     /// :type input: bytes or str or typing.IO[bytes] or typing.IO[str] or None, optional
     /// :param format: the format of the RDF serialization. If :py:const:`None`, the format is guessed from the file name extension.
     /// :type format: RdfFormat or None, optional
-    /// :param path: The file path to read from. Replaces the ``input`` parameter.
+    /// :param path: The file path to read from. Replace the ``input`` parameter.
     /// :type path: str or os.PathLike[str] or None, optional
     /// :param base_iri: the base IRI used to resolve the relative IRIs in the file or :py:const:`None` if relative IRI resolution should not be done.
     /// :type base_iri: str or None, optional
     /// :param to_graph: if it is a file composed of triples, the graph in which the triples should be stored. By default, the default graph is used.
     /// :type to_graph: NamedNode or BlankNode or DefaultGraph or None, optional
+    /// :param lenient: Skip some data validation during loading, like validating IRIs. This makes parsing faster at the cost of maybe ingesting invalid data.
+    /// :type lenient: bool, optional
     /// :rtype: None
     /// :raises ValueError: if the format is not supported.
     /// :raises SyntaxError: if the provided data is invalid.
@@ -465,8 +478,8 @@ impl PyStore {
     /// >>> store.bulk_load(input=b'<foo> <p> "1" .', format=RdfFormat.TURTLE, base_iri="http://example.com/", to_graph=NamedNode("http://example.com/g"))
     /// >>> list(store)
     /// [<Quad subject=<NamedNode value=http://example.com/foo> predicate=<NamedNode value=http://example.com/p> object=<Literal value=1 datatype=<NamedNode value=http://www.w3.org/2001/XMLSchema#string>> graph_name=<NamedNode value=http://example.com/g>>]
-    #[allow(clippy::needless_pass_by_value)]
-    #[pyo3(signature = (input = None, format = None, *, path = None, base_iri = None, to_graph = None))]
+    #[expect(clippy::needless_pass_by_value)]
+    #[pyo3(signature = (input = None, format = None, *, path = None, base_iri = None, to_graph = None, lenient = false))]
     fn bulk_load(
         &self,
         input: Option<PyReadableInput>,
@@ -474,26 +487,63 @@ impl PyStore {
         path: Option<PathBuf>,
         base_iri: Option<&str>,
         to_graph: Option<PyGraphNameRef<'_>>,
+        lenient: bool,
         py: Python<'_>,
     ) -> PyResult<()> {
         let to_graph_name = to_graph.as_ref().map(GraphNameRef::from);
-        let input = PyReadable::from_args(&path, input, py)?;
         let format = lookup_rdf_format(format, path.as_deref())?;
-        py.allow_threads(|| {
-            let mut parser = RdfParser::from_format(format);
-            if let Some(base_iri) = base_iri {
-                parser = parser.with_base_iri(base_iri).map_err(|e| {
-                    PyValueError::new_err(format!("Invalid base IRI '{base_iri}', {e}"))
-                })?;
+        let mut parser = RdfParser::from_format(format);
+        if let Some(base_iri) = base_iri {
+            parser = parser.with_base_iri(base_iri).map_err(|e| {
+                PyValueError::new_err(format!("Invalid base IRI '{base_iri}', {e}"))
+            })?;
+        }
+        if let Some(to_graph_name) = to_graph_name {
+            parser = parser.with_default_graph(to_graph_name);
+        }
+        if lenient {
+            parser = parser.lenient();
+        }
+        match (path, input) {
+            #[cfg(not(target_family = "wasm"))]
+            (Some(path), None) => py.detach(|| {
+                let mut loader = self.inner.bulk_loader();
+                loader
+                    .parallel_load_from_file(parser, &path)
+                    .map_err(|e| map_loader_error(e, Some(path)))?;
+                loader.commit().map_err(map_storage_error)?;
+                Ok(())
+            }),
+            #[cfg(not(target_family = "wasm"))]
+            (None, Some(PyReadableInput::Bytes(input))) => py.detach(|| {
+                let mut loader = self.inner.bulk_loader();
+                loader
+                    .parallel_load_from_slice(parser, &input)
+                    .map_err(|e| map_loader_error(e, None))?;
+                loader.commit().map_err(map_storage_error)?;
+                Ok(())
+            }),
+            #[cfg(not(target_family = "wasm"))]
+            (None, Some(PyReadableInput::String(input))) => py.detach(|| {
+                let mut loader = self.inner.bulk_loader();
+                loader
+                    .parallel_load_from_slice(parser, &input)
+                    .map_err(|e| map_loader_error(e, None))?;
+                loader.commit().map_err(map_storage_error)?;
+                Ok(())
+            }),
+            (path, input) => {
+                let input = PyReadable::from_args(&path, input, py)?;
+                py.detach(|| {
+                    let mut loader = self.inner.bulk_loader();
+                    loader
+                        .load_from_reader(parser, input)
+                        .map_err(|e| map_loader_error(e, path))?;
+                    loader.commit().map_err(map_storage_error)?;
+                    Ok(())
+                })
             }
-            if let Some(to_graph_name) = to_graph_name {
-                parser = parser.with_default_graph(to_graph_name);
-            }
-            self.inner
-                .bulk_loader()
-                .load_from_reader(parser, input)
-                .map_err(|e| map_loader_error(e, path))
-        })
+        }
     }
 
     /// Dumps the store quads or triples into a file.
@@ -507,10 +557,6 @@ impl PyStore {
     /// * `TriG <https://www.w3.org/TR/trig/>`_ (:py:attr:`RdfFormat.TRIG`)
     /// * `N3 <https://w3c.github.io/N3/spec/>`_ (:py:attr:`RdfFormat.N3`)
     /// * `RDF/XML <https://www.w3.org/TR/rdf-syntax-grammar/>`_ (:py:attr:`RdfFormat.RDF_XML`)
-    ///
-    /// It supports also some media type and extension aliases.
-    /// For example, ``application/turtle`` could also be used for `Turtle <https://www.w3.org/TR/turtle/>`_
-    /// and ``application/xml`` or ``xml`` for `RDF/XML <https://www.w3.org/TR/rdf-syntax-grammar/>`_.
     ///
     /// :param output: The binary I/O object or file path to write to. For example, it could be a file path as a string or a file writer opened in binary mode with ``open('my_file.ttl', 'wb')``. If :py:const:`None`, a :py:class:`bytes` buffer is returned with the serialized content.
     /// :type output: typing.IO[bytes] or str or os.PathLike[str] or None, optional
@@ -539,7 +585,7 @@ impl PyStore {
     /// >>> store.dump(output, RdfFormat.TURTLE, from_graph=NamedNode("http://example.com/g"), prefixes={"ex": "http://example.com/"}, base_iri="http://example.com")
     /// >>> output.getvalue()
     /// b'@base <http://example.com> .\n@prefix ex: </> .\n<> ex:p "1" .\n'
-    #[allow(clippy::needless_pass_by_value)]
+    #[expect(clippy::needless_pass_by_value)]
     #[pyo3(signature = (output = None, format = None, *, from_graph = None, prefixes = None, base_iri = None))]
     fn dump(
         &self,
@@ -553,7 +599,7 @@ impl PyStore {
         let from_graph_name = from_graph.as_ref().map(GraphNameRef::from);
         PyWritable::do_write(
             |output, file_path| {
-                py.allow_threads(|| {
+                py.detach(|| {
                     let format = lookup_rdf_format(format, file_path.as_deref())?;
                     let mut serializer = RdfSerializer::from_format(format);
                     if let Some(prefixes) = prefixes {
@@ -614,14 +660,14 @@ impl PyStore {
     /// >>> store.add_graph(NamedNode('http://example.com/g'))
     /// >>> store.contains_named_graph(NamedNode('http://example.com/g'))
     /// True
-    #[allow(clippy::needless_pass_by_value)]
+    #[expect(clippy::needless_pass_by_value)]
     fn contains_named_graph(
         &self,
         graph_name: PyGraphNameRef<'_>,
         py: Python<'_>,
     ) -> PyResult<bool> {
         let graph_name = GraphNameRef::from(&graph_name);
-        py.allow_threads(|| {
+        py.detach(|| {
             match graph_name {
                 GraphNameRef::DefaultGraph => Ok(true),
                 GraphNameRef::NamedNode(graph_name) => self.inner.contains_named_graph(graph_name),
@@ -642,18 +688,14 @@ impl PyStore {
     /// >>> store.add_graph(NamedNode('http://example.com/g'))
     /// >>> list(store.named_graphs())
     /// [<NamedNode value=http://example.com/g>]
-    #[allow(clippy::needless_pass_by_value)]
+    #[expect(clippy::needless_pass_by_value)]
     fn add_graph(&self, graph_name: PyGraphNameRef<'_>, py: Python<'_>) -> PyResult<()> {
         let graph_name = GraphNameRef::from(&graph_name);
-        py.allow_threads(|| {
+        py.detach(|| {
             match graph_name {
                 GraphNameRef::DefaultGraph => Ok(()),
-                GraphNameRef::NamedNode(graph_name) => {
-                    self.inner.insert_named_graph(graph_name).map(|_| ())
-                }
-                GraphNameRef::BlankNode(graph_name) => {
-                    self.inner.insert_named_graph(graph_name).map(|_| ())
-                }
+                GraphNameRef::NamedNode(graph_name) => self.inner.insert_named_graph(graph_name),
+                GraphNameRef::BlankNode(graph_name) => self.inner.insert_named_graph(graph_name),
             }
             .map_err(map_storage_error)
         })
@@ -673,10 +715,10 @@ impl PyStore {
     /// []
     /// >>> list(store.named_graphs())
     /// [<NamedNode value=http://example.com/g>]
-    #[allow(clippy::needless_pass_by_value)]
+    #[expect(clippy::needless_pass_by_value)]
     fn clear_graph(&self, graph_name: PyGraphNameRef<'_>, py: Python<'_>) -> PyResult<()> {
         let graph_name = GraphNameRef::from(&graph_name);
-        py.allow_threads(|| {
+        py.detach(|| {
             self.inner
                 .clear_graph(graph_name)
                 .map_err(map_storage_error)
@@ -697,18 +739,14 @@ impl PyStore {
     /// >>> store.remove_graph(NamedNode('http://example.com/g'))
     /// >>> list(store.named_graphs())
     /// []
-    #[allow(clippy::needless_pass_by_value)]
+    #[expect(clippy::needless_pass_by_value)]
     fn remove_graph(&self, graph_name: PyGraphNameRef<'_>, py: Python<'_>) -> PyResult<()> {
         let graph_name = GraphNameRef::from(&graph_name);
-        py.allow_threads(|| {
+        py.detach(|| {
             match graph_name {
                 GraphNameRef::DefaultGraph => self.inner.clear_graph(GraphNameRef::DefaultGraph),
-                GraphNameRef::NamedNode(graph_name) => {
-                    self.inner.remove_named_graph(graph_name).map(|_| ())
-                }
-                GraphNameRef::BlankNode(graph_name) => {
-                    self.inner.remove_named_graph(graph_name).map(|_| ())
-                }
+                GraphNameRef::NamedNode(graph_name) => self.inner.remove_named_graph(graph_name),
+                GraphNameRef::BlankNode(graph_name) => self.inner.remove_named_graph(graph_name),
             }
             .map_err(map_storage_error)
         })
@@ -727,7 +765,7 @@ impl PyStore {
     /// >>> list(store.named_graphs())
     /// []
     fn clear(&self, py: Python<'_>) -> PyResult<()> {
-        py.allow_threads(|| self.inner.clear().map_err(map_storage_error))
+        py.detach(|| self.inner.clear().map_err(map_storage_error))
     }
 
     /// Flushes all buffers and ensures that all writes are saved on disk.
@@ -738,7 +776,7 @@ impl PyStore {
     /// :raises OSError: if an error happens during the flush.
     #[cfg(not(target_family = "wasm"))]
     fn flush(&self, py: Python<'_>) -> PyResult<()> {
-        py.allow_threads(|| self.inner.flush().map_err(map_storage_error))
+        py.detach(|| self.inner.flush().map_err(map_storage_error))
     }
 
     /// Optimizes the database for future workload.
@@ -749,7 +787,7 @@ impl PyStore {
     /// :raises OSError: if an error happens during the optimization.
     #[cfg(not(target_family = "wasm"))]
     fn optimize(&self, py: Python<'_>) -> PyResult<()> {
-        py.allow_threads(|| self.inner.optimize().map_err(map_storage_error))
+        py.detach(|| self.inner.optimize().map_err(map_storage_error))
     }
 
     /// Creates database backup into the `target_directory`.
@@ -775,7 +813,7 @@ impl PyStore {
     /// :raises OSError: if an error happens during the backup.
     #[cfg(not(target_family = "wasm"))]
     fn backup(&self, target_directory: PathBuf, py: Python<'_>) -> PyResult<()> {
-        py.allow_threads(|| {
+        py.detach(|| {
             self.inner
                 .backup(target_directory)
                 .map_err(map_storage_error)
@@ -783,7 +821,7 @@ impl PyStore {
     }
 
     fn __str__(&self, py: Python<'_>) -> String {
-        py.allow_threads(|| self.inner.to_string())
+        py.detach(|| self.inner.to_string())
     }
 
     fn __bool__(&self) -> PyResult<bool> {
@@ -807,7 +845,7 @@ impl PyStore {
 
 #[pyclass(unsendable, module = "pyoxigraph")]
 pub struct QuadIter {
-    inner: store::QuadIter,
+    inner: store::QuadIter<'static>,
 }
 
 #[pymethods]
@@ -826,7 +864,7 @@ impl QuadIter {
 
 #[pyclass(unsendable, module = "pyoxigraph")]
 pub struct GraphNameIter {
-    inner: store::GraphNameIter,
+    inner: store::GraphNameIter<'static>,
 }
 
 #[pymethods]

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: SuperClaude
-Version: 4.0.9
+Version: 4.1.0
 Summary: SuperClaude Framework Management Hub - AI-enhanced development framework for Claude Code
 Author-email: NomenAK <anton.knoery@gmail.com>, Mithun Gowda B <mithungowda.b7411@gmail.com>
 License-Expression: MIT
@@ -46,7 +46,7 @@ Dynamic: license-file
 ### **Transform Claude Code into a Structured Development Platform**
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-4.0.9-blue" alt="Version">
+  <img src="https://img.shields.io/badge/version-4.1.0-blue" alt="Version">
   <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License">
   <img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg" alt="PRs Welcome">
 </p>
@@ -93,7 +93,7 @@ Dynamic: license-file
 
 | **Commands** | **Agents** | **Modes** | **MCP Servers** |
 |:------------:|:----------:|:---------:|:---------------:|
-| **22** | **14** | **6** | **6** |
+| **23** | **14** | **6** | **6** |
 | Slash Commands | Specialized AI | Behavioral | Integrations |
 
 </div>
@@ -240,7 +240,7 @@ pip install --break-system-packages SuperClaude
 ### 📝 **Improved Namespace**
 **`/sc:` prefix** for all commands:
 - No conflicts with custom commands
-- 22 commands covering full lifecycle
+- 23 commands covering full lifecycle
 - From brainstorming to deployment
 - Clean, organized command structure
 
@@ -326,7 +326,7 @@ pip install --break-system-packages SuperClaude
 <td valign="top">
 
 - 🎯 [**Commands Reference**](Docs/User-Guide/commands.md)  
-  *All 22 slash commands*
+  *All 23 slash commands*
 
 - 🤖 [**Agents Guide**](Docs/User-Guide/agents.md)  
   *14 specialized agents*
@@ -357,10 +357,6 @@ pip install --break-system-packages SuperClaude
 
 </td>
 <td valign="top">
-
-- ✨ [**Best Practices**](Docs/Reference/quick-start-practices.md)  
-  *Pro tips & patterns*
-
 - 📓 [**Examples Cookbook**](Docs/Reference/examples-cookbook.md)  
   *Real-world recipes*
 

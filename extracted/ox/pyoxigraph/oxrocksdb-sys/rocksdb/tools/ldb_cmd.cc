@@ -44,6 +44,7 @@
 #include "util/cast_util.h"
 #include "util/coding.h"
 #include "util/file_checksum_helper.h"
+#include "util/simple_mixed_compressor.h"
 #include "util/stderr_logger.h"
 #include "util/string_util.h"
 #include "util/write_batch_util.h"
@@ -867,13 +868,21 @@ bool LDBCommand::ParseCompressionTypeOption(
             "No compressions are supported in this build for \"mixed\".");
         return false;
       }
-      // A temporary hack to generate an SST file with a mix of compression
-      // types, as this has been *de facto* supported for a long time on the
-      // read side with no code to generate them on the write side. We can test
-      // that functionality, e.g. in check_format_compatible.sh, with this hack
-      g_hack_mixed_compression.StoreRelaxed(1);
-      // Need to list zstd in compression_name table property if it's
-      // potentially in the mix, for proper handling of context and dictionary.
+      options_.compression = kZSTD;
+      options_.bottommost_compression = kZSTD;
+      auto mgr =
+          std::make_shared<RoundRobinManager>(GetBuiltinV2CompressionManager());
+      options_.compression_manager = mgr;
+
+      // Need to list zstd in the compression_name table property if it's
+      // potentially used by being in the mix (i.e., potentially at least one
+      // data block in the table is compressed by zstd). This ensures proper
+      // context and dictionary handling, and prevents crashes in older RocksDB
+      // versions.
+      //
+      // To achieve this, set `value` (the compression_type in Options which
+      // will be used to set compression_name table property) to kZSTD, even if
+      // multiple compression types are used within a single table.
       value = ZSTD_Supported() ? kZSTD : GetSupportedCompressions()[0];
       return true;
 #endif  // !NDEBUG

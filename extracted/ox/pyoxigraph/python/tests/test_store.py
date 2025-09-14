@@ -4,7 +4,7 @@ import unittest
 from io import BytesIO, StringIO, UnsupportedOperation
 from pathlib import Path
 from tempfile import NamedTemporaryFile, TemporaryDirectory, TemporaryFile
-from typing import Any
+from typing import Any, List, Union
 
 from pyoxigraph import (
     BlankNode,
@@ -37,32 +37,20 @@ class TestStore(unittest.TestCase):
         store.add(Quad(foo, bar, baz))
         store.add(Quad(foo, bar, baz, DefaultGraph()))
         store.add(Quad(foo, bar, baz, graph))
-        store.add(Quad(triple, bar, baz))
         store.add(Quad(foo, bar, triple))
-        self.assertEqual(len(store), 4)
+        self.assertEqual(len(store), 3)
 
     def test_extend(self) -> None:
-        store = Store()
-        store.extend(
-            (
-                Quad(foo, bar, baz),
-                Quad(foo, bar, baz, graph),
-                Quad(foo, bar, baz, DefaultGraph()),
+        for fn in ("extend", "bulk_extend"):
+            store = Store()
+            getattr(store, fn)(
+                (
+                    Quad(foo, bar, baz),
+                    Quad(foo, bar, baz, graph),
+                    Quad(foo, bar, baz, DefaultGraph()),
+                )
             )
-        )
-        self.assertEqual(len(store), 2)
-
-    @unittest.skipIf(is_wasm, "Not supported with WASM")
-    def test_bulk_extend(self) -> None:
-        store = Store()
-        store.bulk_extend(
-            (
-                Quad(foo, bar, baz),
-                Quad(foo, bar, baz, graph),
-                Quad(foo, bar, baz, DefaultGraph()),
-            )
-        )
-        self.assertEqual(len(store), 2)
+            self.assertEqual(len(store), 2)
 
     def test_remove(self) -> None:
         store = Store()
@@ -182,6 +170,20 @@ class TestStore(unittest.TestCase):
         )
         self.assertEqual(len(list(results)), 3)
 
+    def test_ask_query_with_base_and_prefixes(self) -> None:
+        store = Store()
+        store.add(Quad(foo, bar, baz))
+        self.assertTrue(
+            store.query(
+                "ASK { <> bar: baz: }",
+                base_iri="http://foo",
+                prefixes={
+                    "bar": "http://bar",
+                    "baz": "http://baz",
+                },
+            )
+        )
+
     def test_select_query_with_named_graph(self) -> None:
         store = Store()
         graph_bnode = BlankNode("g")
@@ -210,6 +212,30 @@ class TestStore(unittest.TestCase):
         self.assertIsInstance(solution, QuerySolution)
         self.assertEqual(solution["c"], Literal("http://foohttp://bar"))
         self.assertIsNone(solution["f"], None)
+
+    def test_select_query_with_custom_aggregate_function(self) -> None:
+        class Aggregate:
+            def __init__(self) -> None:
+                self.acc: List[Union[NamedNode, BlankNode, Literal, Triple]] = []
+
+            def accumulate(self, element: Union[NamedNode, BlankNode, Literal, Triple]) -> None:
+                self.acc.append(element)
+
+            def finish(self) -> Literal:
+                return Literal(" ".join(sorted(str(e) for e in self.acc)))
+
+        store = Store()
+        store.add(Quad(foo, bar, foo))
+        store.add(Quad(bar, bar, foo))
+        results: Any = store.query(
+            "SELECT (<http://example.com/concat>(?s) AS ?c)WHERE { ?s ?p ?o }",
+            custom_aggregate_functions={
+                NamedNode("http://example.com/concat"): Aggregate,
+            },
+        )
+        solution = next(results)
+        self.assertIsInstance(solution, QuerySolution)
+        self.assertEqual(solution["c"], Literal("<http://bar> <http://foo>"))
 
     def test_select_query_with_substitution(self) -> None:
         store = Store()
@@ -294,59 +320,66 @@ class TestStore(unittest.TestCase):
         self.assertEqual(len(list(results)), 1)
 
     def test_load_ntriples_to_default_graph(self) -> None:
-        store = Store()
-        store.load(
-            b"<http://foo> <http://bar> <http://baz> .",
-            RdfFormat.N_TRIPLES,
-        )
-        self.assertEqual(set(store), {Quad(foo, bar, baz, DefaultGraph())})
+        for fn in ("load", "bulk_load"):
+            store = Store()
+            getattr(store, fn)(
+                b"<http://foo> <http://bar> <http://baz> .",
+                RdfFormat.N_TRIPLES,
+            )
+            self.assertEqual(set(store), {Quad(foo, bar, baz, DefaultGraph())})
 
     def test_load_ntriples_to_named_graph(self) -> None:
-        store = Store()
-        store.load(
-            "<http://foo> <http://bar> <http://baz> .",
-            RdfFormat.N_TRIPLES,
-            to_graph=graph,
-        )
-        self.assertEqual(set(store), {Quad(foo, bar, baz, graph)})
-
-    def test_load_turtle_with_base_iri(self) -> None:
-        store = Store()
-        store.load(
-            BytesIO(b"<http://foo> <http://bar> <> ."),
-            RdfFormat.TURTLE,
-            base_iri="http://baz",
-        )
-        self.assertEqual(set(store), {Quad(foo, bar, baz, DefaultGraph())})
-
-    def test_load_nquads(self) -> None:
-        store = Store()
-        store.load(
-            StringIO("<http://foo> <http://bar> <http://baz> <http://graph>."),
-            RdfFormat.N_QUADS,
-        )
-        self.assertEqual(set(store), {Quad(foo, bar, baz, graph)})
-
-    def test_load_trig_with_base_iri(self) -> None:
-        store = Store()
-        store.load(
-            "<http://graph> { <http://foo> <http://bar> <> . }",
-            RdfFormat.TRIG,
-            base_iri="http://baz",
-        )
-        self.assertEqual(set(store), {Quad(foo, bar, baz, graph)})
-
-    def test_load_file(self) -> None:
-        with NamedTemporaryFile(suffix=".nq") as fp:
-            fp.write(b"<http://foo> <http://bar> <http://baz> <http://graph>.")
-            fp.flush()
+        for fn in ("load", "bulk_load"):
             store = Store()
-            store.load(path=fp.name)
+            getattr(store, fn)(
+                "<http://foo> <http://bar> <http://baz> .",
+                RdfFormat.N_TRIPLES,
+                to_graph=graph,
+            )
             self.assertEqual(set(store), {Quad(foo, bar, baz, graph)})
 
+    def test_load_turtle_with_base_iri(self) -> None:
+        for fn in ("load", "bulk_load"):
+            store = Store()
+            getattr(store, fn)(
+                BytesIO(b"<http://foo> <http://bar> <> ."),
+                RdfFormat.TURTLE,
+                base_iri="http://baz",
+            )
+            self.assertEqual(set(store), {Quad(foo, bar, baz, DefaultGraph())})
+
+    def test_load_nquads(self) -> None:
+        for fn in ("load", "bulk_load"):
+            store = Store()
+            getattr(store, fn)(
+                StringIO("<http://foo> <http://bar> <http://baz> <http://graph>."),
+                RdfFormat.N_QUADS,
+            )
+            self.assertEqual(set(store), {Quad(foo, bar, baz, graph)})
+
+    def test_load_trig_with_base_iri(self) -> None:
+        for fn in ("load", "bulk_load"):
+            store = Store()
+            getattr(store, fn)(
+                "<http://graph> { <http://foo> <http://bar> <> . }",
+                RdfFormat.TRIG,
+                base_iri="http://baz",
+            )
+            self.assertEqual(set(store), {Quad(foo, bar, baz, graph)})
+
+    def test_load_file(self) -> None:
+        for fn in ("load", "bulk_load"):
+            with NamedTemporaryFile(suffix=".nq") as fp:
+                fp.write(b"<http://foo> <http://bar> <http://baz> <http://graph>.")
+                fp.flush()
+                store = Store()
+                getattr(store, fn)(path=fp.name)
+                self.assertEqual(set(store), {Quad(foo, bar, baz, graph)})
+
     def test_load_with_io_error(self) -> None:
-        with self.assertRaises(UnsupportedOperation) as _, TemporaryFile("wb") as fp:
-            Store().load(fp, RdfFormat.N_TRIPLES)
+        for fn in ("load", "bulk_load"):
+            with self.assertRaises(UnsupportedOperation) as _, TemporaryFile("wb") as fp:
+                getattr(Store(), fn)(fp, RdfFormat.N_TRIPLES)
 
     def test_dump_ntriples(self) -> None:
         store = Store()

@@ -1,3 +1,5 @@
+#![allow(clippy::large_enum_variant)]
+
 use crate::csv::{
     ReaderTsvQueryResultsParserOutput, ReaderTsvSolutionsParser, SliceTsvQueryResultsParserOutput,
     SliceTsvSolutionsParser,
@@ -130,14 +132,6 @@ impl QueryResultsParser {
         })
     }
 
-    #[deprecated(note = "use for_read", since = "0.4.0")]
-    pub fn read_results<R: Read>(
-        &self,
-        reader: R,
-    ) -> Result<ReaderQueryResultsParserOutput<R>, QueryResultsParseError> {
-        self.clone().for_reader(reader)
-    }
-
     /// Reads a result file from a Tokio [`AsyncRead`] implementation.
     ///
     /// Reads are automatically buffered.
@@ -218,12 +212,12 @@ impl QueryResultsParser {
     /// let xml_parser = QueryResultsParser::from_format(QueryResultsFormat::Xml);
     ///
     /// // boolean
-    /// if let SliceQueryResultsParserOutput::Boolean(v) = xml_parser.clone().for_slice(br#"<sparql xmlns="http://www.w3.org/2005/sparql-results#"><head/><boolean>true</boolean></sparql>"#)? {
+    /// if let SliceQueryResultsParserOutput::Boolean(v) = xml_parser.clone().for_slice(r#"<sparql xmlns="http://www.w3.org/2005/sparql-results#"><head/><boolean>true</boolean></sparql>"#)? {
     ///     assert_eq!(v, true);
     /// }
     ///
     /// // solutions
-    /// if let SliceQueryResultsParserOutput::Solutions(solutions) = xml_parser.for_slice(br#"<sparql xmlns="http://www.w3.org/2005/sparql-results#"><head><variable name="foo"/><variable name="bar"/></head><results><result><binding name="foo"><literal>test</literal></binding></result></results></sparql>"#)? {
+    /// if let SliceQueryResultsParserOutput::Solutions(solutions) = xml_parser.for_slice(r#"<sparql xmlns="http://www.w3.org/2005/sparql-results#"><head><variable name="foo"/><variable name="bar"/></head><results><result><binding name="foo"><literal>test</literal></binding></result></results></sparql>"#)? {
     ///     assert_eq!(solutions.variables(), &[Variable::new("foo")?, Variable::new("bar")?]);
     ///     for solution in solutions {
     ///         assert_eq!(solution?.iter().collect::<Vec<_>>(), vec![(&Variable::new("foo")?, &Literal::from("test").into())]);
@@ -233,40 +227,56 @@ impl QueryResultsParser {
     /// ```
     pub fn for_slice(
         self,
-        slice: &[u8],
+        slice: &(impl AsRef<[u8]> + ?Sized),
     ) -> Result<SliceQueryResultsParserOutput<'_>, QueryResultsSyntaxError> {
         Ok(match self.format {
-            QueryResultsFormat::Xml => match SliceXmlQueryResultsParserOutput::read(slice)? {
-                SliceXmlQueryResultsParserOutput::Boolean(r) => SliceQueryResultsParserOutput::Boolean(r),
-                SliceXmlQueryResultsParserOutput::Solutions {
-                    solutions,
-                    variables,
-                } => SliceQueryResultsParserOutput::Solutions(SliceSolutionsParser {
-                    variables: variables.into(),
-                    solutions: SliceSolutionsParserKind::Xml(solutions),
-                }),
-            },
-            QueryResultsFormat::Json => match SliceJsonQueryResultsParserOutput::read(slice)? {
-                SliceJsonQueryResultsParserOutput::Boolean(r) => SliceQueryResultsParserOutput::Boolean(r),
-                SliceJsonQueryResultsParserOutput::Solutions {
-                    solutions,
-                    variables,
-                } => SliceQueryResultsParserOutput::Solutions(SliceSolutionsParser {
-                    variables: variables.into(),
-                    solutions: SliceSolutionsParserKind::Json(solutions),
-                }),
-            },
-            QueryResultsFormat::Csv => return Err(QueryResultsSyntaxError::msg("CSV SPARQL results syntax is lossy and can't be parsed to a proper RDF representation")),
-            QueryResultsFormat::Tsv => match SliceTsvQueryResultsParserOutput::read(slice)? {
-                SliceTsvQueryResultsParserOutput::Boolean(r) => SliceQueryResultsParserOutput::Boolean(r),
-                SliceTsvQueryResultsParserOutput::Solutions {
-                    solutions,
-                    variables,
-                } => SliceQueryResultsParserOutput::Solutions(SliceSolutionsParser {
-                    variables: variables.into(),
-                    solutions: SliceSolutionsParserKind::Tsv(solutions),
-                }),
-            },
+            QueryResultsFormat::Xml => {
+                match SliceXmlQueryResultsParserOutput::read(slice.as_ref())? {
+                    SliceXmlQueryResultsParserOutput::Boolean(r) => {
+                        SliceQueryResultsParserOutput::Boolean(r)
+                    }
+                    SliceXmlQueryResultsParserOutput::Solutions {
+                        solutions,
+                        variables,
+                    } => SliceQueryResultsParserOutput::Solutions(SliceSolutionsParser {
+                        variables: variables.into(),
+                        solutions: SliceSolutionsParserKind::Xml(solutions),
+                    }),
+                }
+            }
+            QueryResultsFormat::Json => {
+                match SliceJsonQueryResultsParserOutput::read(slice.as_ref())? {
+                    SliceJsonQueryResultsParserOutput::Boolean(r) => {
+                        SliceQueryResultsParserOutput::Boolean(r)
+                    }
+                    SliceJsonQueryResultsParserOutput::Solutions {
+                        solutions,
+                        variables,
+                    } => SliceQueryResultsParserOutput::Solutions(SliceSolutionsParser {
+                        variables: variables.into(),
+                        solutions: SliceSolutionsParserKind::Json(solutions),
+                    }),
+                }
+            }
+            QueryResultsFormat::Csv => {
+                return Err(QueryResultsSyntaxError::msg(
+                    "CSV SPARQL results syntax is lossy and can't be parsed to a proper RDF representation",
+                ));
+            }
+            QueryResultsFormat::Tsv => {
+                match SliceTsvQueryResultsParserOutput::read(slice.as_ref())? {
+                    SliceTsvQueryResultsParserOutput::Boolean(r) => {
+                        SliceQueryResultsParserOutput::Boolean(r)
+                    }
+                    SliceTsvQueryResultsParserOutput::Solutions {
+                        solutions,
+                        variables,
+                    } => SliceQueryResultsParserOutput::Solutions(SliceSolutionsParser {
+                        variables: variables.into(),
+                        solutions: SliceSolutionsParserKind::Tsv(solutions),
+                    }),
+                }
+            }
         })
     }
 }
@@ -290,14 +300,14 @@ impl From<QueryResultsFormat> for QueryResultsParser {
 ///
 /// // boolean
 /// if let ReaderQueryResultsParserOutput::Boolean(v) =
-///     tsv_parser.clone().for_reader(b"true".as_slice())?
+///     tsv_parser.clone().for_reader("true".as_bytes())?
 /// {
 ///     assert_eq!(v, true);
 /// }
 ///
 /// // solutions
 /// if let ReaderQueryResultsParserOutput::Solutions(solutions) =
-///     tsv_parser.for_reader(b"?foo\t?bar\n\"test\"\t".as_slice())?
+///     tsv_parser.for_reader("?foo\t?bar\n\"test\"\t".as_bytes())?
 /// {
 ///     assert_eq!(
 ///         solutions.variables(),
@@ -312,7 +322,6 @@ impl From<QueryResultsFormat> for QueryResultsParser {
 /// }
 /// # Result::<_, Box<dyn std::error::Error>>::Ok(())
 /// ```
-#[allow(clippy::large_enum_variant)]
 pub enum ReaderQueryResultsParserOutput<R: Read> {
     Solutions(ReaderSolutionsParser<R>),
     Boolean(bool),
@@ -432,7 +441,6 @@ impl<R: Read> Iterator for ReaderSolutionsParser<R> {
 /// # }
 /// ```
 #[cfg(feature = "async-tokio")]
-#[allow(clippy::large_enum_variant)]
 pub enum TokioAsyncReaderQueryResultsParserOutput<R: AsyncRead + Unpin> {
     Solutions(TokioAsyncReaderSolutionsParser<R>),
     Boolean(bool),
@@ -552,7 +560,6 @@ impl<R: AsyncRead + Unpin> TokioAsyncReaderSolutionsParser<R> {
 /// }
 /// # Result::<_, Box<dyn std::error::Error>>::Ok(())
 /// ```
-#[allow(clippy::large_enum_variant)]
 pub enum SliceQueryResultsParserOutput<'a> {
     Solutions(SliceSolutionsParser<'a>),
     Boolean(bool),
@@ -568,7 +575,7 @@ pub enum SliceQueryResultsParserOutput<'a> {
 /// use oxrdf::{Literal, Variable};
 ///
 /// let json_parser = QueryResultsParser::from_format(QueryResultsFormat::Json);
-/// if let SliceQueryResultsParserOutput::Solutions(solutions) = json_parser.for_slice(br#"{"head":{"vars":["foo","bar"]},"results":{"bindings":[{"foo":{"type":"literal","value":"test"}}]}}"#)? {
+/// if let SliceQueryResultsParserOutput::Solutions(solutions) = json_parser.for_slice(r#"{"head":{"vars":["foo","bar"]},"results":{"bindings":[{"foo":{"type":"literal","value":"test"}}]}}"#)? {
 ///     assert_eq!(solutions.variables(), &[Variable::new("foo")?, Variable::new("bar")?]);
 ///     for solution in solutions {
 ///         assert_eq!(solution?.iter().collect::<Vec<_>>(), vec![(&Variable::new("foo")?, &Literal::from("test").into())]);
@@ -597,7 +604,7 @@ impl SliceSolutionsParser<'_> {
     ///
     /// let tsv_parser = QueryResultsParser::from_format(QueryResultsFormat::Tsv);
     /// if let SliceQueryResultsParserOutput::Solutions(solutions) =
-    ///     tsv_parser.for_slice(b"?foo\t?bar\n\"ex1\"\t\"ex2\"")?
+    ///     tsv_parser.for_slice("?foo\t?bar\n\"ex1\"\t\"ex2\"")?
     /// {
     ///     assert_eq!(
     ///         solutions.variables(),

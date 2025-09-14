@@ -20,19 +20,17 @@ use pyo3::prelude::*;
 /// Oxigraph Python bindings
 #[pymodule]
 pub mod pyoxigraph {
-    use super::*;
+    #[expect(non_upper_case_globals)]
+    #[pymodule_export]
+    const __version__: &str = env!("CARGO_PKG_VERSION");
+    #[cfg(feature = "rdf-12")]
+    #[pymodule_export]
+    use super::PyBaseDirection;
     #[pymodule_export]
     use super::{
-        parse, parse_query_results, serialize, PyBlankNode, PyCanonicalizationAlgorithm, PyDataset,
-        PyDefaultGraph, PyLiteral, PyNamedNode, PyQuad, PyQuadParser, PyQueryBoolean,
-        PyQueryResultsFormat, PyQuerySolution, PyQuerySolutions, PyQueryTriples, PyRdfFormat,
-        PyStore, PyTriple, PyVariable,
+        PyBlankNode, PyCanonicalizationAlgorithm, PyDataset, PyDefaultGraph, PyLiteral,
+        PyNamedNode, PyQuad, PyQuadParser, PyQueryBoolean, PyQueryResultsFormat, PyQuerySolution,
+        PyQuerySolutions, PyQueryTriples, PyRdfFormat, PyStore, PyTriple, PyVariable, parse,
+        parse_query_results, serialize,
     };
-
-    #[pymodule_init]
-    fn pymodule_init(module: &Bound<'_, PyModule>) -> PyResult<()> {
-        module.add("__package__", "pyoxigraph")?;
-        module.add("__version__", env!("CARGO_PKG_VERSION"))?;
-        module.add("__author__", env!("CARGO_PKG_AUTHORS").replace(':', "\n"))
-    }
 }

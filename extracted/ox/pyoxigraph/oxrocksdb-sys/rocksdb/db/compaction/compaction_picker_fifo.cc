@@ -127,11 +127,9 @@ Compaction* FIFOCompactionPicker::PickTTLCompaction(
       mutable_cf_options.compression_opts,
       mutable_cf_options.default_write_temperature,
       /* max_subcompactions */ 0, {}, /* earliest_snapshot */ std::nullopt,
-      /* snapshot_checker */ nullptr,
-      /* is manual */ false,
+      /* snapshot_checker */ nullptr, CompactionReason::kFIFOTtl,
       /* trim_ts */ "", vstorage->CompactionScore(0),
-      /* is deletion compaction */ true, /* l0_files_might_overlap */ true,
-      CompactionReason::kFIFOTtl);
+      /* l0_files_might_overlap */ true);
   return c;
 }
 
@@ -200,11 +198,10 @@ Compaction* FIFOCompactionPicker::PickSizeCompaction(
             mutable_cf_options.default_write_temperature,
             0 /* max_subcompactions */, {},
             /* earliest_snapshot */ std::nullopt,
-            /* snapshot_checker */ nullptr, /* is manual */ false,
+            /* snapshot_checker */ nullptr,
+            CompactionReason::kFIFOReduceNumFiles,
             /* trim_ts */ "", vstorage->CompactionScore(0),
-            /* is deletion compaction */ false,
-            /* l0_files_might_overlap */ true,
-            CompactionReason::kFIFOReduceNumFiles);
+            /* l0_files_might_overlap */ true);
         return c;
       }
     }
@@ -297,11 +294,9 @@ Compaction* FIFOCompactionPicker::PickSizeCompaction(
       mutable_cf_options.compression_opts,
       mutable_cf_options.default_write_temperature,
       /* max_subcompactions */ 0, {}, /* earliest_snapshot */ std::nullopt,
-      /* snapshot_checker */ nullptr,
-      /* is manual */ false,
+      /* snapshot_checker */ nullptr, CompactionReason::kFIFOMaxSize,
       /* trim_ts */ "", vstorage->CompactionScore(0),
-      /* is deletion compaction */ true,
-      /* l0_files_might_overlap */ true, CompactionReason::kFIFOMaxSize);
+      /* l0_files_might_overlap */ true);
   return c;
 }
 
@@ -416,10 +411,9 @@ Compaction* FIFOCompactionPicker::PickTemperatureChangeCompaction(
       mutable_cf_options.compression, mutable_cf_options.compression_opts,
       compaction_target_temp,
       /* max_subcompactions */ 0, {}, /* earliest_snapshot */ std::nullopt,
-      /* snapshot_checker */ nullptr,
-      /* is manual */ false, /* trim_ts */ "", vstorage->CompactionScore(0),
-      /* is deletion compaction */ false, /* l0_files_might_overlap */ true,
-      CompactionReason::kChangeTemperature);
+      /* snapshot_checker */ nullptr, CompactionReason::kChangeTemperature,
+      /* trim_ts */ "", vstorage->CompactionScore(0),
+      /* l0_files_might_overlap */ true);
   return c;
 }
 
@@ -428,7 +422,7 @@ Compaction* FIFOCompactionPicker::PickCompaction(
     const MutableDBOptions& mutable_db_options,
     const std::vector<SequenceNumber>& /* existing_snapshots */,
     const SnapshotChecker* /* snapshot_checker */, VersionStorageInfo* vstorage,
-    LogBuffer* log_buffer) {
+    LogBuffer* log_buffer, bool /* require_max_output_level*/) {
   Compaction* c = nullptr;
   if (mutable_cf_options.ttl > 0) {
     c = PickTTLCompaction(cf_name, mutable_cf_options, mutable_db_options,

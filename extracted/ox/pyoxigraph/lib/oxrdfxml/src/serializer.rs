@@ -1,9 +1,9 @@
 use crate::utils::*;
 use oxiri::{Iri, IriParseError};
-use oxrdf::vocab::rdf;
-use oxrdf::{NamedNodeRef, Subject, SubjectRef, TermRef, TripleRef};
-use quick_xml::events::{BytesDecl, BytesEnd, BytesStart, BytesText, Event};
+use oxrdf::vocab::{rdf, xsd};
+use oxrdf::{NamedNodeRef, NamedOrBlankNode, NamedOrBlankNodeRef, TermRef, TripleRef};
 use quick_xml::Writer;
+use quick_xml::events::{BytesDecl, BytesEnd, BytesStart, BytesText, Event};
 use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::io;
@@ -125,7 +125,6 @@ impl RdfXmlSerializer {
     /// );
     /// # Result::<_, Box<dyn std::error::Error>>::Ok(())
     /// ```
-    #[allow(clippy::unused_self)]
     pub fn for_writer<W: Write>(self, writer: W) -> WriterRdfXmlSerializer<W> {
         WriterRdfXmlSerializer {
             writer: Writer::new_with_indent(writer, b'\t', 1),
@@ -162,7 +161,6 @@ impl RdfXmlSerializer {
     /// # Ok(())
     /// # }
     /// ```
-    #[allow(clippy::unused_self)]
     #[cfg(feature = "async-tokio")]
     pub fn for_tokio_async_writer<W: AsyncWrite + Unpin>(
         self,
@@ -331,7 +329,7 @@ const RESERVED_SYNTAX_TERMS: [&str; 9] = [
 ];
 
 pub struct InnerRdfXmlWriter {
-    current_subject: Option<Subject>,
+    current_subject: Option<NamedOrBlankNode>,
     current_resource_tag: Option<String>,
     custom_default_prefix: bool,
     prefixes_by_iri: BTreeMap<String, String>,
@@ -350,7 +348,7 @@ impl InnerRdfXmlWriter {
 
         let triple = t.into();
         // We open a new rdf:Description if useful
-        if self.current_subject.as_ref().map(Subject::as_ref) != Some(triple.subject) {
+        if self.current_subject.as_ref().map(NamedOrBlankNode::as_ref) != Some(triple.subject) {
             if self.current_subject.is_some() {
                 output.push(Event::End(
                     self.current_resource_tag
@@ -379,18 +377,22 @@ impl InnerRdfXmlWriter {
             } else {
                 (BytesStart::new("rdf:Description"), false)
             };
-            #[allow(clippy::match_wildcard_for_single_variants, unreachable_patterns)]
+            #[allow(
+                unreachable_patterns,
+                clippy::match_wildcard_for_single_variants,
+                clippy::allow_attributes
+            )]
             match triple.subject {
-                SubjectRef::NamedNode(node) => description_open
+                NamedOrBlankNodeRef::NamedNode(node) => description_open
                     .push_attribute(("rdf:about", relative_iri(node.as_str(), &self.base_iri))),
-                SubjectRef::BlankNode(node) => {
+                NamedOrBlankNodeRef::BlankNode(node) => {
                     description_open.push_attribute(("rdf:nodeID", node.as_str()))
                 }
                 _ => {
                     return Err(io::Error::new(
                         io::ErrorKind::InvalidInput,
                         "RDF/XML only supports named or blank subject",
-                    ))
+                    ));
                 }
             }
             output.push(Event::Start(description_open));
@@ -410,7 +412,11 @@ impl InnerRdfXmlWriter {
         if let Some(prop_xmlns) = prop_xmlns {
             property_open.push_attribute(prop_xmlns);
         }
-        #[allow(clippy::match_wildcard_for_single_variants, unreachable_patterns)]
+        #[allow(
+            unreachable_patterns,
+            clippy::match_wildcard_for_single_variants,
+            clippy::allow_attributes
+        )]
         let content = match triple.object {
             TermRef::NamedNode(node) => {
                 property_open
@@ -424,7 +430,7 @@ impl InnerRdfXmlWriter {
             TermRef::Literal(literal) => {
                 if let Some(language) = literal.language() {
                     property_open.push_attribute(("xml:lang", language));
-                } else if !literal.is_plain() {
+                } else if literal.datatype() != xsd::STRING {
                     property_open.push_attribute((
                         "rdf:datatype",
                         relative_iri(literal.datatype().as_str(), &self.base_iri),
@@ -436,7 +442,7 @@ impl InnerRdfXmlWriter {
                 return Err(io::Error::new(
                     io::ErrorKind::InvalidInput,
                     "RDF/XML only supports named, blank or literal object",
-                ))
+                ));
             }
         };
         if let Some(content) = content {
@@ -545,7 +551,7 @@ fn relative_iri<'a>(iri: &'a str, base_iri: &Option<Iri<String>>) -> Cow<'a, str
 }
 
 #[cfg(test)]
-#[allow(clippy::panic_in_result_fn)]
+#[expect(clippy::panic_in_result_fn)]
 mod tests {
     use super::*;
     use std::error::Error;
@@ -590,7 +596,10 @@ mod tests {
             NamedNodeRef::new("http://example.com/o2")?,
         ))?;
         let output = serializer.finish()?;
-        assert_eq!(String::from_utf8_lossy(&output), "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<rdf:RDF xmlns=\"http://example.com/\" xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\">\n\t<oxprefix:o xmlns:oxprefix=\"http://example.org/\" rdf:about=\"http://example.com/s\">\n\t\t<p rdf:resource=\"http://example.com/o2\"/>\n\t</oxprefix:o>\n</rdf:RDF>");
+        assert_eq!(
+            String::from_utf8_lossy(&output),
+            "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<rdf:RDF xmlns=\"http://example.com/\" xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\">\n\t<oxprefix:o xmlns:oxprefix=\"http://example.org/\" rdf:about=\"http://example.com/s\">\n\t\t<p rdf:resource=\"http://example.com/o2\"/>\n\t</oxprefix:o>\n</rdf:RDF>"
+        );
         Ok(())
     }
 }

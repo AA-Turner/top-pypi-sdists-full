@@ -94,10 +94,9 @@ class Compaction {
              std::vector<FileMetaData*> grandparents,
              std::optional<SequenceNumber> earliest_snapshot,
              const SnapshotChecker* snapshot_checker,
-             bool manual_compaction = false, const std::string& trim_ts = "",
-             double score = -1, bool deletion_compaction = false,
+             CompactionReason compaction_reason,
+             const std::string& trim_ts = "", double score = -1,
              bool l0_files_might_overlap = true,
-             CompactionReason compaction_reason = CompactionReason::kUnknown,
              BlobGarbageCollectionPolicy blob_garbage_collection_policy =
                  BlobGarbageCollectionPolicy::kUseDefault,
              double blob_garbage_collection_age_cutoff = -1);
@@ -462,6 +461,11 @@ class Compaction {
                                    const ImmutableOptions& immutable_options,
                                    const int start_level,
                                    const int output_level);
+
+  static bool OutputToNonZeroMaxOutputLevel(int output_level,
+                                            int max_output_level) {
+    return output_level > 0 && output_level == max_output_level;
+  }
 
   // If some data cannot be safely migrated "up" the LSM tree due to a change
   // in the preclude_last_level_data_seconds setting, this indicates a sequence

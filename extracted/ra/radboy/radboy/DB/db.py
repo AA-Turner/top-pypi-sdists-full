@@ -5788,3 +5788,165 @@ except Exception as e:
     ROBS,ROBE=['','']
 
 #'''
+
+def CD4TXT(code,shrt=True):
+    if not isinstance(code,str):
+        code=str(code)
+
+    with Session(ENGINE) as session:
+        try:
+            EID=int(code)
+        except Exception as e:
+            print(e)
+            EID=None
+
+        if EID:
+            query=session.query(Entry).filter(
+                or_(
+                    Entry.Barcode.icontains(code),
+                    Entry.Code.icontains(code),
+                    Entry.Name.icontains(code),
+                    Entry.Note.icontains(code),
+                    Entry.Description.icontains(code),
+                    Entry.EntryId==EID,
+                    )
+
+                )
+        else:
+            query=session.query(Entry).filter(
+                or_(
+                    Entry.Barcode.icontains(code),
+                    Entry.Code.icontains(code),
+                    Entry.Name.icontains(code),
+                    Entry.Note.icontains(code),
+                    Entry.Description.icontains(code),
+                    )
+
+                )
+        ordered=orderQuery(query,Entry.Timestamp,inverse=True)
+
+        results=ordered.all()
+        ct=len(results)
+        htext=[]
+        for num,i in enumerate(results):
+            msg=std_colorize(f"{i.seeShort()}",num,ct)
+            htext.append(msg)
+        htext='\n'.join(htext)
+        if len(results) < 1:
+            return f'"No Item Was Found for {code}!"'
+
+        print(htext)
+        selector=Control(func=FormBuilderMkText,ptext="Which indexes are you selecting?",helpText=htext,data="list")
+        if selector is None:
+            return f'"No Item Was Selected for {code}"'
+        try:
+            useText=[]
+            for num,s in enumerate(selector):
+                try:
+                    index=int(s)
+                    if shrt:
+                        txt=f"CODE('{code}')={results[index].seeShortRaw()}"
+                    else:
+                        txt=f"CODE('{code}')={strip_colors(str(results[index]))}"
+                    useText.append(txt)
+                except Exception as e:
+                    print(e)
+            listed=f'"({','.join(useText)})"'
+            return listed
+        except Exception as e:
+            print(e)
+            return f"An Exception is Preventing Lookup of '{code}';{e}"
+
+def CD4E(code):
+    if not isinstance(code,str):
+        code=str(code)
+
+    with Session(ENGINE) as session:
+        try:
+            EID=int(code)
+        except Exception as e:
+            print(e)
+            EID=None
+
+        if EID:
+            query=session.query(Entry).filter(
+                or_(
+                    Entry.Barcode.icontains(code),
+                    Entry.Code.icontains(code),
+                    Entry.Name.icontains(code),
+                    Entry.Note.icontains(code),
+                    Entry.Description.icontains(code),
+                    Entry.EntryId==EID,
+                    )
+
+                )
+        else:
+            query=session.query(Entry).filter(
+                or_(
+                    Entry.Barcode.icontains(code),
+                    Entry.Code.icontains(code),
+                    Entry.Name.icontains(code),
+                    Entry.Note.icontains(code),
+                    Entry.Description.icontains(code),
+                    )
+
+                )
+        ordered=orderQuery(query,Entry.Timestamp,inverse=True)
+
+        results=ordered.all()
+        ct=len(results)
+        htext=[]
+        for num,i in enumerate(results):
+            msg=std_colorize(f"{i.seeShort()}",num,ct)
+            htext.append(msg)
+        htext='\n'.join(htext)
+        if len(results) < 1:
+            return Entry('NOT FOUND','ERROR 404')
+
+        print(htext)
+        selector=Control(func=FormBuilderMkText,ptext="Which indexes are you selecting?",helpText=htext,data="integer")
+        if selector is None:
+            return Entry('No Selection','Nothing Selected')
+        try:
+            index=selector
+            return results[index]
+        except Exception as e:
+            print(e)
+            return Entry('EXCEPTION','Exception')
+
+@dataclass
+class TaxRate(BASE,Template):
+    __tablename__="TaxRate"
+    txrt_id=Column(Integer,primary_key=True)
+    DTOE=Column(DateTime,default=datetime.now())
+
+    TaxRate=Column(Float,default=0)
+    Name=Column(String,default=None)
+    
+    StreetAddress=Column(String,default='6819 Waltons Ln')
+    City=Column(String,default=None)
+    County=Column(String,default='Gloucester')
+    State=Column(String,default='VA')
+    ZIP=Column(String,default='23061')
+    Country=Column(String,default='USA')
+
+    def as_json(self,excludes=['txrt_id','DTOE']):
+        dd={str(d.name):self.__dict__[d.name] for d in self.__table__.columns if d.name not in excludes}
+        return json.dumps(dd)
+
+    def asID(self):
+        return f"{self.__class__.__name__}(cbid={self.cbid})"
+
+    def __init__(self,**kwargs):
+        if 'DTOE' not in kwargs:
+            self.DTOE=datetime.now()
+        for k in kwargs.keys():
+            if k in [s.name for s in self.__table__.columns]:
+                setattr(self,k,kwargs.get(k))
+
+try:
+    TaxRate.metadata.create_all(ENGINE)
+except Exception as e:
+    print(e)
+    TaxRate.__table__.drop(ENGINE)
+    TaxRate.metadata.create_all(ENGINE)

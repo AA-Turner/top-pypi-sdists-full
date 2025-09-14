@@ -201,6 +201,7 @@ typedef enum TCOD_keycode_t {
     In its current state it exists only for backwards compatibility.
     These issues should be resolved by using SDL directly for keyboard events.
  */
+TCOD_DEPRECATED("The libtcod event API has been deprecated, switch to using SDL event types exclusively")
 typedef struct TCOD_key_t {
   /***************************************************************************
       @brief The TCOD_keycode_t enum of the current key.
@@ -513,11 +514,12 @@ typedef enum TCOD_renderer_t {
    */
   TCOD_RENDERER_SDL,
   /***************************************************************************
-      A new SDL2 renderer.  Allows the window to be resized.
+      Libtcod's primary SDL renderer. Uses graphics hardware.
 
-      You may set `SDL_HINT_RENDER_SCALE_QUALITY` to determine the tileset
-      upscaling filter.  Either nearest or linear.  The hint will only take
-      effect if it's set before this renderer is created.
+      Despite the name this renderer uses SDL3.
+
+      You may set `SDL_HINT_RENDER_SCALE_QUALITY` to determine the tileset upscaling filter of either nearest or linear.
+      This hint will only take effect if it's set before this renderer is created.
 
       \rst
       .. versionadded:: 1.8

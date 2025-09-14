@@ -16,26 +16,27 @@ rust-version.workspace = true
 [features]
 default = ["rocksdb"]
 rocksdb = ["oxrocksdb-sys"]
-js = ["getrandom/js", "oxsdatatypes/js", "js-sys"]
+js = ["getrandom/wasm_js", "oxsdatatypes/js", "js-sys"]
 http-client = ["oxhttp"]
 http-client-native-tls = ["http-client", "oxhttp/native-tls"]
 http-client-rustls-webpki = ["http-client", "oxhttp/rustls-ring-webpki"]
 http-client-rustls-native = ["http-client", "oxhttp/rustls-ring-native"]
 rocksdb-pkg-config = ["oxrocksdb-sys/pkg-config"]
 rocksdb-debug = []
+rdf-12 = ["oxrdfio/rdf-12", "spareval/sparql-12"]
 
 [dependencies]
 dashmap.workspace = true
 oxiri.workspace = true
-oxrdf = { workspace = true, features = ["rdf-star", "oxsdatatypes"] }
-oxrdfio = { workspace = true, features = ["rdf-star"] }
+oxrdf = { workspace = true, features = ["oxsdatatypes"] }
+oxrdfio.workspace = true
 oxsdatatypes.workspace = true
 rand.workspace = true
 rustc-hash.workspace = true
 siphasher.workspace = true
-sparesults = { workspace = true, features = ["rdf-star"] }
-spargebra = { workspace = true, features = ["rdf-star", "sep-0002", "sep-0006"] }
-spareval = { workspace = true, features = ["rdf-star", "sep-0002", "sep-0006", "calendar-ext"] }
+sparesults.workspace = true
+spargebra = { workspace = true, features = ["sep-0002", "sep-0006"] }
+spareval = { workspace = true, features = ["sep-0002", "sep-0006", "calendar-ext"] }
 thiserror.workspace = true
 
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
@@ -52,6 +53,7 @@ codspeed-criterion-compat.workspace = true
 csv.workspace = true
 oxhttp = { workspace = true, features = ["rustls-ring-native"] }
 bzip2.workspace = true
+tempfile.workspace = true
 
 [lints]
 workspace = true

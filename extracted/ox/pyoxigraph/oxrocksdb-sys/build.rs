@@ -30,9 +30,8 @@ fn bindgen_rocksdb_api(includes: &[PathBuf]) {
     }
     builder
         .header("api/c.h")
-        .ctypes_prefix("libc")
-        .size_t_is_usize(true)
         .allowlist_function("rocksdb_.*")
+        .allowlist_function("oxrocksdb_.*")
         .allowlist_type("rocksdb_.*")
         .allowlist_var("rocksdb_.*")
         .generate()
@@ -126,13 +125,13 @@ fn build_rocksdb() {
         config.define("NPERF_CONTEXT", None);
         config.define("ROCKSDB_PLATFORM_POSIX", None);
         config.define("ROCKSDB_LIB_IO_POSIX", None);
-        remove_var("SDKROOT"); // We override SDKROOT for cross-compilation
-        set_var("IPHONEOS_DEPLOYMENT_TARGET", "11.0");
+        unsafe { remove_var("SDKROOT") }; // We override SDKROOT for cross-compilation
+        unsafe { set_var("IPHONEOS_DEPLOYMENT_TARGET", "11.0") };
     } else if target.contains("darwin") {
         config.define("OS_MACOSX", None);
         config.define("ROCKSDB_PLATFORM_POSIX", None);
         config.define("ROCKSDB_LIB_IO_POSIX", None);
-        remove_var("SDKROOT"); // We override SDKROOT for cross-compilation
+        unsafe { remove_var("SDKROOT") }; // We override SDKROOT for cross-compilation
     } else if target.contains("android") {
         config.define("OS_ANDROID", None);
         config.define("ROCKSDB_PLATFORM_POSIX", None);

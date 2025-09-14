@@ -3,21 +3,21 @@
 use crate::lexer::{N3Lexer, N3LexerMode, N3LexerOptions, N3Token};
 use crate::toolkit::{Lexer, Parser, RuleRecognizer, RuleRecognizerError, TokenOrLineJump};
 use crate::{MAX_BUFFER_SIZE, MIN_BUFFER_SIZE};
-#[cfg(feature = "rdf-star")]
+#[cfg(feature = "rdf-12")]
 use oxrdf::Triple;
-use oxrdf::{BlankNode, GraphName, Literal, NamedNode, Quad, Subject, Term};
+use oxrdf::vocab::rdf;
+use oxrdf::{BlankNode, GraphName, Literal, NamedNode, NamedOrBlankNode, Quad, Term};
 
 pub struct NQuadsRecognizer {
     stack: Vec<NQuadsState>,
-    subjects: Vec<Subject>,
+    subjects: Vec<NamedOrBlankNode>,
     predicates: Vec<NamedNode>,
     objects: Vec<Term>,
+    lenient: bool,
 }
 
 pub struct NQuadsRecognizerContext {
     with_graph_name: bool,
-    #[cfg(feature = "rdf-star")]
-    with_quoted_triples: bool,
     lexer_options: N3LexerOptions,
 }
 
@@ -35,10 +35,8 @@ enum NQuadsState {
     },
     ExpectLineJump,
     RecoverToLineJump,
-    #[cfg(feature = "rdf-star")]
-    AfterQuotedSubject,
-    #[cfg(feature = "rdf-star")]
-    AfterQuotedObject,
+    #[cfg(feature = "rdf-12")]
+    AfterQuotedTriple,
 }
 
 impl RuleRecognizer for NQuadsRecognizer {
@@ -86,12 +84,6 @@ impl RuleRecognizer for NQuadsRecognizer {
                     N3Token::BlankNodeLabel(s) => {
                         self.subjects.push(BlankNode::new_unchecked(s).into());
                         self.stack.push(NQuadsState::ExpectPredicate);
-                        self
-                    }
-                    #[cfg(feature = "rdf-star")]
-                    N3Token::Punctuation("<<") if context.with_quoted_triples => {
-                        self.stack.push(NQuadsState::AfterQuotedSubject);
-                        self.stack.push(NQuadsState::ExpectSubject);
                         self
                     }
                     _ => self.error(
@@ -156,9 +148,9 @@ impl RuleRecognizer for NQuadsRecognizer {
                             .push(NQuadsState::ExpectLiteralAnnotationOrGraphNameOrDot { value });
                         self
                     }
-                    #[cfg(feature = "rdf-star")]
-                    N3Token::Punctuation("<<") if context.with_quoted_triples => {
-                        self.stack.push(NQuadsState::AfterQuotedObject);
+                    #[cfg(feature = "rdf-12")]
+                    N3Token::Punctuation("<<(") => {
+                        self.stack.push(NQuadsState::AfterQuotedTriple);
                         self.stack.push(NQuadsState::ExpectSubject);
                         self
                     }
@@ -172,11 +164,36 @@ impl RuleRecognizer for NQuadsRecognizer {
                 }
             }
             NQuadsState::ExpectLiteralAnnotationOrGraphNameOrDot { value } => match token {
-                TokenOrLineJump::Token(N3Token::LangTag(lang_tag)) => {
+                #[cfg(feature = "rdf-12")]
+                TokenOrLineJump::Token(N3Token::LangTag {
+                    language,
+                    direction,
+                }) => {
+                    self.objects.push(
+                        if let Some(direction) = direction {
+                            Literal::new_directional_language_tagged_literal_unchecked(
+                                value,
+                                language.to_ascii_lowercase(),
+                                direction,
+                            )
+                        } else {
+                            Literal::new_language_tagged_literal_unchecked(
+                                value,
+                                language.to_ascii_lowercase(),
+                            )
+                        }
+                        .into(),
+                    );
+                    self.stack
+                        .push(NQuadsState::ExpectPossibleGraphOrEndOfQuotedTriple);
+                    self
+                }
+                #[cfg(not(feature = "rdf-12"))]
+                TokenOrLineJump::Token(N3Token::LangTag { language }) => {
                     self.objects.push(
                         Literal::new_language_tagged_literal_unchecked(
                             value,
-                            lang_tag.to_ascii_lowercase(),
+                            language.to_ascii_lowercase(),
                         )
                         .into(),
                     );
@@ -208,6 +225,13 @@ impl RuleRecognizer for NQuadsRecognizer {
                 };
                 match token {
                     N3Token::IriRef(d) => {
+                        if !self.lenient && d == rdf::LANG_STRING.as_str() {
+                            errors.push("The datatype of a literal without a language tag must not be rdf:langString".into());
+                        }
+                        #[cfg(feature = "rdf-12")]
+                        if !self.lenient && d == rdf::DIR_LANG_STRING.as_str() {
+                            errors.push("The datatype of a literal without a base direction must not be rdf:dirLangString".into());
+                        }
                         self.objects.push(
                             Literal::new_typed_literal(value, NamedNode::new_unchecked(d)).into(),
                         );
@@ -245,7 +269,7 @@ impl RuleRecognizer for NQuadsRecognizer {
                             self.recognize_next(token, context, results, errors)
                         }
                     }
-                } else if token == TokenOrLineJump::Token(N3Token::Punctuation(">>")) {
+                } else if token == TokenOrLineJump::Token(N3Token::Punctuation(")>>")) {
                     self
                 } else {
                     self.error(
@@ -253,7 +277,7 @@ impl RuleRecognizer for NQuadsRecognizer {
                         results,
                         errors,
                         token,
-                        "Expecting the end of a quoted triple '>>'",
+                        "Expecting the end of a quoted triple ')>>'",
                     )
                 }
             }
@@ -289,19 +313,8 @@ impl RuleRecognizer for NQuadsRecognizer {
                 );
                 self.recognize_next(TokenOrLineJump::Token(token), context, results, errors)
             }
-            #[cfg(feature = "rdf-star")]
-            NQuadsState::AfterQuotedSubject => {
-                let triple = Triple {
-                    subject: self.subjects.pop().unwrap(),
-                    predicate: self.predicates.pop().unwrap(),
-                    object: self.objects.pop().unwrap(),
-                };
-                self.subjects.push(triple.into());
-                self.stack.push(NQuadsState::ExpectPredicate);
-                self.recognize_next(token, context, results, errors)
-            }
-            #[cfg(feature = "rdf-star")]
-            NQuadsState::AfterQuotedObject => {
+            #[cfg(feature = "rdf-12")]
+            NQuadsState::AfterQuotedTriple => {
                 let triple = Triple {
                     subject: self.subjects.pop().unwrap(),
                     predicate: self.predicates.pop().unwrap(),
@@ -349,17 +362,15 @@ impl RuleRecognizer for NQuadsRecognizer {
 }
 
 impl NQuadsRecognizer {
-    #[allow(clippy::fn_params_excessive_bools)]
     pub fn new_parser<B>(
         data: B,
         is_ending: bool,
         with_graph_name: bool,
-        #[cfg(feature = "rdf-star")] with_quoted_triples: bool,
-        unchecked: bool,
+        lenient: bool,
     ) -> Parser<B, Self> {
         Parser::new(
             Lexer::new(
-                N3Lexer::new(N3LexerMode::NTriples, unchecked),
+                N3Lexer::new(N3LexerMode::NTriples, lenient),
                 data,
                 is_ending,
                 MIN_BUFFER_SIZE,
@@ -371,11 +382,10 @@ impl NQuadsRecognizer {
                 subjects: Vec::new(),
                 predicates: Vec::new(),
                 objects: Vec::new(),
+                lenient,
             },
             NQuadsRecognizerContext {
                 with_graph_name,
-                #[cfg(feature = "rdf-star")]
-                with_quoted_triples,
                 lexer_options: N3LexerOptions::default(),
             },
         )

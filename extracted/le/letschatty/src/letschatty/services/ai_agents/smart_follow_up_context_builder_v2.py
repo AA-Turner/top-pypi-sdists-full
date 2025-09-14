@@ -1,5 +1,4 @@
-from letschatty.models.chat.chat import Chat
-from letschatty.models.chat.flow_link_state import SmartFollowUpState
+from letschatty.models.chat.chat import Chat, FlowStateAssignedToChat
 from letschatty.models.company.assets.ai_agents_v2.follow_up_strategy import FollowUpStrategy
 from letschatty.services.ai_agents.context_builder_v2 import ContextBuilder
 from letschatty.models.utils.custom_exceptions.custom_exceptions import HumanInterventionRequired, MaximumFollowUpsReached, PostponeFollowUp
@@ -14,7 +13,7 @@ logger = logging.getLogger("SmartFollowUpContextBuilder")
 class SmartFollowUpContextBuilder(ContextBuilder):
 
     @staticmethod
-    def check_minimum_time_since_last_message(chat: Chat, follow_up_strategy: FollowUpStrategy,smart_follow_up_state: SmartFollowUpState) -> bool:
+    def check_minimum_time_since_last_message(chat: Chat, follow_up_strategy: FollowUpStrategy,smart_follow_up_state: FlowStateAssignedToChat) -> bool:
         expected_interval_minutes = follow_up_strategy.get_interval_for_followup(smart_follow_up_state.consecutive_count)
         last_message_timestamp = chat.last_message_timestamp
         if last_message_timestamp is None:
@@ -26,7 +25,7 @@ class SmartFollowUpContextBuilder(ContextBuilder):
 
 
     @staticmethod
-    def follow_up_strategy_context(chat_smart_follow_up_assigned: SmartFollowUpState, follow_up_strategy: FollowUpStrategy, chat: Chat) -> str:
+    def follow_up_strategy_context(chat_smart_follow_up_assigned: FlowStateAssignedToChat, follow_up_strategy: FollowUpStrategy, chat: Chat) -> str:
         if follow_up_strategy.maximum_consecutive_follow_ups == 0:
             raise HumanInterventionRequired("There's a 0 limit for the maximum consecutive follow ups, human intervention is required")
         if follow_up_strategy.maximum_follow_ups_to_be_executed == 0:
@@ -51,7 +50,7 @@ class SmartFollowUpContextBuilder(ContextBuilder):
         return context
 
     @staticmethod
-    def next_follow_up(chat_smart_follow_up_assigned: SmartFollowUpState, follow_up_strategy: FollowUpStrategy) -> str:
+    def next_follow_up(chat_smart_follow_up_assigned: FlowStateAssignedToChat, follow_up_strategy: FollowUpStrategy) -> str:
         next_call = datetime.now(ZoneInfo('UTC')) + timedelta(minutes=follow_up_strategy.get_interval_for_followup(chat_smart_follow_up_assigned.consecutive_count + 1))
         next_interval_minutes = follow_up_strategy.get_interval_for_followup(chat_smart_follow_up_assigned.consecutive_count + 1)
         context = f"As far as the next call, if you decide to send / suggest messages, the standard interval would be: {next_interval_minutes} minutes, so the next call would be: {next_call.isoformat()}. Unless you determine that the situation requires a different interval, in which case you should set the next call time accordingly. If you decide to skip, the next call time up to you based on the context and reason for skipping."

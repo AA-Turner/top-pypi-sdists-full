@@ -20,7 +20,7 @@ use crate::store::{CacheBucket, Store};
 use crate::version;
 
 // The version range of `uv` we will install. Should update periodically.
-const CUR_UV_VERSION: &str = "0.8.14";
+const CUR_UV_VERSION: &str = "0.8.15";
 static UV_VERSION_RANGE: LazyLock<VersionReq> =
     LazyLock::new(|| VersionReq::parse(">=0.7.0, <0.9.0").unwrap());
 
@@ -487,4 +487,14 @@ impl Uv {
 
         Ok(Self::new(uv_path))
     }
+}
+
+#[test]
+fn ensure_cur_uv_version_in_range() {
+    let version = Version::parse(CUR_UV_VERSION).expect("Invalid CUR_UV_VERSION");
+    assert!(
+        UV_VERSION_RANGE.matches(&version),
+        "CUR_UV_VERSION {CUR_UV_VERSION} does not satisfy the version requirement {}",
+        &*UV_VERSION_RANGE
+    );
 }

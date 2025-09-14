@@ -337,7 +337,9 @@ Compaction* CompactionPicker::CompactFiles(
     const CompactionOptions& compact_options,
     const std::vector<CompactionInputFiles>& input_files, int output_level,
     VersionStorageInfo* vstorage, const MutableCFOptions& mutable_cf_options,
-    const MutableDBOptions& mutable_db_options, uint32_t output_path_id) {
+    const MutableDBOptions& mutable_db_options, uint32_t output_path_id,
+    std::optional<SequenceNumber> earliest_snapshot,
+    const SnapshotChecker* snapshot_checker) {
 #ifndef NDEBUG
   assert(input_files.size());
   // This compaction output should not overlap with a running compaction as
@@ -380,8 +382,8 @@ Compaction* CompactionPicker::CompactFiles(
       GetCompressionOptions(mutable_cf_options, vstorage, output_level),
       mutable_cf_options.default_write_temperature,
       compact_options.max_subcompactions,
-      /* grandparents */ {}, /* earliest_snapshot */ std::nullopt,
-      /* snapshot_checker */ nullptr, true);
+      /* grandparents */ {}, earliest_snapshot, snapshot_checker,
+      CompactionReason::kManualCompaction);
   RegisterCompaction(c);
   return c;
 }
@@ -680,10 +682,9 @@ Compaction* CompactionPicker::CompactRange(
         mutable_cf_options.default_write_temperature,
         compact_range_options.max_subcompactions,
         /* grandparents */ {}, /* earliest_snapshot */ std::nullopt,
-        /* snapshot_checker */ nullptr,
-        /* is manual */ true, trim_ts, /* score */ -1,
-        /* deletion_compaction */ false, /* l0_files_might_overlap */ true,
-        CompactionReason::kUnknown,
+        /* snapshot_checker */ nullptr, CompactionReason::kManualCompaction,
+        trim_ts, /* score */ -1,
+        /* l0_files_might_overlap */ true,
         compact_range_options.blob_garbage_collection_policy,
         compact_range_options.blob_garbage_collection_age_cutoff);
 
@@ -873,9 +874,8 @@ Compaction* CompactionPicker::CompactRange(
       mutable_cf_options.default_write_temperature,
       compact_range_options.max_subcompactions, std::move(grandparents),
       /* earliest_snapshot */ std::nullopt, /* snapshot_checker */ nullptr,
-      /* is manual */ true, trim_ts, /* score */ -1,
-      /* deletion_compaction */ false, /* l0_files_might_overlap */ true,
-      CompactionReason::kUnknown,
+      CompactionReason::kManualCompaction, trim_ts, /* score */ -1,
+      /* l0_files_might_overlap */ true,
       compact_range_options.blob_garbage_collection_policy,
       compact_range_options.blob_garbage_collection_age_cutoff);
 

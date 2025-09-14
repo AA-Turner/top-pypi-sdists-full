@@ -88,7 +88,7 @@ class ParentWorkPlugin(BeetsPlugin):
             force_parent = self.config["force"].get(bool)
             write = ui.should_write()
 
-            for item in lib.items(ui.decargs(args)):
+            for item in lib.items(args):
                 changed = self.find_work(item, force_parent, verbose=True)
                 if changed:
                     item.store()
@@ -179,10 +179,8 @@ class ParentWorkPlugin(BeetsPlugin):
 
         if not item.mb_workid:
             self._log.info(
-                "No work for {}, \
-add one at https://musicbrainz.org/recording/{}",
+                "No work for {0}, add one at https://musicbrainz.org/recording/{0.mb_trackid}",
                 item,
-                item.mb_trackid,
             )
             return
 

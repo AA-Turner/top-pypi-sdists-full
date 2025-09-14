@@ -2220,15 +2220,15 @@ int main(int argc, char** argv) {
     CheckCondition(100 ==
                    rocksdb_options_get_memtable_op_scan_flush_trigger(o));
 
+    rocksdb_options_set_memtable_avg_op_scan_flush_trigger(o, 150);
+    CheckCondition(150 ==
+                   rocksdb_options_get_memtable_avg_op_scan_flush_trigger(o));
+
     rocksdb_options_set_ttl(o, 5000);
     CheckCondition(5000 == rocksdb_options_get_ttl(o));
 
     rocksdb_options_set_skip_stats_update_on_db_open(o, 1);
     CheckCondition(1 == rocksdb_options_get_skip_stats_update_on_db_open(o));
-
-    rocksdb_options_set_skip_checking_sst_file_sizes_on_db_open(o, 1);
-    CheckCondition(
-        1 == rocksdb_options_get_skip_checking_sst_file_sizes_on_db_open(o));
 
     rocksdb_options_set_max_write_buffer_number(o, 97);
     CheckCondition(97 == rocksdb_options_get_max_write_buffer_number(o));
@@ -2489,8 +2489,6 @@ int main(int argc, char** argv) {
     CheckCondition(2.0 ==
                    rocksdb_options_get_max_bytes_for_level_multiplier(copy));
     CheckCondition(1 == rocksdb_options_get_skip_stats_update_on_db_open(copy));
-    CheckCondition(
-        1 == rocksdb_options_get_skip_checking_sst_file_sizes_on_db_open(copy));
     CheckCondition(97 == rocksdb_options_get_max_write_buffer_number(copy));
     CheckCondition(23 ==
                    rocksdb_options_get_min_write_buffer_number_to_merge(copy));
@@ -2663,6 +2661,12 @@ int main(int argc, char** argv) {
     CheckCondition(100 ==
                    rocksdb_options_get_memtable_op_scan_flush_trigger(o));
 
+    rocksdb_options_set_memtable_avg_op_scan_flush_trigger(copy, 900);
+    CheckCondition(
+        900 == rocksdb_options_get_memtable_avg_op_scan_flush_trigger(copy));
+    CheckCondition(150 ==
+                   rocksdb_options_get_memtable_avg_op_scan_flush_trigger(o));
+
     rocksdb_options_set_ttl(copy, 8000);
     CheckCondition(8000 == rocksdb_options_get_ttl(copy));
     CheckCondition(5000 == rocksdb_options_get_ttl(o));
@@ -2670,12 +2674,6 @@ int main(int argc, char** argv) {
     rocksdb_options_set_skip_stats_update_on_db_open(copy, 0);
     CheckCondition(0 == rocksdb_options_get_skip_stats_update_on_db_open(copy));
     CheckCondition(1 == rocksdb_options_get_skip_stats_update_on_db_open(o));
-
-    rocksdb_options_set_skip_checking_sst_file_sizes_on_db_open(copy, 0);
-    CheckCondition(
-        0 == rocksdb_options_get_skip_checking_sst_file_sizes_on_db_open(copy));
-    CheckCondition(
-        1 == rocksdb_options_get_skip_checking_sst_file_sizes_on_db_open(o));
 
     rocksdb_options_set_max_write_buffer_number(copy, 2000);
     CheckCondition(2000 == rocksdb_options_get_max_write_buffer_number(copy));

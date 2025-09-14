@@ -10,21 +10,25 @@ use same_file::is_same_file;
 
 use crate::cli::reporter::{HookInitReporter, HookInstallReporter};
 use crate::cli::run;
+use crate::cli::run::{SelectorSource, Selectors};
 use crate::cli::{ExitStatus, HookType};
-use crate::config::CONFIG_FILE;
 use crate::fs::{CWD, Simplified};
 use crate::git::git_cmd;
 use crate::printer::Printer;
 use crate::store::STORE;
-use crate::workspace::Project;
+use crate::workspace::{Project, Workspace};
 use crate::{git, warn_user};
 
+#[allow(clippy::fn_params_excessive_bools)]
 pub(crate) async fn install(
     config: Option<PathBuf>,
+    includes: Vec<String>,
+    skips: Vec<String>,
     hook_types: Vec<HookType>,
     install_hook_environments: bool,
     overwrite: bool,
     allow_missing_config: bool,
+    refresh: bool,
     printer: Printer,
     git_dir: Option<&Path>,
 ) -> Result<ExitStatus> {
@@ -35,7 +39,7 @@ pub(crate) async fn install(
         );
     }
 
-    let project = Project::from_config_file_or_directory(config.clone(), &CWD).ok();
+    let project = Project::discover(config.as_deref(), &CWD).ok();
     let hook_types = get_hook_types(project.as_ref(), hook_types);
 
     let hooks_path = if let Some(dir) = git_dir {
@@ -45,15 +49,19 @@ pub(crate) async fn install(
     };
     fs_err::create_dir_all(&hooks_path)?;
 
-    let config_file = project
-        .as_ref()
-        .map(Project::config_file)
-        .or(config.as_deref())
-        .unwrap_or(Path::new(CONFIG_FILE));
+    let selectors = if let Some(project) = &project {
+        Some(Selectors::load(&includes, &skips, project.path())?)
+    } else if !includes.is_empty() || !skips.is_empty() {
+        anyhow::bail!("Cannot use `--include` or `--skip` outside of a git repository");
+    } else {
+        None
+    };
 
     for hook_type in hook_types {
         install_hook_script(
-            config_file,
+            project.as_ref(),
+            config.clone(),
+            selectors.as_ref(),
             hook_type,
             &hooks_path,
             overwrite,
@@ -63,23 +71,36 @@ pub(crate) async fn install(
     }
 
     if install_hook_environments {
-        install_hooks(config, printer).await?;
+        install_hooks(config, includes, skips, refresh, printer).await?;
     }
 
     Ok(ExitStatus::Success)
 }
 
-pub(crate) async fn install_hooks(config: Option<PathBuf>, printer: Printer) -> Result<ExitStatus> {
-    let mut project = Project::from_config_file_or_directory(config, &CWD)?;
+pub(crate) async fn install_hooks(
+    config: Option<PathBuf>,
+    includes: Vec<String>,
+    skips: Vec<String>,
+    refresh: bool,
+    printer: Printer,
+) -> Result<ExitStatus> {
+    let workspace_root = Workspace::find_root(config.as_deref(), &CWD)?;
+    let selectors = Selectors::load(&includes, &skips, &workspace_root)?;
+    let mut workspace = Workspace::discover(workspace_root, config, Some(&selectors), refresh)?;
+
     let store = STORE.as_ref()?;
+    let reporter = HookInitReporter::from(printer);
     let _lock = store.lock_async().await?;
 
-    let reporter = HookInitReporter::from(printer);
-    let hooks = project.init_hooks(store, Some(&reporter)).await?;
-    let hooks = hooks.into_iter().map(Arc::new).collect();
+    let hooks = workspace.init_hooks(store, Some(&reporter)).await?;
+    let filtered_hooks: Vec<_> = hooks
+        .into_iter()
+        .filter(|h| selectors.matches_hook(h))
+        .map(Arc::new)
+        .collect();
 
     let reporter = HookInstallReporter::from(printer);
-    run::install_hooks(hooks, store, &reporter).await?;
+    run::install_hooks(filtered_hooks, store, &reporter).await?;
 
     Ok(ExitStatus::Success)
 }
@@ -106,7 +127,9 @@ fn get_hook_types(project: Option<&Project>, hook_types: Vec<HookType>) -> Vec<H
 }
 
 fn install_hook_script(
-    config_file: &Path,
+    project: Option<&Project>,
+    config: Option<PathBuf>,
+    selectors: Option<&Selectors>,
     hook_type: HookType,
     hooks_path: &Path,
     overwrite: bool,
@@ -136,14 +159,52 @@ fn install_hook_script(
         }
     }
 
-    let mut args = vec![
-        "hook-impl".to_string(),
-        format!("--hook-type={}", hook_type.as_str()),
-    ];
-    args.push(format!(r#"--config="{}""#, config_file.display()));
+    let mut args = vec!["hook-impl".to_string()];
+
+    // Add include/skip selectors.
+    if let Some(selectors) = selectors {
+        for include in selectors.includes() {
+            args.push(include.as_normalized_flag());
+        }
+
+        // Find any skip selectors from environment variables.
+        if let Some(env_var) = selectors.skips().iter().find_map(|skip| {
+            if let SelectorSource::EnvVar(var) = skip.source() {
+                Some(var)
+            } else {
+                None
+            }
+        }) {
+            warn_user!(
+                "Skip selectors from environment variables `{}` are ignored during installing hooks.",
+                env_var.cyan()
+            );
+        }
+
+        for skip in selectors.skips() {
+            if matches!(skip.source(), SelectorSource::CliFlag(_)) {
+                args.push(skip.as_normalized_flag());
+            }
+        }
+    }
+
+    args.push(format!("--hook-type={}", hook_type.as_str()));
+
+    // Prefer explicit config path if given (non-workspace mode).
+    // Otherwise, use the config path from the discovered project (workspace mode).
+    // If neither is available, don't pass a config path (let prek find it). In this case,
+    // we're different with `pre-commit` which always sets `--config=.pre-commit-config.yaml`.
+    if let Some(config) = config {
+        args.push(format!(r#"--config="{}""#, config.display()));
+    } else if let Some(project) = project {
+        args.push(format!(r#"--cd="{}""#, project.path().display()));
+    }
+
     if skip_on_missing_config {
         args.push("--skip-on-missing-config".to_string());
     }
+
+    args.push(format!("--script-version={CUR_SCRIPT_VERSION}"));
 
     let prek = std::env::current_exe()?;
     let prek = prek.simplified().display().to_string();
@@ -184,6 +245,10 @@ fn install_hook_script(
     Ok(())
 }
 
+/// The version of the hook script. Increment this when the script changes in a way that
+/// requires re-installation.
+pub(crate) static CUR_SCRIPT_VERSION: usize = 2;
+
 static HOOK_TMPL: &str = r#"#!SHEBANG
 # File generated by prek: https://github.com/j178/prek
 # ID: 182c10f181da4464a3eec51b83331688
@@ -217,7 +282,8 @@ pub(crate) async fn uninstall(
     hook_types: Vec<HookType>,
     printer: Printer,
 ) -> Result<ExitStatus> {
-    let project = Project::from_config_file_or_directory(config, &CWD).ok();
+    let project = Project::discover(config.as_deref(), &CWD).ok();
+
     for hook_type in get_hook_types(project.as_ref(), hook_types) {
         let hooks_path = git::get_git_common_dir().await?.join("hooks");
         let hook_path = hooks_path.join(hook_type.as_str());
@@ -262,14 +328,18 @@ pub(crate) async fn init_template_dir(
     config: Option<PathBuf>,
     hook_types: Vec<HookType>,
     requires_config: bool,
+    refresh: bool,
     printer: Printer,
 ) -> Result<ExitStatus> {
     install(
         config,
+        vec![],
+        vec![],
         hook_types,
         false,
         true,
         !requires_config,
+        refresh,
         printer,
         Some(&directory),
     )

@@ -57,6 +57,7 @@ class Statistics;
 class InternalKeyComparator;
 class WalFilter;
 class FileSystem;
+class UserDefinedIndexFactory;
 
 struct Options;
 struct DbPath;
@@ -232,6 +233,14 @@ struct ColumnFamilyOptions : public AdvancedColumnFamilyOptions {
 
   // different options for compression algorithms
   CompressionOptions compression_opts;
+
+  // EXPERIMENTAL
+  // Customized compression through a callback interface. When non-nullptr,
+  // supersedes the above compression options, except that the above options are
+  // still processed as they historically would be and passed to
+  // CompressionManager::GetCompressorForSST as hints or suggestions. See
+  // advanced_compression.h
+  std::shared_ptr<CompressionManager> compression_manager;
 
   // Number of files to trigger level-0 compaction. A value <0 means that
   // level-0 compaction will not be triggered by number of files at all.
@@ -599,6 +608,13 @@ struct DBOptions {
   // for DB or data corruption, on top of usual protections such as block
   // checksums. True also enters a read-only mode when a DB write fails;
   // see DB::Resume().
+  //
+  // When set to true, the DB will fail to open if any SST files fail to open
+  // e.g. due to incorrect file size or corrupted footer.
+  //
+  // When set to false, when there are files corrupted, the DB will still be
+  // opened, and the healthy ones could still be accessed, while corrupted one
+  // will not
   //
   // As most workloads value data correctness over availability, this option
   // is on by default. Note that the name of this old option is potentially
@@ -1289,12 +1305,13 @@ struct DBOptions {
   // Default: false
   bool skip_stats_update_on_db_open = false;
 
-  // If true, then DB::Open() will not fetch and check sizes of all sst files.
-  // This may significantly speed up startup if there are many sst files,
-  // especially when using non-default Env with expensive GetFileSize().
-  // We'll still check that all required sst files exist.
-  // If paranoid_checks is false, this option is ignored, and sst files are
-  // not checked at all.
+  // This option is deprecated and marked as no-op. Kept for backward
+  // compatibility until usage is fully removed.
+  // File size check will be performed through a thread
+  // pool during DB Open, when max_open_files is set to -1.
+  // Therefore, the concern of DB Open slowness is eliminated.
+  // Note that when max_open_files is not set to -1, only a subset of files will
+  // be opened and checked during DB Open.
   //
   // Default: false
   bool skip_checking_sst_file_sizes_on_db_open = false;
@@ -2053,6 +2070,17 @@ struct ReadOptions {
   // Default: false
   bool auto_refresh_iterator_with_snapshot = false;
 
+  // EXPERIMENTAL
+  //
+  // Specify an alternate index to use in the SST files instead of the native
+  // block based table index. The table_factory used for the column family
+  // must support building/reading this index.
+  //
+  // Currently, only forward scans are supported. For forward scans, only Seek()
+  // is supported. SeekToFirst() is not supported. If the caller wishes to scan
+  // from start to end, the native index must be used.
+  const UserDefinedIndexFactory* table_index_factory = nullptr;
+
   // *** END options only relevant to iterators or scans ***
 
   // *** BEGIN options for RocksDB internal use only ***
@@ -2214,10 +2242,20 @@ struct CompactionOptions {
   // If > 0, it will replace the option in the DBOptions for this compaction.
   uint32_t max_subcompactions;
 
+  // Allows cancellation of an in-progress manual compaction.
+  //
+  // Cancellation can be delayed waiting on automatic compactions when used
+  // together with `exclusive_manual_compaction == true`.
+  std::atomic<bool>* canceled;
+  // NOTE: Calling DisableManualCompaction() will not override the
+  // canceled variable in CompactionOptions, as it does for CompactRangeOptions
+  // - this is because ManualCompactionState is not used
+
   CompactionOptions()
       : compression(kDisableCompressionOption),
         output_file_size_limit(std::numeric_limits<uint64_t>::max()),
-        max_subcompactions(0) {}
+        max_subcompactions(0),
+        canceled(nullptr) {}
 };
 
 // For level based compaction, we can configure if we want to skip/force
@@ -2284,7 +2322,7 @@ struct CompactRangeOptions {
   // Cancellation can be delayed waiting on automatic compactions when used
   // together with `exclusive_manual_compaction == true`.
   std::atomic<bool>* canceled = nullptr;
-  // NOTE: Calling DisableManualCompaction() overwrites the uer-provided
+  // NOTE: Calling DisableManualCompaction() overwrites the user-provided
   // canceled variable in CompactRangeOptions.
   // Typically, when CompactRange is being called in one thread (t1) with
   // canceled = false, and DisableManualCompaction is being called in the

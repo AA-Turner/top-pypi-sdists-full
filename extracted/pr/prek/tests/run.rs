@@ -1,8 +1,10 @@
+use std::path::Path;
 use std::process::Command;
 
 use anyhow::Result;
 use assert_cmd::assert::OutputAssertExt;
 use assert_fs::prelude::*;
+use constants::{ALT_CONFIG_FILE, CONFIG_FILE};
 use insta::assert_snapshot;
 
 use crate::common::{TestContext, cmd_snapshot};
@@ -259,24 +261,28 @@ fn multiple_hook_ids() {
     "#);
 
     // Hook-id matches nothing
-    cmd_snapshot!(context.filters(), context.run().arg("nonexistent-hook"), @r#"
+    cmd_snapshot!(context.filters(), context.run().arg("nonexistent-hook"), @r"
     success: false
     exit_code: 1
     ----- stdout -----
 
     ----- stderr -----
-    error: No hook found with id `nonexistent-hook` in stage `pre-commit`
-    "#);
+    warning: selector `nonexistent-hook` did not match any hooks
+    error: No hooks found after filtering with the given selectors
+    ");
 
     // Multiple hook_ids match nothing
-    cmd_snapshot!(context.filters(), context.run().arg("nonexistent-hook").arg("nonexistent-hook").arg("nonexistent-hook-2"), @r#"
+    cmd_snapshot!(context.filters(), context.run().arg("nonexistent-hook").arg("nonexistent-hook").arg("nonexistent-hook-2"), @r"
     success: false
     exit_code: 1
     ----- stdout -----
 
     ----- stderr -----
-    error: No hooks found with ids `nonexistent-hook`, `nonexistent-hook-2` in stage `pre-commit`
-    "#);
+    warning: the following selectors did not match any hooks or projects:
+      - `nonexistent-hook`
+      - `nonexistent-hook-2`
+    error: No hooks found after filtering with the given selectors
+    ");
 
     // Hook-id matches one hook
     cmd_snapshot!(context.filters(), context.run().arg("hook2"), @r#"
@@ -289,7 +295,7 @@ fn multiple_hook_ids() {
     "#);
 
     // Multiple hook-ids with mixed results (some exist, some don't)
-    cmd_snapshot!(context.filters(), context.run().arg("hook1").arg("nonexistent").arg("hook2"), @r#"
+    cmd_snapshot!(context.filters(), context.run().arg("hook1").arg("nonexistent").arg("hook2"), @r"
     success: true
     exit_code: 0
     ----- stdout -----
@@ -297,11 +303,11 @@ fn multiple_hook_ids() {
     Second Hook..............................................................Passed
 
     ----- stderr -----
-    warning: Ignored non-existent hook ID: `nonexistent`
-    "#);
+    warning: selector `nonexistent` did not match any hooks
+    ");
 
     // Multiple valid hook-ids
-    cmd_snapshot!(context.filters(), context.run().arg("hook1").arg("hook2").arg("nonexistent-hook"), @r#"
+    cmd_snapshot!(context.filters(), context.run().arg("hook1").arg("hook2").arg("nonexistent-hook"), @r"
     success: true
     exit_code: 0
     ----- stdout -----
@@ -309,8 +315,8 @@ fn multiple_hook_ids() {
     Second Hook..............................................................Passed
 
     ----- stderr -----
-    warning: Ignored non-existent hook ID: `nonexistent-hook`
-    "#);
+    warning: selector `nonexistent-hook` did not match any hooks
+    ");
 
     // Multiple hook-ids with some duplicates and aliases
     cmd_snapshot!(context.filters(), context.run().arg("hook1").arg("shared-name").arg("hook1"), @r#"
@@ -331,10 +337,7 @@ fn config_not_staged() -> Result<()> {
     let context = TestContext::new();
     context.init_project();
 
-    context
-        .work_dir()
-        .child(".pre-commit-config.yaml")
-        .touch()?;
+    context.work_dir().child(CONFIG_FILE).touch()?;
     context.git_add(".");
 
     context.write_pre_commit_config(indoc::indoc! {r"
@@ -349,7 +352,7 @@ fn config_not_staged() -> Result<()> {
 
     cmd_snapshot!(context.filters(), context.run().arg("invalid-hook-id"), @r#"
     success: false
-    exit_code: 1
+    exit_code: 2
     ----- stdout -----
 
     ----- stderr -----
@@ -457,33 +460,30 @@ fn skips() {
     "#});
     context.git_add(".");
 
-    cmd_snapshot!(context.filters(), context.run().env("SKIP", "end-of-file-fixer"), @r#"
+    cmd_snapshot!(context.filters(), context.run().env("SKIP", "end-of-file-fixer"), @r"
     success: false
     exit_code: 1
     ----- stdout -----
     trailing-whitespace......................................................Failed
     - hook id: trailing-whitespace
     - exit code: 1
-    fix end of files........................................................Skipped
     check json...............................................................Failed
     - hook id: check-json
     - exit code: 1
 
     ----- stderr -----
-    "#);
+    ");
 
-    cmd_snapshot!(context.filters(), context.run().env("SKIP", "trailing-whitespace,end-of-file-fixer"), @r#"
+    cmd_snapshot!(context.filters(), context.run().env("SKIP", "trailing-whitespace,end-of-file-fixer"), @r"
     success: false
     exit_code: 1
     ----- stdout -----
-    trailing-whitespace.....................................................Skipped
-    fix end of files........................................................Skipped
     check json...............................................................Failed
     - hook id: check-json
     - exit code: 1
 
     ----- stderr -----
-    "#);
+    ");
 }
 
 /// Run hooks with matched `stage`.
@@ -801,6 +801,18 @@ fn subdirectory() -> Result<()> {
     ----- stderr -----
     "#);
 
+    cmd_snapshot!(context.filters(), context.run().arg("--cd").arg(&*child).arg("--files").arg("file.txt"), @r#"
+    success: false
+    exit_code: 1
+    ----- stdout -----
+    trailing-whitespace......................................................Failed
+    - hook id: trailing-whitespace
+    - exit code: 1
+      foo/bar/baz/file.txt
+
+    ----- stderr -----
+    "#);
+
     Ok(())
 }
 
@@ -1034,7 +1046,7 @@ fn merge_conflicts() -> Result<()> {
     // Abort on merge conflicts.
     cmd_snapshot!(context.filters(), context.run(), @r#"
     success: false
-    exit_code: 1
+    exit_code: 2
     ----- stdout -----
 
     ----- stderr -----
@@ -1411,6 +1423,18 @@ fn run_directory() -> Result<()> {
     ----- stderr -----
     "#);
 
+    cmd_snapshot!(context.filters(), context.run().arg("--cd").arg("dir1").arg("--directory").arg("."), @r#"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+    directory................................................................Passed
+    - hook id: directory
+    - duration: [TIME]
+      dir1/file.txt
+
+    ----- stderr -----
+    "#);
+
     Ok(())
 }
 
@@ -1436,7 +1460,7 @@ fn minimum_prek_version() {
         .filters()
         .into_iter()
         .chain([(
-            r"current version `\d+\.\d+\.\d+`",
+            r"current version `\d+\.\d+\.\d+(?:-[0-9A-Za-z]+(?:\.[0-9A-Za-z]+)*)?`",
             "current version `[CURRENT_VERSION]`",
         )])
         .collect::<Vec<_>>();
@@ -1625,34 +1649,54 @@ fn git_commit_a() -> Result<()> {
     Ok(())
 }
 
-/// Test hook id completion works.
-#[cfg(unix)]
-#[test]
-fn completion() {
-    let context = TestContext::new();
-    context.init_project();
-    context.write_pre_commit_config(indoc::indoc! {r"
+fn write_pre_commit_config(path: &Path, hooks: &[(&str, &str)]) -> Result<()> {
+    let mut yaml = String::from(indoc::indoc! {"
         repos:
           - repo: local
             hooks:
-              - id: hook
-                name: a useful hook
-                language: system
-                entry: echo
-                verbose: true
     "});
-    context.git_add(".");
+    for (id, name) in hooks {
+        let hook = textwrap::indent(
+            &indoc::formatdoc! {"
+        - id: {}
+          name: {}
+          entry: echo
+          language: system
+        ", id, name
+            },
+            "      ",
+        );
+        yaml.push_str(&hook);
+    }
 
-    cmd_snapshot!(context.filters(), context.run().env("COMPLETE", "fish"), @r#"
-    success: true
-    exit_code: 0
-    ----- stdout -----
-    complete --keep-order --exclusive --command prek --arguments "(COMPLETE=fish "'[CURRENT_EXE]'" -- (commandline --current-process --tokenize --cut-at-cursor) (commandline --current-token))"
+    std::fs::create_dir_all(path)?;
+    std::fs::write(path.join(CONFIG_FILE), yaml)?;
 
-    ----- stderr -----
-    "#);
+    Ok(())
+}
 
-    cmd_snapshot!(context.filters(), context.run().env("COMPLETE", "fish").arg("--").arg("prek").arg(""), @r#"
+#[cfg(unix)]
+#[test]
+fn selectors_completion() -> Result<()> {
+    let context = TestContext::new();
+    let cwd = context.work_dir();
+    context.init_project();
+
+    // Root project with one hook
+    write_pre_commit_config(cwd, &[("root-hook", "Root Hook")])?;
+
+    // Nested project at app/ with one hook
+    let app = cwd.join("app");
+    write_pre_commit_config(&app, &[("app-hook", "App Hook")])?;
+
+    // Deeper nested project at app/lib/ with one hook
+    let app_lib = app.join("lib");
+    write_pre_commit_config(&app_lib, &[("lib-hook", "Lib Hook")])?;
+
+    // Unrelated non-project dir should not appear in subdir suggestions
+    cwd.child("scratch").create_dir_all()?;
+
+    cmd_snapshot!(context.filters(), context.run().env("COMPLETE", "fish").arg("--").arg("prek").arg(""), @r"
     success: true
     exit_code: 0
     ----- stdout -----
@@ -1670,7 +1714,12 @@ fn completion() {
     init-template-dir	Install hook script in a directory intended for use with `git config init.templateDir`
     try-repo	Try the pre-commit hooks in the current repo
     self	`prek` self management
-    hook	a useful hook
+    app/
+    app:
+    app-hook	App Hook
+    lib-hook	Lib Hook
+    root-hook	Root Hook
+    --skip	Skip the specified hooks or projects
     --all-files	Run on all files in the repo
     --files	Specific filenames to run hooks on
     --directory	Run hooks on all files in the specified directories
@@ -1679,8 +1728,11 @@ fn completion() {
     --last-commit	Run hooks against the last commit. Equivalent to `--from-ref HEAD~1 --to-ref HEAD`
     --hook-stage	The stage during which the hook is fired
     --show-diff-on-failure	When hooks fail, run `git diff` directly afterward
+    --dry-run	Do not run the hooks, but print the hooks that would have been run
     --config	Path to alternate config file
+    --cd	Change to directory before running
     --color	Whether to use color in output
+    --refresh	Refresh all cached data
     --help	Display the concise help for this command
     --no-progress	Hide all progress outputs
     --quiet	Do not print any output
@@ -1688,25 +1740,75 @@ fn completion() {
     --version	Display the prek version
 
     ----- stderr -----
-    "#);
+    ");
 
-    cmd_snapshot!(context.filters(), context.run().env("COMPLETE", "fish").arg("--").arg("prek").arg("run"), @r#"
+    cmd_snapshot!(context.filters(), context.run().env("COMPLETE", "fish").arg("--").arg("prek").arg("ap"), @r"
     success: true
     exit_code: 0
     ----- stdout -----
-    run	Run hooks
+    app/
+    app:
+    app-hook	App Hook
 
     ----- stderr -----
-    "#);
+    ");
 
-    cmd_snapshot!(context.filters(), context.run().env("COMPLETE", "fish").arg("--").arg("prek").arg("run").arg("h"), @r#"
+    cmd_snapshot!(context.filters(), context.run().env("COMPLETE", "fish").arg("--").arg("prek").arg("app:"), @r"
     success: true
     exit_code: 0
     ----- stdout -----
-    hook	a useful hook
+    app:app-hook	App Hook
 
     ----- stderr -----
-    "#);
+    ");
+
+    cmd_snapshot!(context.filters(), context.run().env("COMPLETE", "fish").arg("--").arg("prek").arg("app:app"), @r"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+    app:app-hook	App Hook
+
+    ----- stderr -----
+    ");
+
+    cmd_snapshot!(context.filters(), context.run().env("COMPLETE", "fish").arg("--").arg("prek").arg("app/"), @r"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+    app/lib/
+    app/lib:
+
+    ----- stderr -----
+    ");
+    cmd_snapshot!(context.filters(), context.run().env("COMPLETE", "fish").arg("--").arg("prek").arg("app/li"), @r"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+    app/lib/
+    app/lib:
+
+    ----- stderr -----
+    ");
+
+    cmd_snapshot!(context.filters(), context.run().env("COMPLETE", "fish").arg("--").arg("prek").arg("app/lib:"), @r"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+    app/lib:lib-hook	Lib Hook
+
+    ----- stderr -----
+    ");
+
+    cmd_snapshot!(context.filters(), context.run().env("COMPLETE", "fish").arg("--").arg("prek").arg("app/lib/"), @r"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+    app/lib/
+
+    ----- stderr -----
+    ");
+
+    Ok(())
 }
 
 /// Test reusing hook environments only when dependencies are exactly same. (ignore order)
@@ -1763,6 +1865,98 @@ fn reuse_env() -> Result<()> {
 
     // There should be two hook environments.
     assert_eq!(context.home_dir().child("hooks").read_dir()?.count(), 2);
+
+    Ok(())
+}
+
+#[test]
+fn dry_run() {
+    let context = TestContext::new();
+    context.init_project();
+    context.write_pre_commit_config(indoc::indoc! {r"
+        repos:
+          - repo: local
+            hooks:
+              - id: fail
+                name: fail
+                entry: fail
+                language: fail
+    "});
+    context.git_add(".");
+
+    // Run with `--dry-run`
+    cmd_snapshot!(context.filters(), context.run().arg("--dry-run").arg("-v"), @r"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+    fail.....................................................................Dry Run
+    - hook id: fail
+    - duration: [TIME]
+      `fail` would be run on 1 files:
+      - .pre-commit-config.yaml
+
+    ----- stderr -----
+    ");
+}
+
+/// Supports reading `pre-commit-config.yml` as well.
+#[test]
+fn alternate_config_file() -> Result<()> {
+    let context = TestContext::new();
+    context.init_project();
+
+    context
+        .work_dir()
+        .child(ALT_CONFIG_FILE)
+        .write_str(indoc::indoc! {r#"
+        repos:
+          - repo: local
+            hooks:
+              - id: local-python-hook
+                name: local-python-hook
+                language: python
+                entry: python3 -c 'import sys; print("Hello, world!")'
+    "#})?;
+    context.git_add(".");
+
+    cmd_snapshot!(context.filters(), context.run().arg("-v"), @r"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+    local-python-hook........................................................Passed
+    - hook id: local-python-hook
+    - duration: [TIME]
+      Hello, world!
+
+    ----- stderr -----
+    ");
+
+    context
+        .work_dir()
+        .child(CONFIG_FILE)
+        .write_str(indoc::indoc! {r#"
+        repos:
+          - repo: local
+            hooks:
+              - id: local-python-hook
+                name: local-python-hook
+                language: python
+                entry: python3 -c 'import sys; print("Hello, world!")'
+    "#})?;
+    context.git_add(".");
+
+    cmd_snapshot!(context.filters(), context.run().arg("--refresh").arg("-v"), @r"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+    local-python-hook........................................................Passed
+    - hook id: local-python-hook
+    - duration: [TIME]
+      Hello, world!
+
+    ----- stderr -----
+    warning: Both `[TEMP_DIR]/.pre-commit-config.yaml` and `[TEMP_DIR]/.pre-commit-config.yml` exist, using `[TEMP_DIR]/.pre-commit-config.yaml` only
+    ");
 
     Ok(())
 }

@@ -1831,6 +1831,7 @@ class USERPREF_PT_keymap(KeymapPanel, _bpy_types.Panel):
         """
 
 class USERPREF_PT_navigation_bar(_bpy_types.Panel):
+    bl_category: typing.Any
     bl_label: typing.Any
     bl_options: typing.Any
     bl_region_type: typing.Any

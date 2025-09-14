@@ -1,23 +1,22 @@
 //! A [N3](https://w3c.github.io/N3/spec/) streaming parser implemented by [`N3Parser`].
 
-use crate::lexer::{resolve_local_name, N3Lexer, N3LexerMode, N3LexerOptions, N3Token};
+use crate::lexer::{N3Lexer, N3LexerMode, N3LexerOptions, N3Token, resolve_local_name};
 #[cfg(feature = "async-tokio")]
 use crate::toolkit::TokioAsyncReaderIterator;
 use crate::toolkit::{
     Lexer, Parser, ReaderIterator, RuleRecognizer, RuleRecognizerError, SliceIterator,
     TokenOrLineJump, TurtleSyntaxError,
 };
-use crate::{TurtleParseError, MAX_BUFFER_SIZE, MIN_BUFFER_SIZE};
+use crate::{MAX_BUFFER_SIZE, MIN_BUFFER_SIZE, TurtleParseError};
 use oxiri::{Iri, IriParseError};
-use oxrdf::vocab::{rdf, xsd};
-#[cfg(feature = "rdf-star")]
+#[cfg(feature = "rdf-12")]
 use oxrdf::Triple;
+use oxrdf::vocab::{rdf, xsd};
 use oxrdf::{
-    BlankNode, GraphName, Literal, NamedNode, NamedNodeRef, NamedOrBlankNode, Quad, Subject, Term,
-    Variable,
+    BlankNode, GraphName, Literal, NamedNode, NamedNodeRef, NamedOrBlankNode, Quad, Term, Variable,
 };
-use std::collections::hash_map::Iter;
 use std::collections::HashMap;
+use std::collections::hash_map::Iter;
 use std::fmt;
 use std::io::Read;
 #[cfg(feature = "async-tokio")]
@@ -29,7 +28,7 @@ pub enum N3Term {
     NamedNode(NamedNode),
     BlankNode(BlankNode),
     Literal(Literal),
-    #[cfg(feature = "rdf-star")]
+    #[cfg(feature = "rdf-12")]
     Triple(Box<Triple>),
     Variable(Variable),
 }
@@ -41,7 +40,7 @@ impl fmt::Display for N3Term {
             Self::NamedNode(term) => term.fmt(f),
             Self::BlankNode(term) => term.fmt(f),
             Self::Literal(term) => term.fmt(f),
-            #[cfg(feature = "rdf-star")]
+            #[cfg(feature = "rdf-12")]
             Self::Triple(term) => term.fmt(f),
             Self::Variable(term) => term.fmt(f),
         }
@@ -76,7 +75,7 @@ impl From<Literal> for N3Term {
     }
 }
 
-#[cfg(feature = "rdf-star")]
+#[cfg(feature = "rdf-12")]
 impl From<Triple> for N3Term {
     #[inline]
     fn from(triple: Triple) -> Self {
@@ -84,7 +83,7 @@ impl From<Triple> for N3Term {
     }
 }
 
-#[cfg(feature = "rdf-star")]
+#[cfg(feature = "rdf-12")]
 impl From<Box<Triple>> for N3Term {
     #[inline]
     fn from(node: Box<Triple>) -> Self {
@@ -102,18 +101,6 @@ impl From<NamedOrBlankNode> for N3Term {
     }
 }
 
-impl From<Subject> for N3Term {
-    #[inline]
-    fn from(node: Subject) -> Self {
-        match node {
-            Subject::NamedNode(node) => node.into(),
-            Subject::BlankNode(node) => node.into(),
-            #[cfg(feature = "rdf-star")]
-            Subject::Triple(triple) => Self::Triple(triple),
-        }
-    }
-}
-
 impl From<Term> for N3Term {
     #[inline]
     fn from(node: Term) -> Self {
@@ -121,7 +108,7 @@ impl From<Term> for N3Term {
             Term::NamedNode(node) => node.into(),
             Term::BlankNode(node) => node.into(),
             Term::Literal(node) => node.into(),
-            #[cfg(feature = "rdf-star")]
+            #[cfg(feature = "rdf-12")]
             Term::Triple(triple) => Self::Triple(triple),
         }
     }
@@ -183,11 +170,11 @@ impl From<Quad> for N3Quad {
 ///
 /// Count the number of people:
 /// ```
-/// use oxrdf::vocab::rdf;
 /// use oxrdf::NamedNode;
+/// use oxrdf::vocab::rdf;
 /// use oxttl::n3::{N3Parser, N3Term};
 ///
-/// let file = br#"@base <http://example.com/> .
+/// let file = r#"@base <http://example.com/> .
 /// @prefix schema: <http://schema.org/> .
 /// <foo> a schema:Person ;
 ///     schema:name "Foo" .
@@ -197,7 +184,7 @@ impl From<Quad> for N3Quad {
 /// let rdf_type = N3Term::NamedNode(rdf::TYPE.into_owned());
 /// let schema_person = N3Term::NamedNode(NamedNode::new("http://schema.org/Person")?);
 /// let mut count = 0;
-/// for triple in N3Parser::new().for_reader(file.as_ref()) {
+/// for triple in N3Parser::new().for_reader(file.as_bytes()) {
 ///     let triple = triple?;
 ///     if triple.predicate == rdf_type && triple.object == schema_person {
 ///         count += 1;
@@ -209,7 +196,7 @@ impl From<Quad> for N3Quad {
 #[derive(Default, Clone)]
 #[must_use]
 pub struct N3Parser {
-    unchecked: bool,
+    lenient: bool,
     base: Option<Iri<String>>,
     prefixes: HashMap<String, Iri<String>>,
 }
@@ -225,11 +212,17 @@ impl N3Parser {
     ///
     /// It will skip some validations.
     ///
-    /// Note that if the file is actually not valid, broken RDF might be emitted by the parser.
+    /// Note that if the file is actually not valid, the parser might emit broken RDF.
     #[inline]
-    pub fn unchecked(mut self) -> Self {
-        self.unchecked = true;
+    pub fn lenient(mut self) -> Self {
+        self.lenient = true;
         self
+    }
+
+    #[deprecated(note = "Use `lenient()` instead", since = "0.2.0")]
+    #[inline]
+    pub fn unchecked(self) -> Self {
+        self.lenient()
     }
 
     #[inline]
@@ -256,7 +249,7 @@ impl N3Parser {
     /// use oxrdf::NamedNode;
     /// use oxttl::n3::{N3Parser, N3Term};
     ///
-    /// let file = br#"@base <http://example.com/> .
+    /// let file = r#"@base <http://example.com/> .
     /// @prefix schema: <http://schema.org/> .
     /// <foo> a schema:Person ;
     ///     schema:name "Foo" .
@@ -268,7 +261,7 @@ impl N3Parser {
     /// )?);
     /// let schema_person = N3Term::NamedNode(NamedNode::new("http://schema.org/Person")?);
     /// let mut count = 0;
-    /// for triple in N3Parser::new().for_reader(file.as_ref()) {
+    /// for triple in N3Parser::new().for_reader(file.as_bytes()) {
     ///     let triple = triple?;
     ///     if triple.predicate == rdf_type && triple.object == schema_person {
     ///         count += 1;
@@ -289,11 +282,11 @@ impl N3Parser {
     /// ```
     /// # #[tokio::main(flavor = "current_thread")]
     /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// use oxrdf::vocab::rdf;
     /// use oxrdf::NamedNode;
+    /// use oxrdf::vocab::rdf;
     /// use oxttl::n3::{N3Parser, N3Term};
     ///
-    /// let file = br#"@base <http://example.com/> .
+    /// let file = r#"@base <http://example.com/> .
     /// @prefix schema: <http://schema.org/> .
     /// <foo> a schema:Person ;
     ///     schema:name "Foo" .
@@ -303,7 +296,7 @@ impl N3Parser {
     /// let rdf_type = N3Term::NamedNode(rdf::TYPE.into_owned());
     /// let schema_person = N3Term::NamedNode(NamedNode::new("http://schema.org/Person")?);
     /// let mut count = 0;
-    /// let mut parser = N3Parser::new().for_tokio_async_reader(file.as_ref());
+    /// let mut parser = N3Parser::new().for_tokio_async_reader(file.as_bytes());
     /// while let Some(triple) = parser.next().await {
     ///     let triple = triple?;
     ///     if triple.predicate == rdf_type && triple.object == schema_person {
@@ -328,11 +321,11 @@ impl N3Parser {
     ///
     /// Count the number of people:
     /// ```
-    /// use oxrdf::vocab::rdf;
     /// use oxrdf::NamedNode;
+    /// use oxrdf::vocab::rdf;
     /// use oxttl::n3::{N3Parser, N3Term};
     ///
-    /// let file = br#"@base <http://example.com/> .
+    /// let file = r#"@base <http://example.com/> .
     /// @prefix schema: <http://schema.org/> .
     /// <foo> a schema:Person ;
     ///     schema:name "Foo" .
@@ -351,9 +344,9 @@ impl N3Parser {
     /// assert_eq!(2, count);
     /// # Result::<_, Box<dyn std::error::Error>>::Ok(())
     /// ```
-    pub fn for_slice(self, slice: &[u8]) -> SliceN3Parser<'_> {
+    pub fn for_slice(self, slice: &(impl AsRef<[u8]> + ?Sized)) -> SliceN3Parser<'_> {
         SliceN3Parser {
-            inner: N3Recognizer::new_parser(slice, true, false, self.base, self.prefixes)
+            inner: N3Recognizer::new_parser(slice.as_ref(), true, false, self.base, self.prefixes)
                 .into_iter(),
         }
     }
@@ -362,8 +355,8 @@ impl N3Parser {
     ///
     /// Count the number of people:
     /// ```
-    /// use oxrdf::vocab::rdf;
     /// use oxrdf::NamedNode;
+    /// use oxrdf::vocab::rdf;
     /// use oxttl::n3::{N3Parser, N3Term};
     ///
     /// let file: [&[u8]; 5] = [
@@ -402,7 +395,7 @@ impl N3Parser {
             parser: N3Recognizer::new_parser(
                 Vec::new(),
                 false,
-                self.unchecked,
+                self.lenient,
                 self.base,
                 self.prefixes,
             ),
@@ -416,11 +409,11 @@ impl N3Parser {
 ///
 /// Count the number of people:
 /// ```
-/// use oxrdf::vocab::rdf;
 /// use oxrdf::NamedNode;
+/// use oxrdf::vocab::rdf;
 /// use oxttl::n3::{N3Parser, N3Term};
 ///
-/// let file = br#"@base <http://example.com/> .
+/// let file = r#"@base <http://example.com/> .
 /// @prefix schema: <http://schema.org/> .
 /// <foo> a schema:Person ;
 ///     schema:name "Foo" .
@@ -430,7 +423,7 @@ impl N3Parser {
 /// let rdf_type = N3Term::NamedNode(rdf::TYPE.into_owned());
 /// let schema_person = N3Term::NamedNode(NamedNode::new("http://schema.org/Person")?);
 /// let mut count = 0;
-/// for triple in N3Parser::new().for_reader(file.as_ref()) {
+/// for triple in N3Parser::new().for_reader(file.as_bytes()) {
 ///     let triple = triple?;
 ///     if triple.predicate == rdf_type && triple.object == schema_person {
 ///         count += 1;
@@ -454,12 +447,12 @@ impl<R: Read> ReaderN3Parser<R> {
     /// ```
     /// use oxttl::N3Parser;
     ///
-    /// let file = br#"@base <http://example.com/> .
+    /// let file = r#"@base <http://example.com/> .
     /// @prefix schema: <http://schema.org/> .
     /// <foo> a schema:Person ;
     ///     schema:name "Foo" ."#;
     ///
-    /// let mut parser = N3Parser::new().for_reader(file.as_ref());
+    /// let mut parser = N3Parser::new().for_reader(file.as_bytes());
     /// assert_eq!(parser.prefixes().collect::<Vec<_>>(), []); // No prefix at the beginning
     ///
     /// parser.next().unwrap()?; // We read the first triple
@@ -467,6 +460,7 @@ impl<R: Read> ReaderN3Parser<R> {
     ///     parser.prefixes().collect::<Vec<_>>(),
     ///     [("schema", "http://schema.org/")]
     /// ); // There are now prefixes
+    /// //
     /// # Result::<_, Box<dyn std::error::Error>>::Ok(())
     /// ```
     pub fn prefixes(&self) -> N3PrefixesIter<'_> {
@@ -480,12 +474,12 @@ impl<R: Read> ReaderN3Parser<R> {
     /// ```
     /// use oxttl::N3Parser;
     ///
-    /// let file = br#"@base <http://example.com/> .
+    /// let file = r#"@base <http://example.com/> .
     /// @prefix schema: <http://schema.org/> .
     /// <foo> a schema:Person ;
     ///     schema:name "Foo" ."#;
     ///
-    /// let mut parser = N3Parser::new().for_reader(file.as_ref());
+    /// let mut parser = N3Parser::new().for_reader(file.as_bytes());
     /// assert!(parser.base_iri().is_none()); // No base at the beginning because none has been given to the parser.
     ///
     /// parser.next().unwrap()?; // We read the first triple
@@ -519,11 +513,11 @@ impl<R: Read> Iterator for ReaderN3Parser<R> {
 /// ```
 /// # #[tokio::main(flavor = "current_thread")]
 /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
-/// use oxrdf::vocab::rdf;
 /// use oxrdf::NamedNode;
+/// use oxrdf::vocab::rdf;
 /// use oxttl::n3::{N3Parser, N3Term};
 ///
-/// let file = br#"@base <http://example.com/> .
+/// let file = r#"@base <http://example.com/> .
 /// @prefix schema: <http://schema.org/> .
 /// <foo> a schema:Person ;
 ///     schema:name "Foo" .
@@ -533,7 +527,7 @@ impl<R: Read> Iterator for ReaderN3Parser<R> {
 /// let rdf_type = N3Term::NamedNode(rdf::TYPE.into_owned());
 /// let schema_person = N3Term::NamedNode(NamedNode::new("http://schema.org/Person")?);
 /// let mut count = 0;
-/// let mut parser = N3Parser::new().for_tokio_async_reader(file.as_ref());
+/// let mut parser = N3Parser::new().for_tokio_async_reader(file.as_bytes());
 /// while let Some(triple) = parser.next().await {
 ///     let triple = triple?;
 ///     if triple.predicate == rdf_type && triple.object == schema_person {
@@ -568,12 +562,12 @@ impl<R: AsyncRead + Unpin> TokioAsyncReaderN3Parser<R> {
     /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// use oxttl::N3Parser;
     ///
-    /// let file = br#"@base <http://example.com/> .
+    /// let file = r#"@base <http://example.com/> .
     /// @prefix schema: <http://schema.org/> .
     /// <foo> a schema:Person ;
     ///     schema:name "Foo" ."#;
     ///
-    /// let mut parser = N3Parser::new().for_tokio_async_reader(file.as_ref());
+    /// let mut parser = N3Parser::new().for_tokio_async_reader(file.as_bytes());
     /// assert_eq!(parser.prefixes().collect::<Vec<_>>(), []); // No prefix at the beginning
     ///
     /// parser.next().await.unwrap()?; // We read the first triple
@@ -581,6 +575,7 @@ impl<R: AsyncRead + Unpin> TokioAsyncReaderN3Parser<R> {
     ///     parser.prefixes().collect::<Vec<_>>(),
     ///     [("schema", "http://schema.org/")]
     /// ); // There are now prefixes
+    /// //
     /// # Ok(())
     /// # }
     /// ```
@@ -597,16 +592,17 @@ impl<R: AsyncRead + Unpin> TokioAsyncReaderN3Parser<R> {
     /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// use oxttl::N3Parser;
     ///
-    /// let file = br#"@base <http://example.com/> .
+    /// let file = r#"@base <http://example.com/> .
     /// @prefix schema: <http://schema.org/> .
     /// <foo> a schema:Person ;
     ///     schema:name "Foo" ."#;
     ///
-    /// let mut parser = N3Parser::new().for_tokio_async_reader(file.as_ref());
+    /// let mut parser = N3Parser::new().for_tokio_async_reader(file.as_bytes());
     /// assert!(parser.base_iri().is_none()); // No base IRI at the beginning
     ///
     /// parser.next().await.unwrap()?; // We read the first triple
     /// assert_eq!(parser.base_iri(), Some("http://example.com/")); // There is now a base IRI
+    /// //
     /// # Ok(())
     /// # }
     /// ```
@@ -627,11 +623,11 @@ impl<R: AsyncRead + Unpin> TokioAsyncReaderN3Parser<R> {
 ///
 /// Count the number of people:
 /// ```
-/// use oxrdf::vocab::rdf;
 /// use oxrdf::NamedNode;
+/// use oxrdf::vocab::rdf;
 /// use oxttl::n3::{N3Parser, N3Term};
 ///
-/// let file = br#"@base <http://example.com/> .
+/// let file = r#"@base <http://example.com/> .
 /// @prefix schema: <http://schema.org/> .
 /// <foo> a schema:Person ;
 ///     schema:name "Foo" .
@@ -665,7 +661,7 @@ impl SliceN3Parser<'_> {
     /// ```
     /// use oxttl::N3Parser;
     ///
-    /// let file = br#"@base <http://example.com/> .
+    /// let file = r#"@base <http://example.com/> .
     /// @prefix schema: <http://schema.org/> .
     /// <foo> a schema:Person ;
     ///     schema:name "Foo" ."#;
@@ -678,6 +674,7 @@ impl SliceN3Parser<'_> {
     ///     parser.prefixes().collect::<Vec<_>>(),
     ///     [("schema", "http://schema.org/")]
     /// ); // There are now prefixes
+    /// //
     /// # Result::<_, Box<dyn std::error::Error>>::Ok(())
     /// ```
     pub fn prefixes(&self) -> N3PrefixesIter<'_> {
@@ -691,7 +688,7 @@ impl SliceN3Parser<'_> {
     /// ```
     /// use oxttl::N3Parser;
     ///
-    /// let file = br#"@base <http://example.com/> .
+    /// let file = r#"@base <http://example.com/> .
     /// @prefix schema: <http://schema.org/> .
     /// <foo> a schema:Person ;
     ///     schema:name "Foo" ."#;
@@ -728,8 +725,8 @@ impl Iterator for SliceN3Parser<'_> {
 ///
 /// Count the number of people:
 /// ```
-/// use oxrdf::vocab::rdf;
 /// use oxrdf::NamedNode;
+/// use oxrdf::vocab::rdf;
 /// use oxttl::n3::{N3Parser, N3Term};
 ///
 /// let file: [&[u8]; 5] = [
@@ -802,13 +799,13 @@ impl LowLevelN3Parser {
     /// ```
     /// use oxttl::N3Parser;
     ///
-    /// let file = br#"@base <http://example.com/> .
+    /// let file = r#"@base <http://example.com/> .
     /// @prefix schema: <http://schema.org/> .
     /// <foo> a schema:Person ;
     ///     schema:name "Foo" ."#;
     ///
     /// let mut parser = N3Parser::new().low_level();
-    /// parser.extend_from_slice(file);
+    /// parser.extend_from_slice(file.as_bytes());
     /// assert_eq!(parser.prefixes().collect::<Vec<_>>(), []); // No prefix at the beginning
     ///
     /// parser.parse_next().unwrap()?; // We read the first triple
@@ -816,6 +813,7 @@ impl LowLevelN3Parser {
     ///     parser.prefixes().collect::<Vec<_>>(),
     ///     [("schema", "http://schema.org/")]
     /// ); // There are now prefixes
+    /// //
     /// # Result::<_, Box<dyn std::error::Error>>::Ok(())
     /// ```
     pub fn prefixes(&self) -> N3PrefixesIter<'_> {
@@ -829,17 +827,18 @@ impl LowLevelN3Parser {
     /// ```
     /// use oxttl::N3Parser;
     ///
-    /// let file = br#"@base <http://example.com/> .
+    /// let file = r#"@base <http://example.com/> .
     /// @prefix schema: <http://schema.org/> .
     /// <foo> a schema:Person ;
     ///     schema:name "Foo" ."#;
     ///
     /// let mut parser = N3Parser::new().low_level();
-    /// parser.extend_from_slice(file);
+    /// parser.extend_from_slice(file.as_bytes());
     /// assert!(parser.base_iri().is_none()); // No base IRI at the beginning
     ///
     /// parser.parse_next().unwrap()?; // We read the first triple
     /// assert_eq!(parser.base_iri(), Some("http://example.com/")); // There is now a base IRI
+    /// //
     /// # Result::<_, Box<dyn std::error::Error>>::Ok(())
     /// ```
     pub fn base_iri(&self) -> Option<&str> {
@@ -914,12 +913,20 @@ impl RuleRecognizer for N3Recognizer {
                             self.stack.push(N3State::PrefixExpectPrefix);
                             return self;
                         }
-                        N3Token::LangTag("prefix") => {
+                        N3Token::LangTag {
+                            language: "prefix", #[cfg(
+                            feature = "rdf-12"
+                        )] direction: None
+                        } => {
                             self.stack.push(N3State::N3DocExpectDot);
                             self.stack.push(N3State::PrefixExpectPrefix);
                             return self;
                         }
-                        N3Token::LangTag("base") => {
+                        N3Token::LangTag {
+                            language: "base", #[cfg(
+                            feature = "rdf-12"
+                        )] direction: None
+                        } => {
                             self.stack.push(N3State::N3DocExpectDot);
                             self.stack.push(N3State::BaseExpectIri);
                             return self;
@@ -937,9 +944,9 @@ impl RuleRecognizer for N3Recognizer {
                     errors.push("A dot is expected at the end of N3 statements".into());
                 }
                 N3State::BaseExpectIri => return if let N3Token::IriRef(iri) = token {
-                                context.lexer_options.base_iri = Some(Iri::parse_unchecked(iri));
-                                self
-                    } else {
+                    context.lexer_options.base_iri = Some(Iri::parse_unchecked(iri));
+                    self
+                } else {
                     self.error(errors, "The BASE keyword should be followed by an IRI")
                 },
                 N3State::PrefixExpectPrefix => return match token {
@@ -954,7 +961,8 @@ impl RuleRecognizer for N3Recognizer {
                 N3State::PrefixExpectIri { name } => return if let N3Token::IriRef(iri) = token {
                     context.prefixes.insert(name, Iri::parse_unchecked(iri));
                     self
-                } else { self.error(errors, "The PREFIX declaration should be followed by a prefix and its value as an IRI")
+                } else {
+                    self.error(errors, "The PREFIX declaration should be followed by a prefix and its value as an IRI")
                 },
                 // [9]  triples  ::=  subject predicateObjectList?
                 N3State::Triples => {
@@ -1121,7 +1129,7 @@ impl RuleRecognizer for N3Recognizer {
                                 self.terms.push(t.into());
                                 self
                             }
-                            Err(e) =>  self.error(errors, e)
+                            Err(e) => self.error(errors, e)
                         }
                         N3Token::BlankNodeLabel(bnode) => {
                             self.terms.push(BlankNode::new_unchecked(bnode).into());
@@ -1139,7 +1147,7 @@ impl RuleRecognizer for N3Recognizer {
                             self.stack.push(N3State::CollectionBeginning);
                             self
                         }
-                        N3Token::String(value) => {
+                        N3Token::String(value) | N3Token::LongString(value) => {
                             self.stack.push(N3State::LiteralPossibleSuffix { value });
                             self
                         }
@@ -1170,7 +1178,6 @@ impl RuleRecognizer for N3Recognizer {
                         }
                         _ =>
                             self.error(errors, "TOKEN is not a valid RDF value")
-
                     }
                 }
                 N3State::PropertyListMiddle => match token {
@@ -1253,8 +1260,12 @@ impl RuleRecognizer for N3Recognizer {
                 }
                 N3State::LiteralPossibleSuffix { value } => {
                     match token {
-                        N3Token::LangTag(lang) => {
-                            self.terms.push(Literal::new_language_tagged_literal_unchecked(value, lang.to_ascii_lowercase()).into());
+                        N3Token::LangTag { language, #[cfg(feature = "rdf-12")]direction } => {
+                            #[cfg(feature = "rdf-12")]
+                            if direction.is_some() {
+                                return self.error(errors, "rdf:dirLangString is not supported in N3");
+                            }
+                            self.terms.push(Literal::new_language_tagged_literal_unchecked(value, language.to_ascii_lowercase()).into());
                             return self;
                         }
                         N3Token::Punctuation("^^") => {
@@ -1304,12 +1315,20 @@ impl RuleRecognizer for N3Recognizer {
                             self.stack.push(N3State::PrefixExpectPrefix);
                             return self;
                         }
-                        N3Token::LangTag("prefix") => {
+                        N3Token::LangTag {
+                            language: "prefix", #[cfg(
+                            feature = "rdf-12"
+                        )] direction: None
+                        } => {
                             self.stack.push(N3State::FormulaContentExpectDot);
                             self.stack.push(N3State::PrefixExpectPrefix);
                             return self;
                         }
-                        N3Token::LangTag("base") => {
+                        N3Token::LangTag {
+                            language: "base", #[cfg(
+                            feature = "rdf-12"
+                        )] direction: None
+                        } => {
                             self.stack.push(N3State::FormulaContentExpectDot);
                             self.stack.push(N3State::BaseExpectIri);
                             return self;

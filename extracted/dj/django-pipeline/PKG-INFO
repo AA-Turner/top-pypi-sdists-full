@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: django-pipeline
-Version: 4.0.0
+Version: 4.1.0
 Summary: Pipeline is an asset packaging library for Django.
 Author-email: Timothée Peignier <timothee.peignier@tryphon.org>
 License: MIT
@@ -17,6 +17,7 @@ Classifier: Framework :: Django :: 4.1
 Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.0
 Classifier: Framework :: Django :: 5.1
+Classifier: Framework :: Django :: 5.2
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
@@ -27,6 +28,7 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Utilities
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
@@ -43,6 +45,7 @@ Requires-Dist: coveralls; extra == "testing"
 Requires-Dist: tox; extra == "testing"
 Requires-Dist: wheel; extra == "testing"
 Requires-Dist: django; extra == "testing"
+Dynamic: license-file
 
 Pipeline
 ========

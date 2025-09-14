@@ -83,6 +83,7 @@
 #include "util/gflags_compat.h"
 #include "util/mutexlock.h"
 #include "util/random.h"
+#include "util/simple_mixed_compressor.h"
 #include "util/stderr_logger.h"
 #include "util/string_util.h"
 #include "util/xxhash.h"
@@ -92,7 +93,6 @@
 #include "utilities/merge_operators/bytesxor.h"
 #include "utilities/merge_operators/sortlist.h"
 #include "utilities/persistent_cache/block_cache_tier.h"
-
 #ifdef MEMKIND
 #include "memory/memkind_kmem_allocator.h"
 #endif
@@ -129,6 +129,7 @@ DEFINE_string(
     "compact1,"
     "waitforcompaction,"
     "multireadrandom,"
+    "multiscan,"
     "mixgraph,"
     "readseq,"
     "readtorowcache,"
@@ -332,6 +333,13 @@ DEFINE_int64(max_scan_distance, 0,
 DEFINE_bool(use_uint64_comparator, false, "use Uint64 user comparator");
 
 DEFINE_int64(batch_size, 1, "Batch size");
+
+DEFINE_int64(multiscan_size, 10,
+             "MultiScan size - number of multiscans of size `batch_size`");
+
+DEFINE_int64(
+    multiscan_stride, 100,
+    "The amount of keys between two successive Scan operations in multiscan");
 
 static bool ValidateKeySize(const char* /*flagname*/, int32_t /*value*/) {
   return true;
@@ -596,6 +604,9 @@ static enum ROCKSDB_NAMESPACE::CompressionType
     FLAGS_compressed_secondary_cache_compression_type_e =
         ROCKSDB_NAMESPACE::kLZ4Compression;
 
+DEFINE_string(compression_manager, "none",
+              "Set the compression manager type to mixed(roundrobin) or other "
+              "type. None for BuilInCompressor");
 DEFINE_int32(compressed_secondary_cache_compression_level,
              ROCKSDB_NAMESPACE::CompressionOptions().level,
              "Compression level. The meaning of this value is library-"
@@ -1287,6 +1298,18 @@ DEFINE_uint32(memtable_op_scan_flush_trigger,
 DEFINE_bool(verify_compression, false,
             "See BlockBasedTableOptions::verify_compression");
 
+ROCKSDB_NAMESPACE::ToolHooks* hooks_ = nullptr;
+[[noreturn]] void db_bench_exit(int status) {
+  if (hooks_ == nullptr) {
+    exit(status);
+  }
+
+  hooks_->Exit(status);
+
+  // We should exit here but in case they don't we exit anyway.
+  exit(-1);
+};
+
 static enum ROCKSDB_NAMESPACE::CompressionType StringToCompressionType(
     const char* ctype) {
   assert(ctype);
@@ -1309,7 +1332,7 @@ static enum ROCKSDB_NAMESPACE::CompressionType StringToCompressionType(
     return ROCKSDB_NAMESPACE::kZSTD;
   } else {
     fprintf(stderr, "Cannot parse compression type '%s'\n", ctype);
-    exit(1);
+    db_bench_exit(1);
   }
 }
 
@@ -1329,7 +1352,7 @@ static enum ROCKSDB_NAMESPACE::TieredAdmissionPolicy StringToAdmissionPolicy(
     return ROCKSDB_NAMESPACE::kAdmPolicyAllowAll;
   } else {
     fprintf(stderr, "Cannot parse admission policy %s\n", policy);
-    exit(1);
+    db_bench_exit(1);
   }
 }
 
@@ -1727,6 +1750,10 @@ DEFINE_uint64(stats_history_buffer_size,
 DEFINE_bool(avoid_flush_during_recovery,
             ROCKSDB_NAMESPACE::Options().avoid_flush_during_recovery,
             "If true, avoids flushing the recovered WAL data where possible.");
+
+DEFINE_bool(avoid_flush_during_shutdown,
+            ROCKSDB_NAMESPACE::Options().avoid_flush_during_shutdown,
+            "If true, avoids flushing the recovered WAL data where possible.");
 DEFINE_int64(multiread_stride, 0,
              "Stride length for the keys in a MultiGet batch");
 DEFINE_bool(multiread_batched, false, "Use the new MultiGet API");
@@ -1811,6 +1838,15 @@ DEFINE_bool(track_and_verify_wals_in_manifest, false,
 
 DEFINE_bool(track_and_verify_wals, false, "See Options.track_and_verify_wals");
 
+DEFINE_int32(same_value_percentage, 0,
+             "Percentage of time value will be same i.e good for compression "
+             "of the block");
+
+DEFINE_bool(universal_reduce_file_locking,
+            ROCKSDB_NAMESPACE::Options()
+                .compaction_options_universal.reduce_file_locking,
+            "See Options().compaction_options_universal.reduce_file_locking");
+
 namespace ROCKSDB_NAMESPACE {
 namespace {
 static Status CreateMemTableRepFactory(
@@ -1855,7 +1891,7 @@ static enum DistributionType StringToDistributionType(const char* ctype) {
   }
 
   fprintf(stdout, "Cannot parse distribution type '%s'\n", ctype);
-  exit(1);
+  db_bench_exit(1);
 }
 
 class BaseDistribution {
@@ -1931,9 +1967,10 @@ class RandomGenerator {
   std::string data_;
   unsigned int pos_;
   std::unique_ptr<BaseDistribution> dist_;
+  Random rnd;
 
  public:
-  RandomGenerator() {
+  RandomGenerator() : rnd(301) {
     auto max_value_size = FLAGS_value_size_max;
     switch (FLAGS_value_size_distribution_type_e) {
       case kUniform:
@@ -1952,7 +1989,6 @@ class RandomGenerator {
     // We use a limited amount of data over and over again and ensure
     // that it is larger than the compression window (32KB), and also
     // large enough to serve all typical value sizes we want to write.
-    Random rnd(301);
     std::string piece;
     while (data_.size() < (unsigned)std::max(1048576, max_value_size)) {
       // Add a short fragment that is as compressible as specified
@@ -1965,11 +2001,15 @@ class RandomGenerator {
 
   Slice Generate(unsigned int len) {
     assert(len <= data_.size());
-    if (pos_ + len > data_.size()) {
-      pos_ = 0;
+    if (rnd.PercentTrue(FLAGS_same_value_percentage)) {
+      return Slice(data_.data(), len);
+    } else {
+      if (pos_ + len > data_.size()) {
+        pos_ = 0;
+      }
+      pos_ += len;
+      return Slice(data_.data() + pos_ - len, len);
     }
-    pos_ += len;
-    return Slice(data_.data() + pos_ - len, len);
   }
 
   Slice Generate() {
@@ -2170,7 +2210,8 @@ enum OperationType : unsigned char {
   kUncompress,
   kCrc,
   kHash,
-  kOthers
+  kOthers,
+  kMultiScan
 };
 
 static std::unordered_map<OperationType, std::string, std::hash<unsigned char>>
@@ -2179,7 +2220,7 @@ static std::unordered_map<OperationType, std::string, std::hash<unsigned char>>
                            {kMerge, "merge"},       {kUpdate, "update"},
                            {kCompress, "compress"}, {kCompress, "uncompress"},
                            {kCrc, "crc"},           {kHash, "hash"},
-                           {kOthers, "op"}};
+                           {kOthers, "op"},         {kMultiScan, "multiscan"}};
 
 class CombinedStats;
 class Stats {
@@ -2876,16 +2917,23 @@ class Benchmark {
       fprintf(stderr, "Running in NUMA enabled mode.\n");
 #ifndef NUMA
       fprintf(stderr, "NUMA is not defined in the system.\n");
-      exit(1);
+      db_bench_exit(1);
 #else
       if (numa_available() == -1) {
         fprintf(stderr, "NUMA is not supported by the system.\n");
-        exit(1);
+        db_bench_exit(1);
       }
 #endif
     }
-
-    auto compression = CompressionTypeToString(FLAGS_compression_type_e);
+    // mixed compression  manager expect compression type to be expliciltiy
+    // configured through Options to be zstd
+    auto compression = std::string("zstd");
+    if (!strcasecmp(FLAGS_compression_manager.c_str(), "none")) {
+      compression = CompressionTypeToString(FLAGS_compression_type_e);
+    } else {
+      fprintf(stdout, "Compression manager: %s\n",
+              FLAGS_compression_manager.c_str());
+    }
     fprintf(stdout, "Compression: %s\n", compression.c_str());
     fprintf(stdout, "Compression sampling rate: %" PRId64 "\n",
             FLAGS_sample_for_compression);
@@ -3075,14 +3123,14 @@ class Benchmark {
       JemallocAllocatorOptions jemalloc_options;
       if (!NewJemallocNodumpAllocator(jemalloc_options, &allocator).ok()) {
         fprintf(stderr, "JemallocNodumpAllocator not supported.\n");
-        exit(1);
+        db_bench_exit(1);
       }
     } else if (FLAGS_use_cache_memkind_kmem_allocator) {
 #ifdef MEMKIND
       allocator = std::make_shared<MemkindKmemAllocator>();
 #else
       fprintf(stderr, "Memkind library is not linked with the binary.\n");
-      exit(1);
+      db_bench_exit(1);
 #endif
     }
 
@@ -3126,7 +3174,7 @@ class Benchmark {
             stderr,
             "Cannot specify both --secondary_cache_uri and "
             "--use_compressed_secondary_cache when using a non-tiered cache\n");
-        exit(1);
+        db_bench_exit(1);
       }
       Status s = SecondaryCache::CreateFromString(
           ConfigOptions(), FLAGS_secondary_cache_uri, &secondary_cache);
@@ -3134,7 +3182,7 @@ class Benchmark {
         fprintf(stderr,
                 "No secondary cache registered matching string: %s status=%s\n",
                 FLAGS_secondary_cache_uri.c_str(), s.ToString().c_str());
-        exit(1);
+        db_bench_exit(1);
       }
     }
 
@@ -3145,11 +3193,11 @@ class Benchmark {
       if (block_cache == nullptr) {
         fprintf(stderr, "No  cache registered matching string: %s status=%s\n",
                 FLAGS_cache_uri.c_str(), s.ToString().c_str());
-        exit(1);
+        db_bench_exit(1);
       }
     } else if (FLAGS_cache_type == "clock_cache") {
       fprintf(stderr, "Old clock cache implementation has been removed.\n");
-      exit(1);
+      db_bench_exit(1);
     } else if (EndsWith(FLAGS_cache_type, "hyper_clock_cache")) {
       size_t estimated_entry_charge;
       if (FLAGS_cache_type == "fixed_hyper_clock_cache" ||
@@ -3159,7 +3207,7 @@ class Benchmark {
         estimated_entry_charge = 0;
       } else {
         fprintf(stderr, "Cache type not supported.");
-        exit(1);
+        db_bench_exit(1);
       }
       HyperClockCacheOptions opts(FLAGS_cache_size, estimated_entry_charge,
                                   FLAGS_cache_numshardbits);
@@ -3215,12 +3263,12 @@ class Benchmark {
       }
     } else {
       fprintf(stderr, "Cache type not supported.");
-      exit(1);
+      db_bench_exit(1);
     }
 
     if (!block_cache) {
       fprintf(stderr, "Unable to allocate block cache\n");
-      exit(1);
+      db_bench_exit(1);
     }
     return block_cache;
   }
@@ -3268,7 +3316,7 @@ class Benchmark {
 
     if (FLAGS_prefix_size > FLAGS_key_size) {
       fprintf(stderr, "prefix size is larger than key size");
-      exit(1);
+      db_bench_exit(1);
     }
 
     std::vector<std::string> files;
@@ -3418,7 +3466,7 @@ class Benchmark {
     auto s = DB::OpenForReadOnly(open_options_, truth_db_name, &truth_db.db);
     if (!s.ok()) {
       fprintf(stderr, "open error: %s\n", s.ToString().c_str());
-      exit(1);
+      db_bench_exit(1);
     }
     ReadOptions ro;
     ro.total_order_seek = true;
@@ -3448,7 +3496,7 @@ class Benchmark {
 
   void ErrorExit() {
     DeleteDBs();
-    exit(1);
+    db_bench_exit(1);
   }
 
   void Run(ToolHooks& hooks) {
@@ -3614,6 +3662,12 @@ class Benchmark {
         fprintf(stderr, "entries_per_batch = %" PRIi64 "\n",
                 entries_per_batch_);
         method = &Benchmark::MultiReadRandom;
+      } else if (name == "multiscan") {
+        fprintf(stderr, "multiscan_stride = %" PRIi64 "\n",
+                FLAGS_multiscan_stride);
+        fprintf(stderr, "multiscan_size = %" PRIi64 "\n", FLAGS_multiscan_size);
+        fprintf(stderr, "seek_nexts = %" PRIi32 "\n", FLAGS_seek_nexts);
+        method = &Benchmark::MultiScan;
       } else if (name == "multireadwhilewriting") {
         fprintf(stderr, "entries_per_batch = %" PRIi64 "\n",
                 entries_per_batch_);
@@ -3678,7 +3732,7 @@ class Benchmark {
         if (FLAGS_merge_operator.empty()) {
           fprintf(stdout, "%-12s : skipped (--merge_operator is unknown)\n",
                   name.c_str());
-          exit(1);
+          db_bench_exit(1);
         }
         method = &Benchmark::MergeRandom;
       } else if (name == "randomwithverify") {
@@ -4122,7 +4176,7 @@ class Benchmark {
       thread->stats.FinishedOps(nullptr, nullptr, 1, kOthers);
     }
     if (ptr == nullptr) {
-      exit(1);  // Disable unused variable warning.
+      db_bench_exit(1);  // Disable unused variable warning.
     }
   }
 
@@ -4217,7 +4271,7 @@ class Benchmark {
       }
       fprintf(stderr, "Unable to load options file %s --- %s\n",
               FLAGS_options_file.c_str(), s.ToString().c_str());
-      exit(1);
+      db_bench_exit(1);
     }
     return false;
   }
@@ -4241,6 +4295,7 @@ class Benchmark {
     options.stats_history_buffer_size =
         static_cast<size_t>(FLAGS_stats_history_buffer_size);
     options.avoid_flush_during_recovery = FLAGS_avoid_flush_during_recovery;
+    options.avoid_flush_during_shutdown = FLAGS_avoid_flush_during_shutdown;
 
     options.compression_opts.level = FLAGS_compression_level;
     options.compression_opts.max_dict_bytes = FLAGS_compression_max_dict_bytes;
@@ -4288,7 +4343,7 @@ class Benchmark {
       options.comparator = test::Uint64Comparator();
       if (FLAGS_key_size != 8) {
         fprintf(stderr, "Using Uint64 comparator but key size is not 8.\n");
-        exit(1);
+        db_bench_exit(1);
       }
     }
     if (FLAGS_use_stderr_info_logger) {
@@ -4322,14 +4377,14 @@ class Benchmark {
     if (!s.ok()) {
       fprintf(stderr, "Could not create memtable factory: %s\n",
               s.ToString().c_str());
-      exit(1);
+      db_bench_exit(1);
     } else if ((FLAGS_prefix_size == 0) &&
                (options.memtable_factory->IsInstanceOf("prefix_hash") ||
                 options.memtable_factory->IsInstanceOf("hash_linkedlist"))) {
       fprintf(stderr,
               "prefix_size should be non-zero if PrefixHash or "
               "HashLinkedList memtablerep is used\n");
-      exit(1);
+      db_bench_exit(1);
     }
     if (FLAGS_use_plain_table) {
       if (!options.memtable_factory->IsInstanceOf("prefix_hash") &&
@@ -4352,12 +4407,12 @@ class Benchmark {
     } else if (FLAGS_use_cuckoo_table) {
       if (FLAGS_cuckoo_hash_ratio > 1 || FLAGS_cuckoo_hash_ratio < 0) {
         fprintf(stderr, "Invalid cuckoo_hash_ratio\n");
-        exit(1);
+        db_bench_exit(1);
       }
 
       if (!FLAGS_mmap_read) {
         fprintf(stderr, "cuckoo table format requires mmap read to operate\n");
-        exit(1);
+        db_bench_exit(1);
       }
 
       ROCKSDB_NAMESPACE::CuckooTableOptions table_options;
@@ -4373,7 +4428,7 @@ class Benchmark {
         if (FLAGS_prefix_size == 0) {
           fprintf(stderr,
                   "prefix_size not assigned when enable use_hash_search \n");
-          exit(1);
+          db_bench_exit(1);
         }
         block_based_options.index_type = BlockBasedTableOptions::kHashSearch;
       } else {
@@ -4472,6 +4527,7 @@ class Benchmark {
       block_based_options.block_restart_interval = FLAGS_block_restart_interval;
       block_based_options.index_block_restart_interval =
           FLAGS_index_block_restart_interval;
+      TEST_AllowUnsupportedFormatVersion() = true;
       block_based_options.format_version =
           static_cast<uint32_t>(FLAGS_format_version);
       block_based_options.read_amp_bytes_per_bit = FLAGS_read_amp_bytes_per_bit;
@@ -4540,7 +4596,7 @@ class Benchmark {
         if (!rc_status.ok()) {
           fprintf(stderr, "Error initializing read cache, %s\n",
                   rc_status.ToString().c_str());
-          exit(1);
+          db_bench_exit(1);
         }
       }
 
@@ -4560,7 +4616,7 @@ class Benchmark {
                 stderr,
                 "Unable to create a standalone blob cache if blob_cache_size "
                 "<= 0.\n");
-            exit(1);
+            db_bench_exit(1);
           }
         }
         switch (FLAGS_prepopulate_blob_cache) {
@@ -4572,7 +4628,7 @@ class Benchmark {
             break;
           default:
             fprintf(stderr, "Unknown prepopulate blob cache mode\n");
-            exit(1);
+            db_bench_exit(1);
         }
 
         fprintf(stdout,
@@ -4600,7 +4656,7 @@ class Benchmark {
         fprintf(stderr, "Insufficient number of fanouts specified %d\n",
                 static_cast<int>(
                     FLAGS_max_bytes_for_level_multiplier_additional_v.size()));
-        exit(1);
+        db_bench_exit(1);
       }
       options.max_bytes_for_level_multiplier_additional =
           FLAGS_max_bytes_for_level_multiplier_additional_v;
@@ -4611,6 +4667,34 @@ class Benchmark {
     options.level0_slowdown_writes_trigger =
         FLAGS_level0_slowdown_writes_trigger;
     options.compression = FLAGS_compression_type_e;
+    std::shared_ptr<CompressionManagerWrapper> mgr = nullptr;
+    if (!strcasecmp(FLAGS_compression_manager.c_str(), "mixed")) {
+      mgr =
+          std::make_shared<RoundRobinManager>(GetBuiltinV2CompressionManager());
+    } else if (!strcasecmp(FLAGS_compression_manager.c_str(),
+                           "costpredictor")) {
+      mgr = CreateCostAwareCompressionManager();
+    } else if (!strcasecmp(FLAGS_compression_manager.c_str(), "autoskip")) {
+      mgr = CreateAutoSkipCompressionManager();
+    } else if (!strcasecmp(FLAGS_compression_manager.c_str(), "none")) {
+      options.compression = FLAGS_compression_type_e;
+    } else {
+      // compression manager is not supported
+      // exit with error
+      fprintf(stderr, "Requested compression manager not supported");
+      ErrorExit();
+    }
+    if (FLAGS_compression_type_e == kNoCompression &&
+        strcasecmp(FLAGS_compression_manager.c_str(), "none")) {
+      fprintf(stderr,
+              "Compression type must not be no Compression when using "
+              "compression manager");
+      ErrorExit();
+    }
+    if (mgr != nullptr) {
+      options.compression_manager = mgr;
+    }
+
     if (FLAGS_simulate_hybrid_fs_file != "") {
       options.last_level_temperature = Temperature::kWarm;
     }
@@ -4671,7 +4755,7 @@ class Benchmark {
       if (!s.ok()) {
         fprintf(stderr, "invalid merge operator[%s]: %s\n",
                 FLAGS_merge_operator.c_str(), s.ToString().c_str());
-        exit(1);
+        db_bench_exit(1);
       }
     }
     options.max_successive_merges = FLAGS_max_successive_merges;
@@ -4714,7 +4798,7 @@ class Benchmark {
     if (FLAGS_user_timestamp_size > 0) {
       if (FLAGS_user_timestamp_size != 8) {
         fprintf(stderr, "Only 64 bits timestamps are supported.\n");
-        exit(1);
+        db_bench_exit(1);
       }
       options.comparator = test::BytewiseComparatorWithU64TsWrapper();
     }
@@ -4742,12 +4826,12 @@ class Benchmark {
 
     if (FLAGS_readonly && FLAGS_transaction_db) {
       fprintf(stderr, "Cannot use readonly flag with transaction_db\n");
-      exit(1);
+      db_bench_exit(1);
     }
     if (FLAGS_use_secondary_db &&
         (FLAGS_transaction_db || FLAGS_optimistic_transaction_db)) {
       fprintf(stderr, "Cannot use use_secondary_db flag with transaction_db\n");
-      exit(1);
+      db_bench_exit(1);
     }
     options.memtable_protection_bytes_per_key =
         FLAGS_memtable_protection_bytes_per_key;
@@ -4756,6 +4840,8 @@ class Benchmark {
     options.paranoid_memory_checks = FLAGS_paranoid_memory_checks;
     options.memtable_op_scan_flush_trigger =
         FLAGS_memtable_op_scan_flush_trigger;
+    options.compaction_options_universal.reduce_file_locking =
+        FLAGS_universal_reduce_file_locking;
   }
 
   void InitializeOptionsGeneral(Options* opts, ToolHooks& hooks) {
@@ -4924,7 +5010,7 @@ class Benchmark {
         }
         if (sum != 100) {
           fprintf(stderr, "column_family_distribution items must sum to 100\n");
-          exit(1);
+          db_bench_exit(1);
         }
         if (cfh_idx_to_prob.size() != num_hot) {
           fprintf(stderr,
@@ -4932,7 +5018,7 @@ class Benchmark {
                   " column_family_distribution items; expected "
                   "%" ROCKSDB_PRIszt "\n",
                   cfh_idx_to_prob.size(), num_hot);
-          exit(1);
+          db_bench_exit(1);
         }
       }
       if (FLAGS_readonly) {
@@ -5046,7 +5132,7 @@ class Benchmark {
     }
     if (!s.ok()) {
       fprintf(stderr, "open error: %s\n", s.ToString().c_str());
-      exit(1);
+      db_bench_exit(1);
     }
   }
 
@@ -5645,7 +5731,7 @@ class Benchmark {
         if (sorted_runs[i].size() < num_levels - 1) {
           fprintf(stderr, "n is too small to fill %" ROCKSDB_PRIszt " levels\n",
                   num_levels);
-          exit(1);
+          db_bench_exit(1);
         }
       }
       for (size_t i = 0; i < num_db; i++) {
@@ -5700,7 +5786,7 @@ class Benchmark {
         if (sorted_runs[i].size() < num_levels) {
           fprintf(stderr, "n is too small to fill %" ROCKSDB_PRIszt " levels\n",
                   num_levels);
-          exit(1);
+          db_bench_exit(1);
         }
       }
       for (size_t i = 0; i < num_db; i++) {
@@ -6307,6 +6393,71 @@ class Benchmark {
     snprintf(msg, sizeof(msg), "(%" PRIu64 " of %" PRIu64 " found)", found,
              read);
     thread->stats.AddBytes(bytes);
+    thread->stats.AddMessage(msg);
+  }
+
+  void MultiScan(ThreadState* thread) {
+    const int64_t scan_size = FLAGS_seek_nexts ? FLAGS_seek_nexts : 50;
+    const int64_t readahead =
+        FLAGS_readahead_size ? FLAGS_readahead_size : 1024 * 24;
+    const int64_t multiscan_size = FLAGS_multiscan_size;
+    auto count_hist = std::make_shared<HistogramImpl>();
+    ReadOptions options = read_options_;
+
+    int64_t multiscans_done = 0;
+
+    options.async_io = true;
+    options.readahead_size = readahead;
+
+    Duration duration(FLAGS_duration, reads_);
+    while (!duration.Done(1)) {
+      DB* db = SelectDB(thread);
+      std::vector<ScanOptions> opts;
+      std::vector<std::unique_ptr<const char[]>> guards;
+      opts.reserve(multiscan_size);
+      // We create 1 random start, and then multiscan will start from that
+      // random start point And create a set of scans of `scan_size` in size
+      // with `multiscan_stride` space between each scan.
+      uint64_t range = static_cast<uint64_t>(FLAGS_num) -
+                       ((scan_size + FLAGS_multiscan_stride) * multiscan_size);
+      uint64_t start_key = thread->rand.Uniform(range);
+      for (int64_t i = 0; i < multiscan_size; i++) {
+        std::unique_ptr<const char[]> skey_guard;
+        Slice skey = AllocateKey(&skey_guard);
+        guards.push_back(std::move(skey_guard));
+        std::unique_ptr<const char[]> ekey_guard;
+        Slice ekey = AllocateKey(&ekey_guard);
+        guards.push_back(std::move(ekey_guard));
+
+        GenerateKeyFromInt(start_key, FLAGS_num, &skey);
+        uint64_t end_key = start_key + scan_size;
+        GenerateKeyFromInt(end_key, FLAGS_num, &ekey);
+
+        opts.emplace_back(skey, ekey);
+        start_key += scan_size + FLAGS_multiscan_stride;
+      }
+
+      auto iter =
+          db->NewMultiScan(read_options_, db->DefaultColumnFamily(), opts);
+      for (auto rng : *iter) {
+        size_t keys = 0;
+        for (auto it __attribute__((__unused__)) : rng) {
+          keys++;
+        }
+        assert(keys > 0);
+      }
+
+      if (thread->shared->read_rate_limiter.get() != nullptr) {
+        thread->shared->read_rate_limiter->Request(
+            1, Env::IO_HIGH, nullptr /* stats */, RateLimiter::OpType::kRead);
+      }
+
+      thread->stats.FinishedOps(nullptr, db, 1, kMultiScan);
+      multiscans_done += 1;
+    }
+
+    char msg[100];
+    snprintf(msg, sizeof(msg), "(multscans:%" PRIu64 ")", multiscans_done);
     thread->stats.AddMessage(msg);
   }
 
@@ -7009,7 +7160,7 @@ class Benchmark {
       thread->stats.FinishedOps(nullptr, db, entries_per_batch_, kDelete);
       if (!s.ok()) {
         fprintf(stderr, "del error: %s\n", s.ToString().c_str());
-        exit(1);
+        db_bench_exit(1);
       }
       i += entries_per_batch_;
     }
@@ -7125,7 +7276,7 @@ class Benchmark {
 
       if (!s.ok()) {
         fprintf(stderr, "put or merge error: %s\n", s.ToString().c_str());
-        exit(1);
+        db_bench_exit(1);
       }
       bytes += key.size() + val.size() + user_timestamp_size_;
       thread->stats.FinishedOps(&db_, db_.db, 1, kWrite);
@@ -7152,7 +7303,7 @@ class Benchmark {
                                &expanded_keys[offset]);
             if (!db->Delete(write_options_, expanded_keys[offset]).ok()) {
               fprintf(stderr, "delete error: %s\n", s.ToString().c_str());
-              exit(1);
+              db_bench_exit(1);
             }
           }
         } else {
@@ -7163,7 +7314,7 @@ class Benchmark {
                                begin_key, end_key)
                    .ok()) {
             fprintf(stderr, "deleterange error: %s\n", s.ToString().c_str());
-            exit(1);
+            db_bench_exit(1);
           }
         }
         thread->stats.FinishedOps(&db_, db_.db, 1, kWrite);
@@ -7397,7 +7548,7 @@ class Benchmark {
         Status s = PutMany(db, write_options_, key, gen.Generate());
         if (!s.ok()) {
           fprintf(stderr, "putmany error: %s\n", s.ToString().c_str());
-          exit(1);
+          db_bench_exit(1);
         }
         put_weight--;
         puts_done++;
@@ -7406,7 +7557,7 @@ class Benchmark {
         Status s = DeleteMany(db, write_options_, key);
         if (!s.ok()) {
           fprintf(stderr, "deletemany error: %s\n", s.ToString().c_str());
-          exit(1);
+          db_bench_exit(1);
         }
         delete_weight--;
         deletes_done++;
@@ -7550,7 +7701,7 @@ class Benchmark {
       }
       if (!s.ok()) {
         fprintf(stderr, "put error: %s\n", s.ToString().c_str());
-        exit(1);
+        db_bench_exit(1);
       }
       bytes += key.size() + val.size() + user_timestamp_size_;
       thread->stats.FinishedOps(nullptr, db, 1, kUpdate);
@@ -7597,7 +7748,7 @@ class Benchmark {
       } else if (!status.IsNotFound()) {
         fprintf(stderr, "Get returned an error: %s\n",
                 status.ToString().c_str());
-        exit(1);
+        db_bench_exit(1);
       }
 
       Slice value =
@@ -7735,7 +7886,7 @@ class Benchmark {
 
       if (!s.ok()) {
         fprintf(stderr, "merge error: %s\n", s.ToString().c_str());
-        exit(1);
+        db_bench_exit(1);
       }
       bytes += key.size() + val.size();
       thread->stats.FinishedOps(nullptr, db_with_cfh->db, 1, kMerge);
@@ -7777,7 +7928,7 @@ class Benchmark {
         Status s = db->Merge(write_options_, key, gen.Generate());
         if (!s.ok()) {
           fprintf(stderr, "merge error: %s\n", s.ToString().c_str());
-          exit(1);
+          db_bench_exit(1);
         }
         num_merges++;
         thread->stats.FinishedOps(nullptr, db, 1, kMerge);
@@ -7969,7 +8120,7 @@ class Benchmark {
     Status s = db->VerifyChecksum(ro);
     if (!s.ok()) {
       fprintf(stderr, "VerifyChecksum() failed: %s\n", s.ToString().c_str());
-      exit(1);
+      db_bench_exit(1);
     }
   }
 
@@ -7986,7 +8137,7 @@ class Benchmark {
     if (!s.ok()) {
       fprintf(stderr, "VerifyFileChecksums() failed: %s\n",
               s.ToString().c_str());
-      exit(1);
+      db_bench_exit(1);
     }
   }
 
@@ -8110,7 +8261,7 @@ class Benchmark {
       }
       if (!s.ok()) {
         fprintf(stderr, "Operation failed: %s\n", s.ToString().c_str());
-        exit(1);
+        db_bench_exit(1);
       }
     }
 
@@ -8148,7 +8299,7 @@ class Benchmark {
 
       if (!s.ok()) {
         fprintf(stderr, "Operation failed: %s\n", s.ToString().c_str());
-        exit(1);
+        db_bench_exit(1);
       }
 
       thread->stats.FinishedOps(nullptr, db, 1, kOthers);
@@ -8455,7 +8606,7 @@ class Benchmark {
 
       if (!s.ok()) {
         fprintf(stderr, "Flush failed: %s\n", s.ToString().c_str());
-        exit(1);
+        db_bench_exit(1);
       }
     } else {
       for (const auto& db_with_cfh : multi_dbs_) {
@@ -8469,7 +8620,7 @@ class Benchmark {
 
         if (!s.ok()) {
           fprintf(stderr, "Flush failed: %s\n", s.ToString().c_str());
-          exit(1);
+          db_bench_exit(1);
         }
       }
     }
@@ -8585,7 +8736,7 @@ class Benchmark {
           "Encountered an error creating a TraceReader from the trace file. "
           "Error: %s\n",
           s.ToString().c_str());
-      exit(1);
+      db_bench_exit(1);
     }
     std::unique_ptr<Replayer> replayer;
     s = db_with_cfh->db->NewDefaultReplayer(db_with_cfh->cfh,
@@ -8595,7 +8746,7 @@ class Benchmark {
               "Encountered an error creating a default Replayer. "
               "Error: %s\n",
               s.ToString().c_str());
-      exit(1);
+      db_bench_exit(1);
     }
     s = replayer->Prepare();
     if (!s.ok()) {
@@ -8661,6 +8812,7 @@ int db_bench_tool(int argc, char** argv, ToolHooks& hooks) {
   ROCKSDB_NAMESPACE::port::InstallStackTraceHandler();
   ConfigOptions config_options;
   static bool initialized = false;
+  hooks_ = &hooks;
   if (!initialized) {
     SetUsageMessage(std::string("\nUSAGE:\n") + std::string(argv[0]) +
                     " [OPTIONS]...");
@@ -8673,7 +8825,7 @@ int db_bench_tool(int argc, char** argv, ToolHooks& hooks) {
   if (FLAGS_statistics && !FLAGS_statistics_string.empty()) {
     fprintf(stderr,
             "Cannot provide both --statistics and --statistics_string.\n");
-    exit(1);
+    db_bench_exit(1);
   }
   if (!FLAGS_statistics_string.empty()) {
     Status s = Statistics::CreateFromString(config_options,
@@ -8682,7 +8834,7 @@ int db_bench_tool(int argc, char** argv, ToolHooks& hooks) {
       fprintf(stderr,
               "No Statistics registered matching string: %s status=%s\n",
               FLAGS_statistics_string.c_str(), s.ToString().c_str());
-      exit(1);
+      db_bench_exit(1);
     }
   }
   if (FLAGS_statistics) {
@@ -8721,7 +8873,7 @@ int db_bench_tool(int argc, char** argv, ToolHooks& hooks) {
   int env_opts = !FLAGS_env_uri.empty() + !FLAGS_fs_uri.empty();
   if (env_opts > 1) {
     fprintf(stderr, "Error: --env_uri and --fs_uri are mutually exclusive\n");
-    exit(1);
+    db_bench_exit(1);
   }
 
   if (env_opts == 1) {
@@ -8729,7 +8881,7 @@ int db_bench_tool(int argc, char** argv, ToolHooks& hooks) {
                                   &FLAGS_env, &env_guard);
     if (!s.ok()) {
       fprintf(stderr, "Failed creating env: %s\n", s.ToString().c_str());
-      exit(1);
+      db_bench_exit(1);
     }
   } else if (FLAGS_simulate_hdd || FLAGS_simulate_hybrid_fs_file != "") {
     //**TODO: Make the simulate fs something that can be loaded
@@ -8750,7 +8902,7 @@ int db_bench_tool(int argc, char** argv, ToolHooks& hooks) {
     std::string build_info;
     std::cout << GetRocksBuildInfoAsString(build_info, true) << std::endl;
     // Similar to --version, nothing else will be done when this flag is set
-    exit(0);
+    db_bench_exit(0);
   }
 
   if (!FLAGS_seed) {
@@ -8766,7 +8918,7 @@ int db_bench_tool(int argc, char** argv, ToolHooks& hooks) {
     fprintf(stderr,
             "`-use_existing_db` must be true for `-use_existing_keys` to be "
             "settable\n");
-    exit(1);
+    db_bench_exit(1);
   }
 
   FLAGS_value_size_distribution_type_e =
@@ -8805,7 +8957,7 @@ int db_bench_tool(int argc, char** argv, ToolHooks& hooks) {
 
   if (FLAGS_seek_missing_prefix && FLAGS_prefix_size <= 8) {
     fprintf(stderr, "prefix_size > 8 required by --seek_missing_prefix\n");
-    exit(1);
+    db_bench_exit(1);
   }
 
   ROCKSDB_NAMESPACE::Benchmark benchmark;

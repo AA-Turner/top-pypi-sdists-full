@@ -863,7 +863,7 @@ struct AdvancedColumnFamilyOptions {
   //
   // Default: 0 (disable the feature)
   //
-  // Not dynamically changeable, change it requires db restart.
+  // Dynamically changeable through the SetOptions() API
   uint64_t preclude_last_level_data_seconds = 0;
 
   // EXPERIMENTAL
@@ -886,7 +886,7 @@ struct AdvancedColumnFamilyOptions {
   //
   // Default: 0 (disable the feature)
   //
-  // Not dynamically changeable, change it requires db restart.
+  // Dynamically changeable through the SetOptions() API
   uint64_t preserve_internal_time_seconds = 0;
 
   // When set, large values (blobs) are written to separate blob files, and
@@ -1126,6 +1126,25 @@ struct AdvancedColumnFamilyOptions {
   // Default: 0 (disabled)
   // Dynamically changeable through the SetOptions() API.
   uint32_t memtable_op_scan_flush_trigger = 0;
+
+  // Similar to `memtable_op_scan_flush_trigger`, but this option applies to
+  // Next() calls between Seeks or until iterator destruction. If the average
+  // of the number of invisible entries scanned from the active memtable, the
+  // memtable will be marked for flush.
+  // Note that to avoid the case where the window between Seeks is too small,
+  // the option only takes effect if the total number of hidden entries scanned
+  // within a window is at least `memtable_op_scan_flush_trigger`. So this
+  // option is only effective when `memtable_op_scan_flush_trigger` is set.
+  //
+  // This option should be set to a lower value than
+  // `memtable_op_scan_flush_trigger`. It covers the case where an iterator
+  // scans through an expensive key range with many invisible entries from the
+  // active memtable, but the number of invisible entries per operation does not
+  // exceed `memtable_op_scan_flush_trigger`.
+  //
+  // Default: 0 (disabled)
+  // Dynamically changeable through the SetOptions() API.
+  uint32_t memtable_avg_op_scan_flush_trigger = 0;
 
   // Create ColumnFamilyOptions with default values for all fields
   AdvancedColumnFamilyOptions();

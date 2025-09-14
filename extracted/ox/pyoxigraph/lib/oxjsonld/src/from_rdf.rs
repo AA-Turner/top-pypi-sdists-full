@@ -2,9 +2,11 @@
 use json_event_parser::TokioAsyncWriterJsonSerializer;
 use json_event_parser::{JsonEvent, WriterJsonSerializer};
 use oxiri::{Iri, IriParseError};
+#[cfg(feature = "rdf-12")]
+use oxrdf::BaseDirection;
 use oxrdf::vocab::xsd;
 use oxrdf::{
-    GraphName, GraphNameRef, NamedNode, NamedOrBlankNodeRef, QuadRef, Subject, SubjectRef, TermRef,
+    GraphName, GraphNameRef, NamedNode, NamedOrBlankNode, NamedOrBlankNodeRef, QuadRef, TermRef,
 };
 use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet};
@@ -138,7 +140,6 @@ impl JsonLdSerializer {
     /// );
     /// # Result::<_, Box<dyn std::error::Error>>::Ok(())
     /// ```
-    #[allow(clippy::unused_self)]
     pub fn for_writer<W: Write>(self, writer: W) -> WriterJsonLdSerializer<W> {
         WriterJsonLdSerializer {
             writer: WriterJsonSerializer::new(writer),
@@ -177,7 +178,6 @@ impl JsonLdSerializer {
     /// # Ok(())
     /// # }
     /// ```
-    #[allow(clippy::unused_self)]
     #[cfg(feature = "async-tokio")]
     pub fn for_tokio_async_writer<W: AsyncWrite + Unpin>(
         self,
@@ -326,7 +326,7 @@ impl<W: AsyncWrite + Unpin> TokioAsyncWriterJsonLdSerializer<W> {
 pub struct InnerJsonLdWriter {
     started: bool,
     current_graph_name: Option<GraphName>,
-    current_subject: Option<Subject>,
+    current_subject: Option<NamedOrBlankNode>,
     current_predicate: Option<NamedNode>,
     emitted_predicates: BTreeSet<String>,
     prefixes: BTreeMap<String, String>,
@@ -411,15 +411,19 @@ impl InnerJsonLdWriter {
         if self.current_subject.is_none() {
             output.push(JsonEvent::StartObject);
             output.push(JsonEvent::ObjectKey("@id".into()));
-            #[allow(clippy::match_wildcard_for_single_variants, unreachable_patterns)]
+            #[allow(
+                unreachable_patterns,
+                clippy::match_wildcard_for_single_variants,
+                clippy::allow_attributes
+            )]
             output.push(JsonEvent::String(self.id_value(match quad.subject {
-                SubjectRef::NamedNode(iri) => iri.into(),
-                SubjectRef::BlankNode(bnode) => bnode.into(),
+                NamedOrBlankNodeRef::NamedNode(iri) => iri.into(),
+                NamedOrBlankNodeRef::BlankNode(bnode) => bnode.into(),
                 _ => {
                     return Err(io::Error::new(
                         io::ErrorKind::InvalidInput,
-                        "JSON-LD does not support RDF-star yet",
-                    ))
+                        "JSON-LD does not support RDF 1.2 yet",
+                    ));
                 }
             })));
             self.current_subject = Some(quad.subject.into_owned());
@@ -467,7 +471,11 @@ impl InnerJsonLdWriter {
         output: &mut Vec<JsonEvent<'a>>,
     ) -> io::Result<()> {
         output.push(JsonEvent::StartObject);
-        #[allow(clippy::match_wildcard_for_single_variants, unreachable_patterns)]
+        #[allow(
+            unreachable_patterns,
+            clippy::match_wildcard_for_single_variants,
+            clippy::allow_attributes
+        )]
         match term {
             TermRef::NamedNode(iri) => {
                 output.push(JsonEvent::ObjectKey("@id".into()));
@@ -481,6 +489,17 @@ impl InnerJsonLdWriter {
                 if let Some(language) = literal.language() {
                     output.push(JsonEvent::ObjectKey("@language".into()));
                     output.push(JsonEvent::String(language.into()));
+                    #[cfg(feature = "rdf-12")]
+                    if let Some(direction) = literal.direction() {
+                        output.push(JsonEvent::ObjectKey("@direction".into()));
+                        output.push(JsonEvent::String(
+                            match direction {
+                                BaseDirection::Ltr => "ltr",
+                                BaseDirection::Rtl => "rtl",
+                            }
+                            .into(),
+                        ));
+                    }
                 } else if literal.datatype() != xsd::STRING {
                     output.push(JsonEvent::ObjectKey("@type".into()));
                     output.push(JsonEvent::String(Self::type_value(
@@ -493,8 +512,8 @@ impl InnerJsonLdWriter {
             _ => {
                 return Err(io::Error::new(
                     io::ErrorKind::InvalidInput,
-                    "JSON-LD does not support RDF-star yet",
-                ))
+                    "JSON-LD does not support RDF 1.2 yet",
+                ));
             }
         }
         output.push(JsonEvent::EndObject);

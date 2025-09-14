@@ -2,7 +2,7 @@ use crate::algebra::{
     Expression, GraphPattern, JoinAlgorithm, LeftJoinAlgorithm, MinusAlgorithm, OrderExpression,
 };
 use crate::type_inference::{
-    infer_expression_type, infer_graph_pattern_types, VariableType, VariableTypes,
+    VariableType, VariableTypes, infer_expression_type, infer_graph_pattern_types,
 };
 use oxrdf::Variable;
 use spargebra::algebra::PropertyPathExpression;
@@ -193,9 +193,9 @@ impl Optimizer {
                 let left_types = infer_expression_type(&left, types);
                 let right = Self::normalize_expression(*right, types);
                 let right_types = infer_expression_type(&right, types);
-                #[allow(unused_mut)]
+                #[allow(unused_mut, clippy::allow_attributes)]
                 let mut must_use_equal = left_types.literal && right_types.literal;
-                #[cfg(feature = "rdf-star")]
+                #[cfg(feature = "sparql-12")]
                 {
                     must_use_equal = must_use_equal || left_types.triple && right_types.triple;
                 }
@@ -1071,7 +1071,7 @@ fn is_term_pattern_bound(pattern: &GroundTermPattern, input_types: &VariableType
     match pattern {
         GroundTermPattern::NamedNode(_) | GroundTermPattern::Literal(_) => true,
         GroundTermPattern::Variable(v) => !input_types.get(v).undef,
-        #[cfg(feature = "rdf-star")]
+        #[cfg(feature = "sparql-12")]
         GroundTermPattern::Triple(t) => {
             is_term_pattern_bound(&t.subject, input_types)
                 && is_named_node_pattern_bound(&t.predicate, input_types)

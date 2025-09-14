@@ -38,15 +38,14 @@ import sys
 from threading import Lock, Thread
 from typing import Callable, Generator, TypeVar
 
-if sys.version_info >= (3, 11):
-    from typing import TypeVarTuple, Unpack
-else:
-    from typing_extensions import TypeVarTuple, Unpack
+from typing_extensions import TypeVarTuple, Unpack
 
 BUBBLE = "__PIPELINE_BUBBLE__"
 POISON = "__PIPELINE_POISON__"
 
 DEFAULT_QUEUE_SIZE = 16
+
+Tq = TypeVar("Tq")
 
 
 def _invalidate_queue(q, val=None, sync=True):
@@ -91,7 +90,7 @@ def _invalidate_queue(q, val=None, sync=True):
             q.mutex.release()
 
 
-class CountedQueue(queue.Queue):
+class CountedQueue(queue.Queue[Tq]):
     """A queue that keeps track of the number of threads that are
     still feeding into it. The queue is poisoned when all threads are
     finished with the queue.

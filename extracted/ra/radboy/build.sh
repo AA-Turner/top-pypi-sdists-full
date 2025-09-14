@@ -25,5 +25,6 @@ pip install --user --break-system-packages radboy==`cat radboy/__init__.py| grep
 	if test 0 -eq $?; then
 		break
 	fi
+	echo $?
 done
 #pip install --user --break-system-packages radboy==`cat setup.py| grep version | head -n1 | cut -f2 -d"=" | sed s/"'"/''/g`

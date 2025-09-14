@@ -804,10 +804,6 @@ class DBImpl : public DB {
   // being detected.
   const Snapshot* GetSnapshotForWriteConflictBoundary();
 
-  // checks if all live files exist on file system and that their file sizes
-  // match to our in-memory records
-  virtual Status CheckConsistency();
-
   // max_file_num_to_ignore allows bottom level compaction to filter out newly
   // compacted SST files. Setting max_file_num_to_ignore to kMaxUint64 will
   // disable the filtering
@@ -1090,10 +1086,7 @@ class DBImpl : public DB {
   void SetSnapshotChecker(SnapshotChecker* snapshot_checker);
 
   // Fill JobContext with snapshot information needed by flush and compaction.
-  void GetSnapshotContext(JobContext* job_context,
-                          std::vector<SequenceNumber>* snapshot_seqs,
-                          SequenceNumber* earliest_write_conflict_snapshot,
-                          SnapshotChecker** snapshot_checker);
+  void InitSnapshotContext(JobContext* job_context);
 
   // Not thread-safe.
   void SetRecoverableStatePreReleaseCallback(PreReleaseCallback* callback);
@@ -1288,6 +1281,12 @@ class DBImpl : public DB {
 
   // For the background timer job
   void RecordSeqnoToTimeMapping();
+
+  // Compactions rely on an event triggers like flush/compaction/SetOptions.
+  // We need to trigger periodic compactions even when there is no such trigger.
+  // This function checks and schedules available compactions and will run
+  // periodically.
+  void TriggerPeriodicCompaction();
 
   // REQUIRES: DB mutex held
   std::pair<SequenceNumber, uint64_t> GetSeqnoToTimeSample() const;
@@ -1955,12 +1954,19 @@ class DBImpl : public DB {
   };
   struct PrepickedCompaction {
     // background compaction takes ownership of `compaction`.
+    // TODO(hx235): consider using std::shared_ptr for easier ownership
+    // management
     Compaction* compaction;
     // caller retains ownership of `manual_compaction_state` as it is reused
     // across background compactions.
     ManualCompactionState* manual_compaction_state;  // nullptr if non-manual
     // task limiter token is requested during compaction picking.
     std::unique_ptr<TaskLimiterToken> task_token;
+    // If true, `compaction` is picked temporarily to express compaction intent
+    // and will be released before re-picking a real compaction based on the
+    // updated LSM shape when thread associated with `compaction` is ready to
+    // run
+    bool need_repick;
   };
 
   struct CompactionArg {
@@ -2051,14 +2057,13 @@ class DBImpl : public DB {
   // Flush the in-memory write buffer to storage.  Switches to a new
   // log-file/memtable and writes a new descriptor iff successful. Then
   // installs a new super version for the column family.
-  Status FlushMemTableToOutputFile(
-      ColumnFamilyData* cfd, const MutableCFOptions& mutable_cf_options,
-      bool* madeProgress, JobContext* job_context, FlushReason flush_reason,
-      SuperVersionContext* superversion_context,
-      std::vector<SequenceNumber>& snapshot_seqs,
-      SequenceNumber earliest_write_conflict_snapshot,
-      SnapshotChecker* snapshot_checker, LogBuffer* log_buffer,
-      Env::Priority thread_pri);
+  Status FlushMemTableToOutputFile(ColumnFamilyData* cfd,
+                                   const MutableCFOptions& mutable_cf_options,
+                                   bool* madeProgress, JobContext* job_context,
+                                   FlushReason flush_reason,
+                                   SuperVersionContext* superversion_context,
+                                   LogBuffer* log_buffer,
+                                   Env::Priority thread_pri);
 
   // Flush the memtables of (multiple) column families to multiple files on
   // persistent storage.
@@ -2460,6 +2465,8 @@ class DBImpl : public DB {
                          bool* flush_rescheduled_to_retain_udt,
                          Env::Priority thread_pri);
 
+  Compaction* CreateIntendedCompactionForwardedToBottomPriorityPool(
+      Compaction* c);
   bool EnoughRoomForCompaction(ColumnFamilyData* cfd,
                                const std::vector<CompactionInputFiles>& inputs,
                                bool* sfm_bookkeeping, LogBuffer* log_buffer);
@@ -2727,6 +2734,11 @@ class DBImpl : public DB {
       const std::vector<ColumnFamilyHandle*>& column_families,
       ErrorIteratorFuncType error_iterator_func);
 
+  bool ShouldPickCompaction(bool is_prepicked,
+                            const PrepickedCompaction* prepicked_compaction);
+
+  void ResetBottomPriCompactionIntent(ColumnFamilyData* cfd,
+                                      std::unique_ptr<Compaction>& c);
   // Lock over the persistent DB state.  Non-nullptr iff successfully acquired.
   FileLock* db_lock_ = nullptr;
 

@@ -1,6 +1,5 @@
 from typing import List
-from letschatty.models.chat.chat import Chat
-from letschatty.models.chat.flow_link_state import SmartFollowUpState
+from letschatty.models.chat.chat import Chat, FlowStateAssignedToChat
 from letschatty.models.company.assets.ai_agents_v2.follow_up_strategy import FollowUpStrategy
 from letschatty.models.company.assets.ai_agents_v2.ai_agents_decision_output import SmartFollowUpDecision, SmartFollowUpDecisionAction
 from letschatty.services.chat.chat_service import ChatService
@@ -15,19 +14,19 @@ logger = logging.getLogger("SmartFollowUpService")
 class SmartFollowUpService:
 
     @staticmethod
-    def should_send_followup(workflow_link_state: SmartFollowUpState, strategy: FollowUpStrategy) -> bool:
+    def should_send_followup(workflow_link_state: FlowStateAssignedToChat, strategy: FollowUpStrategy) -> bool:
         """Check if we can send another follow-up"""
         return (
             workflow_link_state.total_followups_sent < strategy.maximum_follow_ups_to_be_executed and
             workflow_link_state.consecutive_count < strategy.maximum_consecutive_follow_ups
         )
     @staticmethod
-    def reset_sequence(workflow_link_state: SmartFollowUpState):
+    def reset_sequence(workflow_link_state: FlowStateAssignedToChat):
         """Reset consecutive count when customer responds"""
         workflow_link_state.consecutive_count = 0
 
     @staticmethod
-    def increment_followup(workflow_link_state: SmartFollowUpState):
+    def increment_followup(workflow_link_state: FlowStateAssignedToChat):
         """Called after sending a follow-up"""
         workflow_link_state.total_followups_sent += 1
         workflow_link_state.consecutive_count += 1
@@ -40,23 +39,23 @@ class SmartFollowUpService:
             ai_agent_decision.next_call_time = datetime.now(ZoneInfo('UTC')) + timedelta(minutes=strategy.get_interval_for_followup(next_follow_up_number))
 
     @staticmethod
-    def get_description(workflow_link_state: SmartFollowUpState, strategy: FollowUpStrategy) -> str:
+    def get_description(workflow_link_state: FlowStateAssignedToChat, strategy: FollowUpStrategy) -> str:
         """Get the description of the follow up strategy"""
         return f"Total de follow ups enviados: {workflow_link_state.total_followups_sent} / {strategy.maximum_follow_ups_to_be_executed}. Descripción: {strategy.instructions_and_goals}"
 
     @staticmethod
-    def get_descriptive_title(workflow_link_state: SmartFollowUpState, strategy: FollowUpStrategy) -> str:
+    def get_descriptive_title(workflow_link_state: FlowStateAssignedToChat, strategy: FollowUpStrategy) -> str:
         """Get the descriptive title of the follow up strategy"""
         return f"🤖 Smart Follow Up: {strategy.name} | Ejecutados: {workflow_link_state.consecutive_count} / {strategy.maximum_consecutive_follow_ups}"
 
     @staticmethod
-    def get_follow_up_strategy_info_for_cot(workflow_link_state: SmartFollowUpState, strategy: FollowUpStrategy) -> str:
+    def get_follow_up_strategy_info_for_cot(workflow_link_state: FlowStateAssignedToChat, strategy: FollowUpStrategy) -> str:
         """Get the descriptive title of the follow up strategy"""
         return f"\n\nLa estrategia de seguimiento es: {strategy.name} | Se ejecutaron {workflow_link_state.consecutive_count}/{strategy.maximum_consecutive_follow_ups} veces consecutivas y en total se han enviado {workflow_link_state.total_followups_sent}/{strategy.maximum_follow_ups_to_be_executed} seguimientos. \n\n El próximo seguimiento es el #{workflow_link_state.consecutive_count + 1} - configurado para {strategy.get_interval_for_followup(workflow_link_state.consecutive_count + 1)/60} horas. Se hará a las {workflow_link_state.next_call.astimezone(ZoneInfo('UTC')).strftime('%H:%M')} (UTC-0) | {workflow_link_state.next_call.astimezone(ZoneInfo('America/Argentina/Buenos_Aires')).strftime('%H:%M')} (UTC-3)"
 
 
     @staticmethod
-    def update_based_on_decision(chat: Chat, decision: SmartFollowUpDecision, smart_follow_up_state: SmartFollowUpState, flow_preview : FlowPreview, follow_up_strategy: FollowUpStrategy, execution_context: ExecutionContext) -> None:
+    def update_based_on_decision(chat: Chat, decision: SmartFollowUpDecision, smart_follow_up_state: FlowStateAssignedToChat, flow_preview : FlowPreview, follow_up_strategy: FollowUpStrategy, execution_context: ExecutionContext) -> None:
         """
         Update the workflow link state based on the decision.
         If the action is SEND or SUGGEST, we increment the followup and update the next call time.

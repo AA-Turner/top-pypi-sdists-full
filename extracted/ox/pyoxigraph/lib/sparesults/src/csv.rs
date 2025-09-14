@@ -150,7 +150,7 @@ fn write_csv_term<'a>(output: &mut String, term: impl Into<TermRef<'a>>) {
             output.push_str(bnode.as_str())
         }
         TermRef::Literal(literal) => write_escaped_csv_string(output, literal.value()),
-        #[cfg(feature = "rdf-star")]
+        #[cfg(feature = "sparql-12")]
         TermRef::Triple(triple) => {
             write_csv_term(output, &triple.subject);
             output.push(' ');
@@ -311,6 +311,13 @@ fn write_tsv_term<'a>(output: &mut String, term: impl Into<TermRef<'a>>) {
                 write_tsv_quoted_str(output, value);
                 output.push('@');
                 output.push_str(language);
+                #[cfg(feature = "sparql-12")]
+                if let Some(direction) = literal.direction() {
+                    output.push_str(match direction {
+                        BaseDirection::Ltr => "--ltr",
+                        BaseDirection::Rtl => "--rtl",
+                    })
+                }
             } else {
                 match literal.datatype() {
                     xsd::BOOLEAN if is_turtle_boolean(value) => output.push_str(value),
@@ -326,15 +333,15 @@ fn write_tsv_term<'a>(output: &mut String, term: impl Into<TermRef<'a>>) {
                 }
             }
         }
-        #[cfg(feature = "rdf-star")]
+        #[cfg(feature = "sparql-12")]
         TermRef::Triple(triple) => {
-            output.push_str("<< ");
+            output.push_str("<<( ");
             write_tsv_term(output, &triple.subject);
             output.push(' ');
             write_tsv_term(output, &triple.predicate);
             output.push(' ');
             write_tsv_term(output, &triple.object);
-            output.push_str(" >>");
+            output.push_str(" )>>");
         }
     }
 }
@@ -588,7 +595,9 @@ fn inner_read_first_line(
         for v in line.split('\t') {
             let v = v.trim();
             if v.is_empty() {
-                return Err(QueryResultsSyntaxError::msg("Empty column on the first row. The first row should be a list of variables like ?foo or $bar"));
+                return Err(QueryResultsSyntaxError::msg(
+                    "Empty column on the first row. The first row should be a list of variables like ?foo or $bar",
+                ));
             }
             let variable = Variable::from_str(v).map_err(|e| {
                 QueryResultsSyntaxError::msg(format!("Invalid variable declaration '{v}': {e}"))
@@ -617,7 +626,7 @@ struct TsvInnerSolutionsParser {
 }
 
 impl TsvInnerSolutionsParser {
-    #[allow(clippy::unwrap_in_result)]
+    #[expect(clippy::unwrap_in_result)]
     pub fn parse_next(
         &self,
         line: &str,
@@ -708,7 +717,7 @@ impl LineReader {
         }
     }
 
-    #[allow(clippy::unwrap_in_result)]
+    #[expect(clippy::unwrap_in_result)]
     fn next_line_from_reader<'a>(
         &mut self,
         buffer: &'a mut Vec<u8>,
@@ -750,7 +759,6 @@ impl LineReader {
     }
 
     #[cfg(feature = "async-tokio")]
-    #[allow(clippy::unwrap_in_result)]
     async fn next_line_from_tokio_async_read<'a>(
         &mut self,
         buffer: &'a mut Vec<u8>,
@@ -791,7 +799,7 @@ impl LineReader {
         result
     }
 
-    #[allow(clippy::unwrap_in_result)]
+    #[expect(clippy::unwrap_in_result)]
     fn next_line_from_slice<'a>(
         &mut self,
         slice: &'a [u8],
@@ -810,7 +818,7 @@ impl LineReader {
 }
 
 #[cfg(test)]
-#[allow(clippy::panic_in_result_fn)]
+#[expect(clippy::panic_in_result_fn)]
 mod tests {
     use super::*;
     use std::error::Error;
@@ -858,6 +866,18 @@ mod tests {
                     None,
                     Some(Literal::new_simple_literal("escape,\t\r\n").into()),
                 ],
+                #[cfg(feature = "sparql-12")]
+                vec![
+                    None,
+                    Some(
+                        Literal::new_directional_language_tagged_literal_unchecked(
+                            "String-with-dir",
+                            "en",
+                            BaseDirection::Ltr,
+                        )
+                        .into(),
+                    ),
+                ],
             ],
         )
     }
@@ -876,7 +896,13 @@ mod tests {
                     .filter_map(|(v, s)| s.as_ref().map(|s| (v.as_ref(), s.as_ref()))),
             );
         }
-        assert_eq!(buffer, "x,literal\r\nhttp://example/x,String\r\nhttp://example/x,\"String-with-dquote\"\"\"\r\n_:b0,Blank node\r\n,Missing 'x'\r\n,\r\nhttp://example/x,\r\n_:b1,String-with-lang\r\n_:b1,123\r\n,\"escape,\t\r\n\"\r\n");
+        #[cfg_attr(not(feature = "sparql-12"), expect(unused_mut))]
+        let mut expected = "x,literal\r\nhttp://example/x,String\r\nhttp://example/x,\"String-with-dquote\"\"\"\r\n_:b0,Blank node\r\n,Missing 'x'\r\n,\r\nhttp://example/x,\r\n_:b1,String-with-lang\r\n_:b1,123\r\n,\"escape,\t\r\n\"\r\n".to_owned();
+        #[cfg(feature = "sparql-12")]
+        {
+            expected.push_str(",String-with-dir\r\n")
+        }
+        assert_eq!(buffer, expected);
     }
 
     #[test]
@@ -895,7 +921,13 @@ mod tests {
                     .filter_map(|(v, s)| s.as_ref().map(|s| (v.as_ref(), s.as_ref()))),
             );
         }
-        assert_eq!(buffer, "?x\t?literal\n<http://example/x>\t\"String\"\n<http://example/x>\t\"String-with-dquote\\\"\"\n_:b0\t\"Blank node\"\n\t\"Missing 'x'\"\n\t\n<http://example/x>\t\n_:b1\t\"String-with-lang\"@en\n_:b1\t123\n\t\"escape,\\t\\r\\n\"\n");
+        #[cfg_attr(not(feature = "sparql-12"), expect(unused_mut))]
+        let mut expected = "?x\t?literal\n<http://example/x>\t\"String\"\n<http://example/x>\t\"String-with-dquote\\\"\"\n_:b0\t\"Blank node\"\n\t\"Missing 'x'\"\n\t\n<http://example/x>\t\n_:b1\t\"String-with-lang\"@en\n_:b1\t123\n\t\"escape,\\t\\r\\n\"\n".to_owned();
+        #[cfg(feature = "sparql-12")]
+        {
+            expected.push_str("\t\"String-with-dir\"@en--ltr\n")
+        }
+        assert_eq!(buffer, expected);
 
         // Read
         if let SliceTsvQueryResultsParserOutput::Solutions {
@@ -927,6 +959,7 @@ mod tests {
             "?p\n_:",
             "?p\n\"",
             "?p\n<<",
+            "?p\n<<(",
             "?p\n1\t2\n",
             "?p\n\n",
         ];

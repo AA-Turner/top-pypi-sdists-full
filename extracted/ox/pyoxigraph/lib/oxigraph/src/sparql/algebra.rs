@@ -2,6 +2,8 @@
 //!
 //! The root type for SPARQL queries is [`Query`] and the root type for updates is [`Update`].
 
+#![expect(deprecated)]
+
 use crate::model::*;
 use spargebra::GraphUpdateOperation;
 use std::fmt;
@@ -27,8 +29,12 @@ use std::str::FromStr;
 /// );
 /// # Ok::<_, Box<dyn std::error::Error>>(())
 /// ```
-#[allow(clippy::field_scoped_visibility_modifiers)]
+#[expect(clippy::field_scoped_visibility_modifiers)]
 #[derive(Eq, PartialEq, Debug, Clone, Hash)]
+#[deprecated(
+    note = "Use SparqlEvaluator instead to parse the query with options or directly the spargebra::Query type",
+    since = "0.5.0"
+)]
 pub struct Query {
     pub(super) inner: spargebra::Query,
     pub(super) dataset: QueryDataset,
@@ -40,11 +46,8 @@ impl Query {
         query: &str,
         base_iri: Option<&str>,
     ) -> Result<Self, spargebra::SparqlSyntaxError> {
-        let query = Self::from(spargebra::Query::parse(query, base_iri)?);
-        Ok(Self {
-            dataset: query.dataset,
-            inner: query.inner,
-        })
+        #[expect(deprecated)]
+        Ok(spargebra::Query::parse(query, base_iri)?.into())
     }
 
     /// Returns [the query dataset specification](https://www.w3.org/TR/sparql11-query/#specifyingDataset)
@@ -113,8 +116,12 @@ impl From<spargebra::Query> for Query {
 /// assert_eq!(update.to_string().trim(), update_str);
 /// # Ok::<_, oxigraph::sparql::SparqlSyntaxError>(())
 /// ```
-#[allow(clippy::field_scoped_visibility_modifiers)]
+#[expect(clippy::field_scoped_visibility_modifiers)]
 #[derive(Eq, PartialEq, Debug, Clone, Hash)]
+#[deprecated(
+    note = "Use SparqlEvaluator instead to parse the update with options or directly the spargebra::Update type",
+    since = "0.5.0"
+)]
 pub struct Update {
     pub(super) inner: spargebra::Update,
     pub(super) using_datasets: Vec<Option<QueryDataset>>,
@@ -126,6 +133,7 @@ impl Update {
         update: &str,
         base_iri: Option<&str>,
     ) -> Result<Self, spargebra::SparqlSyntaxError> {
+        #[expect(deprecated)]
         Ok(spargebra::Update::parse(update, base_iri)?.into())
     }
 
@@ -204,7 +212,7 @@ impl QueryDataset {
         }
     }
 
-    fn from_algebra(inner: &Option<spargebra::algebra::QueryDataset>) -> Self {
+    pub(crate) fn from_algebra(inner: &Option<spargebra::algebra::QueryDataset>) -> Self {
         if let Some(inner) = inner {
             Self {
                 default: Some(inner.default.iter().map(|g| g.clone().into()).collect()),
@@ -222,20 +230,24 @@ impl QueryDataset {
     }
 
     /// Checks if this dataset specification is the default one
-    /// (i.e. the default graph is the store default graph and all the store named graphs are available)
+    /// (i.e., the default graph is the store default graph and all the store named graphs are available)
     ///
     /// ```
     /// use oxigraph::sparql::Query;
     ///
-    /// assert!(Query::parse("SELECT ?s ?p ?o WHERE { ?s ?p ?o . }", None)?
+    /// assert!(
+    ///     Query::parse("SELECT ?s ?p ?o WHERE { ?s ?p ?o . }", None)?
+    ///         .dataset()
+    ///         .is_default_dataset()
+    /// );
+    /// assert!(
+    ///     !Query::parse(
+    ///         "SELECT ?s ?p ?o FROM <http://example.com> WHERE { ?s ?p ?o . }",
+    ///         None
+    ///     )?
     ///     .dataset()
-    ///     .is_default_dataset());
-    /// assert!(!Query::parse(
-    ///     "SELECT ?s ?p ?o FROM <http://example.com> WHERE { ?s ?p ?o . }",
-    ///     None
-    /// )?
-    /// .dataset()
-    /// .is_default_dataset());
+    ///     .is_default_dataset()
+    /// );
     ///
     /// # Ok::<_, Box<dyn std::error::Error>>(())
     /// ```
@@ -246,8 +258,8 @@ impl QueryDataset {
             && self.named.is_none()
     }
 
-    /// Returns the list of the store graphs that are available to the query as the default graph or `None` if the union of all graphs is used as the default graph
-    /// This list is by default only the store default graph
+    /// Returns the list of the store graphs that are available to the query as the default graph or `None` if the union of all graphs is used as the default graph.
+    /// This list is by default only the store default graph.
     pub fn default_graph_graphs(&self) -> Option<&[GraphName]> {
         self.default.as_deref()
     }
@@ -259,7 +271,7 @@ impl QueryDataset {
 
     /// Sets the list of graphs the query should consider as being part of the default graph.
     ///
-    /// By default only the store default graph is considered.
+    /// By default, only the store default graph is considered.
     /// ```
     /// use oxigraph::model::NamedNode;
     /// use oxigraph::sparql::Query;

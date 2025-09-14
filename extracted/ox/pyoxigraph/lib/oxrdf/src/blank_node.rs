@@ -1,5 +1,7 @@
 #![allow(clippy::host_endian_bytes)] // We use it to go around 16 bytes alignment of u128
 use rand::random;
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
 use std::io::Write;
 use std::{fmt, str};
 
@@ -352,8 +354,44 @@ fn to_integer_id(id: &str) -> Option<u128> {
 #[error("The blank node identifier is invalid")]
 pub struct BlankNodeIdParseError;
 
+#[cfg(feature = "serde")]
+impl Serialize for BlankNode {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        self.as_ref().serialize(serializer)
+    }
+}
+
+#[cfg(feature = "serde")]
+impl Serialize for BlankNodeRef<'_> {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        #[derive(Serialize)]
+        #[serde(rename = "BlankNode")]
+        struct Value<'a> {
+            value: &'a str,
+        }
+        Value {
+            value: self.as_str(),
+        }
+        .serialize(serializer)
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de> Deserialize<'de> for BlankNode {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(rename = "BlankNode")]
+        struct Value {
+            value: String,
+        }
+        Self::new(Value::deserialize(deserializer)?.value).map_err(de::Error::custom)
+    }
+}
+
 #[cfg(test)]
-#[allow(clippy::panic_in_result_fn)]
 mod tests {
     use super::*;
     #[cfg(not(target_family = "wasm"))]
@@ -413,5 +451,15 @@ mod tests {
         assert_eq!(size_of::<BlankNodeRef<'_>>(), 32);
         assert_eq!(align_of::<BlankNode>(), 8);
         assert_eq!(align_of::<BlankNodeRef<'_>>(), 8);
+    }
+
+    #[test]
+    #[cfg(feature = "serde")]
+    fn test_serde() {
+        let b = BlankNode::new("123a").unwrap();
+        let json = serde_json::to_string(&b).unwrap();
+        assert_eq!(json, "{\"value\":\"123a\"}");
+        let b2: BlankNode = serde_json::from_str(&json).unwrap();
+        assert_eq!(b2, b);
     }
 }

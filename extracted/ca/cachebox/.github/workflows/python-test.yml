@@ -2,6 +2,7 @@ name: python-test
 
 on:
   push:
+  pull_request:
 
 permissions:
   contents: read
@@ -14,20 +15,22 @@ jobs:
       fail-fast: false
       matrix:
         python-version:
-          - '3.8'
-          - '3.9'
-          - '3.10'
-          - '3.11'
-          - '3.12'
-          - '3.13'
-          - 'pypy3.9'
-          - 'pypy3.10'
+          - "3.9"
+          - "3.10"
+          - "3.11"
+          - "3.12"
+          - "3.13"
+          - "3.14"
+          - "3.14t"
+          - "pypy3.10"
+          - "pypy3.11"
 
     runs-on: ubuntu-latest
+    continue-on-error: ${{ endsWith(matrix.python-version, 't') }}
 
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: install rust stable
         uses: dtolnay/rust-toolchain@stable
 
@@ -35,6 +38,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+          allow-prereleases: true
 
       - run: pip install pytest pytest-asyncio maturin
 
@@ -61,14 +65,14 @@ jobs:
     runs-on: ${{ matrix.os }}-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: install rust stable
         uses: dtolnay/rust-toolchain@stable
 
       - name: set up python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.13'
+          python-version: "3.13"
 
       - run: pip install pytest pytest-asyncio maturin
 

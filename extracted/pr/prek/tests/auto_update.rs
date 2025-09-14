@@ -4,6 +4,7 @@ use anyhow::Result;
 use assert_cmd::assert::OutputAssertExt;
 use assert_fs::fixture::ChildPath;
 use assert_fs::prelude::*;
+use constants::CONFIG_FILE;
 use insta::assert_snapshot;
 
 use crate::common::{TestContext, cmd_snapshot};
@@ -134,7 +135,7 @@ fn auto_update_basic() -> Result<()> {
     insta::with_settings!(
         { filters => filters.clone() },
         {
-            assert_snapshot!(context.read(".pre-commit-config.yaml"), @r#"
+            assert_snapshot!(context.read(CONFIG_FILE), @r#"
             repos:
               - repo: [HOME]/test-repos/test-repo
                 rev: v2.0.0
@@ -178,7 +179,7 @@ fn auto_update_already_up_to_date() -> Result<()> {
     insta::with_settings!(
         { filters => filters.clone() },
         {
-            assert_snapshot!(context.read(".pre-commit-config.yaml"), @r#"
+            assert_snapshot!(context.read(CONFIG_FILE), @r#"
             repos:
               - repo: [HOME]/test-repos/up-to-date-repo
                 rev: v1.0.0
@@ -206,10 +207,14 @@ fn auto_update_multiple_repos_mixed() -> Result<()> {
             hooks:
               - id: test-hook
           - repo: {}
+            rev: v1.0.0
+            hooks:
+              - id: same-hook
+          - repo: {}
             rev: v2.0.0
             hooks:
               - id: another-hook
-    ", repo1_path, repo2_path});
+    ", repo1_path, repo1_path, repo2_path});
 
     context.git_add(".");
 
@@ -228,17 +233,21 @@ fn auto_update_multiple_repos_mixed() -> Result<()> {
     insta::with_settings!(
         { filters => filters.clone() },
         {
-            assert_snapshot!(context.read(".pre-commit-config.yaml"), @r#"
+            assert_snapshot!(context.read(CONFIG_FILE), @r"
             repos:
               - repo: [HOME]/test-repos/repo1
                 rev: v1.1.0
                 hooks:
                   - id: test-hook
+              - repo: [HOME]/test-repos/repo1
+                rev: v1.1.0
+                hooks:
+                  - id: same-hook
               - repo: [HOME]/test-repos/repo2
                 rev: v2.0.0
                 hooks:
                   - id: another-hook
-            "#);
+            ");
         }
     );
 
@@ -282,7 +291,7 @@ fn auto_update_specific_repos() -> Result<()> {
     insta::with_settings!(
         { filters => filters.clone() },
         {
-            assert_snapshot!(context.read(".pre-commit-config.yaml"), @r#"
+            assert_snapshot!(context.read(CONFIG_FILE), @r#"
             repos:
               - repo: [HOME]/test-repos/repo1
                 rev: v1.1.0
@@ -310,7 +319,7 @@ fn auto_update_specific_repos() -> Result<()> {
     insta::with_settings!(
         { filters => filters.clone() },
         {
-            assert_snapshot!(context.read(".pre-commit-config.yaml"), @r#"
+            assert_snapshot!(context.read(CONFIG_FILE), @r#"
             repos:
               - repo: [HOME]/test-repos/repo1
                 rev: v1.1.0
@@ -362,7 +371,7 @@ fn auto_update_bleeding_edge() -> Result<()> {
     insta::with_settings!(
         { filters => filters.clone() },
         {
-            assert_snapshot!(context.read(".pre-commit-config.yaml"), @r#"
+            assert_snapshot!(context.read(CONFIG_FILE), @r#"
             repos:
               - repo: [HOME]/test-repos/bleeding-repo
                 rev: [COMMIT_SHA]
@@ -411,7 +420,7 @@ fn auto_update_freeze() -> Result<()> {
     insta::with_settings!(
         { filters => filters.clone() },
         {
-            assert_snapshot!(context.read(".pre-commit-config.yaml"), @r##"
+            assert_snapshot!(context.read(CONFIG_FILE), @r##"
             repos:
               - repo: [HOME]/test-repos/freeze-repo
                 rev: [COMMIT_SHA]  # frozen: v1.1.0
@@ -467,7 +476,7 @@ fn auto_update_preserve_formatting() -> Result<()> {
     insta::with_settings!(
         { filters => filters.clone() },
         {
-            assert_snapshot!(context.read(".pre-commit-config.yaml"), @r##"
+            assert_snapshot!(context.read(CONFIG_FILE), @r##"
             # Pre-commit configuration
             repos:
               - repo: [HOME]/test-repos/repo1  # Test repository
@@ -527,7 +536,7 @@ fn auto_update_with_existing_frozen_comment() -> Result<()> {
     insta::with_settings!(
         { filters => filters.clone() },
         {
-            assert_snapshot!(context.read(".pre-commit-config.yaml"), @r#"
+            assert_snapshot!(context.read(CONFIG_FILE), @r#"
             repos:
               - repo: [HOME]/test-repos/frozen-repo
                 rev: v1.2.0
@@ -577,7 +586,7 @@ fn auto_update_local_repo_ignored() -> Result<()> {
     insta::with_settings!(
         { filters => filters.clone() },
         {
-            assert_snapshot!(context.read(".pre-commit-config.yaml"), @r#"
+            assert_snapshot!(context.read(CONFIG_FILE), @r#"
             repos:
               - repo: local
                 hooks:
@@ -654,6 +663,103 @@ fn missing_hook_ids() -> Result<()> {
     ----- stderr -----
     [[HOME]/test-repos/missing-hook-repo] update failed: Cannot update to rev `v2.0.0`, hook is missing: test-hook
     "#);
+
+    Ok(())
+}
+
+#[test]
+fn auto_update_workspace() -> Result<()> {
+    let context = TestContext::new();
+    context.init_project();
+
+    let repo1_path =
+        create_local_git_repo(&context, "workspace-repo1", &["v1.0.0", "v1.1.0", "v2.0.0"])?;
+    let repo2_path = create_local_git_repo(&context, "workspace-repo2", &["v1.0.0", "v1.5.0"])?;
+    let repo3_path = create_local_git_repo(&context, "workspace-repo3", &["v2.0.0"])?;
+
+    context.setup_workspace(
+        &["project-a", "project-b"],
+        "repos: []", // Minimal valid config for root
+    )?;
+
+    context
+        .work_dir()
+        .child("project-a/.pre-commit-config.yaml")
+        .write_str(&indoc::formatdoc! {r"
+        repos:
+          - repo: {}
+            rev: v1.0.0
+            hooks:
+              - id: test-hook
+          - repo: {}
+            rev: v1.0.0
+            hooks:
+              - id: another-hook
+    ", repo1_path, repo2_path})?;
+
+    context
+        .work_dir()
+        .child("project-b/.pre-commit-config.yaml")
+        .write_str(&indoc::formatdoc! {r"
+        repos:
+          - repo: {}
+            rev: v1.0.0
+            hooks:
+              - id: another-hook
+          - repo: {}
+            rev: v2.0.0
+            hooks:
+              - id: test-hook
+    ", repo2_path, repo3_path})?;
+
+    context.git_add(".");
+
+    let filters = context.filters();
+
+    cmd_snapshot!(filters.clone(), context.auto_update(), @r"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+    [[HOME]/test-repos/workspace-repo1] updating v1.0.0 -> v2.0.0
+    [[HOME]/test-repos/workspace-repo2] updating v1.0.0 -> v1.5.0
+    [[HOME]/test-repos/workspace-repo3] already up to date
+
+    ----- stderr -----
+    ");
+
+    insta::with_settings!(
+        { filters => filters.clone() },
+        {
+            assert_snapshot!(context.read("project-a/.pre-commit-config.yaml"), @r#"
+            repos:
+              - repo: [HOME]/test-repos/workspace-repo1
+                rev: v2.0.0
+                hooks:
+                  - id: test-hook
+              - repo: [HOME]/test-repos/workspace-repo2
+                rev: v1.5.0
+                hooks:
+                  - id: another-hook
+            "#);
+        }
+    );
+
+    insta::with_settings!(
+        { filters => filters.clone() },
+        {
+            assert_snapshot!(context.read("project-b/.pre-commit-config.yaml"), @r#"
+            repos:
+              - repo: [HOME]/test-repos/workspace-repo2
+                rev: v1.5.0
+                hooks:
+                  - id: another-hook
+              - repo: [HOME]/test-repos/workspace-repo3
+                rev: v2.0.0
+                hooks:
+                  - id: test-hook
+            "#);
+        }
+    );
 
     Ok(())
 }

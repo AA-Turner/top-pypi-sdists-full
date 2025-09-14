@@ -182,6 +182,15 @@ class PostponeFollowUp(CustomException):
         self.time_delta = time_delta
         super().__init__(message, status_code=status_code, **context_data)
 
+class PostponeFollowUpTillChatUpdate(CustomException):
+    def __init__(self, message="Follow up postponed till chat update", status_code=400, area:Area = Area.WITH_AGENT, **context_data):
+        self.area = area
+        super().__init__(message, status_code=status_code, **context_data)
+
+class ChatStillHasSuggestedMessages(CustomException):
+    def __init__(self, message="Chat still has suggested messages", status_code=400, **context_data):
+        super().__init__(message, status_code=status_code, **context_data)
+
 class SmartFollowUpStrategyNotSet(CustomException):
     def __init__(self, message="Smart follow up strategy not set", status_code=400, **context_data):
         super().__init__(message, status_code=status_code, **context_data)

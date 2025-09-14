@@ -1071,6 +1071,7 @@ class CLIP_PT_marker(CLIP_PT_tracking_panel, _bpy_types.Panel):
     bl_region_type: typing.Any
     bl_rna: typing.Any
     bl_space_type: typing.Any
+    bl_translation_context: typing.Any
     id_data: typing.Any
 
     def bl_rna_get_subclass(self) -> bpy.types.Struct:
@@ -1511,6 +1512,7 @@ class CLIP_PT_tools_marker(CLIP_PT_tracking_panel, _bpy_types.Panel):
     bl_region_type: typing.Any
     bl_rna: typing.Any
     bl_space_type: typing.Any
+    bl_translation_context: typing.Any
     id_data: typing.Any
 
     def bl_rna_get_subclass(self) -> bpy.types.Struct:

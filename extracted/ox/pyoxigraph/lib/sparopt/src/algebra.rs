@@ -7,11 +7,11 @@ use spargebra::algebra::{
     GraphPattern as AlGraphPattern, OrderExpression as AlOrderExpression,
 };
 pub use spargebra::algebra::{Function, PropertyPathExpression};
-use spargebra::term::{BlankNode, GroundSubject, TermPattern, TriplePattern};
+use spargebra::term::{BlankNode, TermPattern, TriplePattern};
 pub use spargebra::term::{
     GroundTerm, GroundTermPattern, Literal, NamedNode, NamedNodePattern, Variable,
 };
-#[cfg(feature = "rdf-star")]
+#[cfg(feature = "sparql-12")]
 use spargebra::term::{GroundTriple, GroundTriplePattern};
 use std::collections::hash_map::DefaultHasher;
 use std::collections::{HashMap, HashSet};
@@ -379,7 +379,7 @@ impl Expression {
                 Function::IsBlank | Function::IsIri | Function::IsLiteral | Function::IsNumeric,
                 _,
             ) => true,
-            #[cfg(feature = "rdf-star")]
+            #[cfg(feature = "sparql-12")]
             Self::FunctionCall(Function::IsTriple, _) => true,
             Self::Literal(literal) => literal.datatype() == xsd::BOOLEAN,
             Self::If(_, a, b) => a.returns_boolean() && b.returns_boolean(),
@@ -400,22 +400,12 @@ impl From<Literal> for Expression {
     }
 }
 
-impl From<GroundSubject> for Expression {
-    fn from(value: GroundSubject) -> Self {
-        match value {
-            GroundSubject::NamedNode(value) => value.into(),
-            #[cfg(feature = "rdf-star")]
-            GroundSubject::Triple(value) => (*value).into(),
-        }
-    }
-}
-
 impl From<GroundTerm> for Expression {
     fn from(value: GroundTerm) -> Self {
         match value {
             GroundTerm::NamedNode(value) => value.into(),
             GroundTerm::Literal(value) => value.into(),
-            #[cfg(feature = "rdf-star")]
+            #[cfg(feature = "sparql-12")]
             GroundTerm::Triple(value) => (*value).into(),
         }
     }
@@ -435,14 +425,14 @@ impl From<GroundTermPattern> for Expression {
         match value {
             GroundTermPattern::NamedNode(value) => value.into(),
             GroundTermPattern::Literal(value) => value.into(),
-            #[cfg(feature = "rdf-star")]
+            #[cfg(feature = "sparql-12")]
             GroundTermPattern::Triple(value) => (*value).into(),
             GroundTermPattern::Variable(variable) => variable.into(),
         }
     }
 }
 
-#[cfg(feature = "rdf-star")]
+#[cfg(feature = "sparql-12")]
 impl From<GroundTriple> for Expression {
     fn from(value: GroundTriple) -> Self {
         Self::FunctionCall(
@@ -456,7 +446,7 @@ impl From<GroundTriple> for Expression {
     }
 }
 
-#[cfg(feature = "rdf-star")]
+#[cfg(feature = "sparql-12")]
 impl From<GroundTriplePattern> for Expression {
     fn from(value: GroundTriplePattern) -> Self {
         Self::FunctionCall(
@@ -1312,7 +1302,7 @@ impl GraphPattern {
                 .clone()
                 .into(),
             TermPattern::Literal(literal) => literal.clone().into(),
-            #[cfg(feature = "rdf-star")]
+            #[cfg(feature = "sparql-12")]
             TermPattern::Triple(pattern) => {
                 let (subject, predicate, object) =
                     Self::triple_pattern_from_algebra(pattern, blank_nodes);
@@ -1647,11 +1637,7 @@ fn new_var() -> Variable {
 }
 
 fn order_pair<T: Hash>(a: T, b: T) -> (T, T) {
-    if hash(&a) <= hash(&b) {
-        (a, b)
-    } else {
-        (b, a)
-    }
+    if hash(&a) <= hash(&b) { (a, b) } else { (b, a) }
 }
 
 fn order_vec<T: Hash>(mut vec: Vec<T>) -> Vec<T> {
@@ -1672,7 +1658,7 @@ fn lookup_term_pattern_variables<'a>(
     if let GroundTermPattern::Variable(v) = pattern {
         callback(v);
     }
-    #[cfg(feature = "rdf-star")]
+    #[cfg(feature = "sparql-12")]
     if let GroundTermPattern::Triple(t) = pattern {
         lookup_term_pattern_variables(&t.subject, callback);
         if let NamedNodePattern::Variable(v) = &t.predicate {

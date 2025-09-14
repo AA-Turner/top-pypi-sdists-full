@@ -417,10 +417,12 @@ def _test_Qt_QtWebEngineWidgets(pyi_builder, qt_flavor):
 
             def verify_and_quit(self):
                 # Make sure the renderer process is alive.
+                print("Checking the result of renderer process...", file=sys.stderr)
                 if self.result != self.EXPECTED:
                     raise ValueError(
                         f"JS result is {{self.result!r}} but expected {{self.EXPECTED!r}}. "
                         "Is the QtWebEngine renderer process running properly?")
+                print("Exiting application's main loop...", file=sys.stderr)
                 app.quit()
 
         view = QWebEngineView()
@@ -430,11 +432,15 @@ def _test_Qt_QtWebEngineWidgets(pyi_builder, qt_flavor):
         js_result_tester = JSResultTester()
         js_result_tester.setup(view)
 
+        print("Entering application's main loop...", file=sys.stderr)
         if is_qt6:
             # Qt6: exec_() is deprecated in PySide6 and removed from PyQt6 in favor of exec()
             res = app.exec()
         else:
             res = app.exec_()
+        print("Exited application's main loop!", file=sys.stderr)
+
+        print("Calling sys.exit()...", file=sys.stderr)
         sys.exit(res)
         """, **USE_WINDOWED_KWARG
     )
@@ -461,6 +467,8 @@ def _test_Qt_QtWebEngineQuick(pyi_builder, qt_flavor):
             from {qt_flavor}.QtWebEngineQuick import QtWebEngineQuick
         else:
             from {qt_flavor}.QtWebEngine import QtWebEngine as QtWebEngineQuick
+
+        # Must be called before QGuiApplication is instantiated!
         QtWebEngineQuick.initialize()
 
         app = QGuiApplication(sys.argv)
@@ -475,39 +483,56 @@ def _test_Qt_QtWebEngineQuick(pyi_builder, qt_flavor):
                 WebEngineView {{
                     id: view
                     anchors.fill: parent
-                    Component.onCompleted: loadHtml('
-                        <!doctype html>
-                        <html lang="en">
-                            <head>
-                                <meta charset="utf-8">
-                                <title>Test web page</title>
-                            </head>
-                            <body>
-                                <p>This is a test web page.</p>
-                            </body>
-                        </html>
-                    ')
-                }}
-                Connections {{
-                    target: view
-                    function onLoadingChanged(loadRequest) {{
+                    Component.onCompleted: () => {{
+                        console.info("Loading HTML...")
+                        loadHtml('
+                            <!doctype html>
+                            <html lang="en">
+                                <head>
+                                    <meta charset="utf-8">
+                                    <title>Test web page</title>
+                                </head>
+                                <body>
+                                    <p>This is a test web page.</p>
+                                </body>
+                            </html>
+                        ')
+                    }}
+                    onLoadingChanged: (loadRequest) => {{
+                        console.info("Web page loading status changed: " + loadRequest.status)
                         if (loadRequest.status !== WebEngineView.LoadStartedStatus) {{
-                            Qt.quit()
+                            console.info("Page loading finished; running shutdown timer (" + timer.interval + " ms)!")
+                            timer.running = true
                         }}
+                    }}
+                }}
+                Timer {{
+                    id: timer
+                    interval: 1000
+                    running: false
+                    repeat: false
+                    onTriggered: () => {{
+                        console.info("Shutdown timer triggered; exiting application's main loop...")
+                        Qt.quit()
                     }}
                 }}
             }}
         ''')
 
         if not engine.rootObjects():
-            sys.exit(-1)
+            raise RuntimeError("No root objects loaded from QML!")
 
+        print("Entering application's main loop...", file=sys.stderr)
         if is_qt6:
             # Qt6: exec_() is deprecated in PySide6 and removed from PyQt6 in favor of exec()
             res = app.exec()
         else:
             res = app.exec_()
+        print("Exited application's main loop!", file=sys.stderr)
+
         del engine
+
+        print("Calling sys.exit()...", file=sys.stderr)
         sys.exit(res)
         """, **USE_WINDOWED_KWARG
     )
@@ -551,6 +576,11 @@ def test_Qt_QtWebEngineWidgets_PyQt6(pyi_builder):
     check_requirement('PyQt6-Qt6 == 6.6.3') and is_win,
     reason='PyQt6 6.6.3 PyPI wheels for Windows are missing Qt6WebChannelQuick shared library.'
 )
+@pytest.mark.flaky(
+    # The generated .app bundle seems to sporadically freeze during shutdown on GHA macos-14 runners.
+    condition=is_darwin,
+    reruns=1,
+)
 def test_Qt_QtWebEngineQuick_PyQt6(pyi_builder):
     _test_Qt_QtWebEngineQuick(pyi_builder, 'PyQt6')
 
@@ -568,6 +598,11 @@ def test_Qt_QtWebEngineWidgets_PySide6(pyi_builder):
 @pytest.mark.skipif(
     check_requirement('PySide6 == 6.5.0') and is_win,
     reason='PySide6 6.5.0 PyPI wheels for Windows are missing opengl32sw.dll.'
+)
+@pytest.mark.flaky(
+    # The generated .app bundle seems to sporadically freeze during shutdown on GHA macos-14 runners.
+    condition=is_darwin,
+    reruns=1,
 )
 def test_Qt_QtWebEngineQuick_PySide6(pyi_builder):
     _test_Qt_QtWebEngineQuick(pyi_builder, 'PySide6')

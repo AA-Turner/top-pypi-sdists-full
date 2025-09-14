@@ -262,7 +262,7 @@ class PaymentEntryWindow(NextGenWindow):
         if status_field.get_value() == status:
             self.logger.debug(f"Status was already set. Value: {status}")
             return
-        pane = self.open_status_dropdown_in_service_row(status_field)
+        pane = self.open_status_dropdown_in_service_row(status_field, row)
         if len(status.split()) > 2:
             beginning, end = status.split()[0], status.split()[-1]
             status = self.get_status_in_dropdown_that_begin_with_and_end_with(beginning, end, pane)
@@ -333,18 +333,21 @@ class PaymentEntryWindow(NextGenWindow):
                 send_keys("{TAB}")
 
     @retry(ElementNotFoundError, tries=3, delay=1)
-    def open_status_dropdown_in_service_row(self, status_field: EditWrapper) -> EditWrapper:
+    def open_status_dropdown_in_service_row(self, status_field: EditWrapper, row: ListItemWrapper) -> EditWrapper:
         """Open the status dropdown for the provided status field.
 
         Args:
             status_field (EditWrapper): the status field whose dropdown is to be opened
+            row (ListItemWrapper): row to revalidate
 
         Returns:
             WindowSpecification: Represents the pane element of the status field
         """
         self.logger.debug("Opening status dropdown in service row")
         with contextlib.suppress(_ctypes.COMError):
-            status_field.double_click_input()
+            status_field.click_input()
+            row = self.revalidate_service_row(row)
+            status_field = self.get_status_field(row)
             status_field.double_click_input()
         pane = self.desktop_app.dialog.child_window(title="_cboInput_0", control_type="Pane")
         return pane

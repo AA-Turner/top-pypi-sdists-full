@@ -1,18 +1,15 @@
-use std::cmp::max;
-use std::collections::BTreeSet;
 use std::fmt::Write as _;
 use std::io::Write;
-use std::ops::Deref;
 use std::path::PathBuf;
 use std::rc::Rc;
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 
 use anyhow::{Context, Result};
 use futures::stream::{FuturesUnordered, StreamExt};
 use owo_colors::{OwoColorize, Style};
 use rand::SeedableRng;
 use rand::prelude::{SliceRandom, StdRng};
-use rustc_hash::{FxHashMap, FxHashSet};
+use rustc_hash::FxHashMap;
 use tokio::io::AsyncWriteExt;
 use tokio::sync::Semaphore;
 use tracing::{debug, trace};
@@ -22,37 +19,23 @@ use constants::env_vars::EnvVars;
 
 use crate::cli::reporter::{HookInitReporter, HookInstallReporter};
 use crate::cli::run::keeper::WorkTreeKeeper;
-use crate::cli::run::{CollectOptions, FileFilter, collect_files};
+use crate::cli::run::{CollectOptions, FileFilter, Selectors, collect_files};
 use crate::cli::{ExitStatus, RunExtraArgs};
 use crate::config::{Language, Stage};
-use crate::fs::{CWD, Simplified};
+use crate::fs::CWD;
+use crate::git;
+use crate::git::GIT_ROOT;
 use crate::hook::{Hook, InstalledHook};
 use crate::printer::{Printer, Stdout};
 use crate::run::{CONCURRENCY, USE_COLOR};
 use crate::store::{STORE, Store};
-use crate::workspace::Project;
-use crate::{git, warn_user};
-
-enum HookToRun {
-    Skipped(Arc<Hook>),
-    ToRun(Arc<InstalledHook>),
-}
-
-impl Deref for HookToRun {
-    type Target = Hook;
-
-    fn deref(&self) -> &Self::Target {
-        match self {
-            HookToRun::Skipped(hook) => hook,
-            HookToRun::ToRun(hook) => hook,
-        }
-    }
-}
+use crate::workspace::{Project, Workspace};
 
 #[allow(clippy::too_many_arguments, clippy::fn_params_excessive_bools)]
 pub(crate) async fn run(
     config: Option<PathBuf>,
-    hook_ids: Vec<String>,
+    includes: Vec<String>,
+    skips: Vec<String>,
     hook_stage: Stage,
     from_ref: Option<String>,
     to_ref: Option<String>,
@@ -61,6 +44,8 @@ pub(crate) async fn run(
     directories: Vec<String>,
     last_commit: bool,
     show_diff_on_failure: bool,
+    dry_run: bool,
+    refresh: bool,
     extra_args: RunExtraArgs,
     verbose: bool,
     printer: Printer,
@@ -79,136 +64,70 @@ pub(crate) async fn run(
         return Ok(ExitStatus::Success);
     }
 
+    // Ensure we are in a git repository.
+    LazyLock::force(&GIT_ROOT).as_ref()?;
+
     let should_stash = !all_files && files.is_empty() && directories.is_empty();
 
     // Check if we have unresolved merge conflict files and fail fast.
     if should_stash && git::has_unmerged_paths().await? {
-        writeln!(
-            printer.stderr(),
-            "{}: You have unmerged paths. Resolve them before running prek",
-            "error".red().bold(),
-        )?;
-        return Ok(ExitStatus::Failure);
+        anyhow::bail!("You have unmerged paths. Resolve them before running prek");
     }
 
-    let mut project = Project::from_config_file_or_directory(config, &CWD)?;
-    if should_stash && git::file_not_staged(project.config_file()).await? {
-        writeln!(
-            printer.stderr(),
-            "{}: prek configuration file is not staged, run `{}` to stage it",
-            "error".red().bold(),
-            format!("git add {}", project.config_file().user_display()).cyan(),
-        )?;
-        return Ok(ExitStatus::Failure);
+    let workspace_root = Workspace::find_root(config.as_deref(), &CWD)?;
+    let selectors = Selectors::load(&includes, &skips, &workspace_root)?;
+    let mut workspace = Workspace::discover(workspace_root, config, Some(&selectors), refresh)?;
+
+    if should_stash {
+        workspace.check_configs_staged().await?;
     }
 
     let store = STORE.as_ref()?;
     let reporter = HookInitReporter::from(printer);
-
     let lock = store.lock_async().await?;
 
-    let hook_ids = hook_ids.into_iter().collect::<BTreeSet<_>>();
-
-    let hooks = project.init_hooks(store, Some(&reporter)).await?;
+    let hooks = workspace.init_hooks(store, Some(&reporter)).await?;
     let filtered_hooks: Vec<_> = hooks
         .into_iter()
-        .filter(|h| hook_ids.is_empty() || hook_ids.contains(&h.id) || hook_ids.contains(&h.alias))
-        .filter(|h| h.stages.contains(hook_stage))
+        .filter(|h| selectors.matches_hook(h))
         .map(Arc::new)
         .collect();
 
+    selectors.report_unused();
+
     if filtered_hooks.is_empty() {
-        if hook_ids.is_empty() {
-            writeln!(
-                printer.stderr(),
-                "{}: No hooks found for stage `{}`",
-                "error".red().bold(),
-                hook_stage.cyan()
-            )?;
-        } else if hook_ids.len() == 1 {
-            writeln!(
-                printer.stderr(),
-                "{}: No hook found with id `{}` in stage `{}`",
-                "error".red().bold(),
-                hook_ids.iter().next().unwrap().cyan(),
-                hook_stage.cyan()
-            )?;
-        } else {
-            writeln!(
-                printer.stderr(),
-                "{}: No hooks found with ids {} in stage `{}`",
-                "error".red().bold(),
-                hook_ids
-                    .iter()
-                    .map(|id| format!("`{}`", id.cyan()))
-                    .collect::<Vec<_>>()
-                    .join(", "),
-                hook_stage.cyan()
-            )?;
-        }
+        writeln!(
+            printer.stderr(),
+            "{}: No hooks found after filtering with the given selectors",
+            "error".red().bold(),
+        )?;
         return Ok(ExitStatus::Failure);
-    } else if !hook_ids.is_empty() {
-        // Warn about hook IDs that don't match any hooks
-        let matched_ids: BTreeSet<String> = filtered_hooks
-            .iter()
-            .flat_map(|h| [h.id.clone(), h.alias.clone()])
-            .collect();
-
-        let unmatched_ids: Vec<&String> = hook_ids
-            .iter()
-            .filter(|id| !matched_ids.contains(*id))
-            .collect();
-
-        if !unmatched_ids.is_empty() {
-            warn_user!(
-                "Ignored non-existent hook ID{}: {}",
-                if unmatched_ids.len() > 1 { "s" } else { "" },
-                unmatched_ids
-                    .iter()
-                    .map(|id| format!("`{}`", id.yellow()))
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            );
-        }
     }
 
-    let skips = get_skips();
-    let skips = filtered_hooks
-        .iter()
-        .filter(|h| skips.contains(&h.id) || skips.contains(&h.alias))
-        .map(|h| h.idx)
-        .collect::<FxHashSet<_>>();
-    let to_run = filtered_hooks
-        .iter()
-        .filter(|h| !skips.contains(&h.idx))
-        .cloned()
+    let filtered_hooks = filtered_hooks
+        .into_iter()
+        .filter(|h| h.stages.contains(hook_stage))
         .collect::<Vec<_>>();
+
+    if filtered_hooks.is_empty() {
+        writeln!(
+            printer.stderr(),
+            "{}: No hooks found for stage `{}` after filtering",
+            "error".red().bold(),
+            hook_stage.cyan()
+        )?;
+        return Ok(ExitStatus::Failure);
+    }
 
     debug!(
         "Hooks going to run: {:?}",
-        to_run.iter().map(|h| &h.id).collect::<Vec<_>>()
+        filtered_hooks.iter().map(|h| &h.id).collect::<Vec<_>>()
     );
     let reporter = HookInstallReporter::from(printer);
-    let mut installed_hooks = install_hooks(to_run, store, &reporter).await?;
+    let installed_hooks = install_hooks(filtered_hooks, store, &reporter).await?;
 
     // Release the store lock.
     drop(lock);
-
-    let hooks = filtered_hooks
-        .into_iter()
-        .map(|h| {
-            if skips.contains(&h.idx) {
-                HookToRun::Skipped(h)
-            } else {
-                // Find and remove the matching resolved hook
-                let idx = installed_hooks
-                    .iter()
-                    .position(|r| r.idx == h.idx)
-                    .expect("Resolved hook must exist");
-                HookToRun::ToRun(Arc::new(installed_hooks.swap_remove(idx)))
-            }
-        })
-        .collect::<Vec<_>>();
 
     // Clear any unstaged changes from the git working directory.
     let mut _guard = None;
@@ -218,30 +137,35 @@ pub(crate) async fn run(
 
     set_env_vars(from_ref.as_ref(), to_ref.as_ref(), &extra_args);
 
-    let filenames = collect_files(CollectOptions {
-        hook_stage,
-        from_ref,
-        to_ref,
-        all_files,
-        files,
-        directories,
-        commit_msg_filename: extra_args.commit_msg_filename.clone(),
-    })
+    let filenames = collect_files(
+        workspace.root(),
+        CollectOptions {
+            hook_stage,
+            from_ref,
+            to_ref,
+            all_files,
+            files,
+            directories,
+            commit_msg_filename: extra_args.commit_msg_filename,
+        },
+    )
     .await?;
 
-    let filter = FileFilter::new(
-        &filenames,
-        project.config().files.as_ref(),
-        project.config().exclude.as_ref(),
-    );
-    trace!("Files after filtered: {}", filter.len());
+    // Change to the workspace root directory.
+    std::env::set_current_dir(workspace.root()).with_context(|| {
+        format!(
+            "Failed to change directory to `{}`",
+            workspace.root().display()
+        )
+    })?;
 
     run_hooks(
-        &hooks,
-        &filter,
+        &workspace,
+        &installed_hooks,
+        filenames,
         store,
-        project.config().fail_fast.unwrap_or(false),
         show_diff_on_failure,
+        dry_run,
         verbose,
         printer,
     )
@@ -294,18 +218,6 @@ fn set_env_vars(from_ref: Option<&String>, to_ref: Option<&String>, args: &RunEx
         if let Some(ref command) = args.rewrite_command {
             std::env::set_var("PRE_COMMIT_REWRITE_COMMAND", command.clone());
         }
-    }
-}
-
-fn get_skips() -> Vec<String> {
-    match EnvVars::var_os(EnvVars::SKIP) {
-        Some(s) if !s.is_empty() => s
-            .to_string_lossy()
-            .split(',')
-            .map(|s| s.trim().to_string())
-            .filter(|s| !s.is_empty())
-            .collect(),
-        _ => vec![],
     }
 }
 
@@ -471,21 +383,22 @@ impl StatusPrinter {
     const PASSED: &'static str = "Passed";
     const FAILED: &'static str = "Failed";
     const SKIPPED: &'static str = "Skipped";
+    const DRY_RUN: &'static str = "Dry Run";
     const NO_FILES: &'static str = "(no files to check)";
     const UNIMPLEMENTED: &'static str = "(unimplemented yet)";
 
-    fn for_hooks(hooks: &[HookToRun], printer: Printer) -> Self {
+    fn for_hooks(hooks: &[InstalledHook], printer: Printer) -> Self {
         let columns = Self::calculate_columns(hooks);
         Self { printer, columns }
     }
 
-    fn calculate_columns(hooks: &[HookToRun]) -> usize {
+    fn calculate_columns(hooks: &[InstalledHook]) -> usize {
         let name_len = hooks
             .iter()
             .map(|hook| hook.name.width_cjk())
             .max()
             .unwrap_or(0);
-        max(
+        std::cmp::max(
             80,
             name_len + 3 + Self::NO_FILES.len() + 1 + Self::SKIPPED.len(),
         )
@@ -516,6 +429,10 @@ impl StatusPrinter {
         )
     }
 
+    fn write_dry_run(&self) -> Result<(), std::fmt::Error> {
+        writeln!(self.printer.stdout(), "{}", Self::DRY_RUN.on_yellow())
+    }
+
     fn write_passed(&self) -> Result<(), std::fmt::Error> {
         writeln!(self.printer.stdout(), "{}", Self::PASSED.on_green())
     }
@@ -530,33 +447,70 @@ impl StatusPrinter {
 }
 
 /// Run all hooks.
+#[allow(clippy::fn_params_excessive_bools)]
 async fn run_hooks(
-    hooks: &[HookToRun],
-    filter: &FileFilter<'_>,
+    workspace: &Workspace,
+    hooks: &[InstalledHook],
+    filenames: Vec<PathBuf>,
     store: &Store,
-    fail_fast: bool,
     show_diff_on_failure: bool,
+    dry_run: bool,
     verbose: bool,
     printer: Printer,
 ) -> Result<ExitStatus> {
+    debug_assert!(!hooks.is_empty(), "No hooks to run");
+
     let printer = StatusPrinter::for_hooks(hooks, printer);
+
     let mut success = true;
 
-    let mut diff = git::get_diff().await?;
-    // Hooks might modify the files, so they must be run sequentially.
+    // Group hooks by project to run them in order of their depth in the workspace.
+    #[allow(clippy::mutable_key_type)]
+    let mut project_to_hooks: FxHashMap<&Project, Vec<&InstalledHook>> = FxHashMap::default();
     for hook in hooks {
-        let (hook_success, new_diff) =
-            run_hook(hook, filter, store, diff, verbose, &printer).await?;
+        project_to_hooks
+            .entry(hook.project())
+            .or_default()
+            .push(hook);
+    }
 
-        success &= hook_success;
-        diff = new_diff;
-        let fail_fast = fail_fast
-            || match hook {
-                HookToRun::Skipped(_) => false,
-                HookToRun::ToRun(hook) => hook.fail_fast,
-            };
-        if !success && fail_fast {
-            break;
+    // Sort projects by their depth in the workspace.
+    let mut project_to_hooks: Vec<_> = project_to_hooks.into_iter().collect();
+    project_to_hooks.sort_by_key(|(_, hooks)| hooks[0].project().idx());
+
+    let projects_len = project_to_hooks.len();
+    let mut first = true;
+
+    // Hooks might modify the files, so they must be run sequentially.
+    'outer: for (_, mut hooks) in project_to_hooks {
+        hooks.sort_by_key(|h| h.idx);
+
+        let project = hooks[0].project();
+        if projects_len > 1 || !project.is_root() {
+            writeln!(
+                printer.stdout(),
+                "{}{}:",
+                if first { "" } else { "\n" },
+                format!("Running hooks for `{}`", project.to_string().cyan()).bold()
+            )?;
+            first = false;
+        }
+        let mut diff = git::get_diff(project.path()).await?;
+
+        let fail_fast = project.config().fail_fast.unwrap_or(false);
+
+        let filter = FileFilter::for_project(filenames.iter(), project);
+        trace!("Files for `{project}` after filtered: {}", filter.len());
+
+        for hook in hooks {
+            let (hook_success, new_diff) =
+                run_hook(hook, &filter, store, diff, verbose, dry_run, &printer).await?;
+
+            success &= hook_success;
+            diff = new_diff;
+            if !success && (fail_fast || hook.fail_fast) {
+                break 'outer;
+            }
         }
     }
 
@@ -568,10 +522,12 @@ async fn run_hooks(
             "--color=never"
         };
         git::git_cmd("git diff")?
-            .arg("--no-pager")
             .arg("diff")
+            .arg("--no-pager")
             .arg("--no-ext-diff")
             .arg(color)
+            .arg("--")
+            .arg(workspace.root())
             .check(true)
             .spawn()?
             .wait()
@@ -594,22 +550,20 @@ fn shuffle<T>(filenames: &mut [T]) {
 }
 
 async fn run_hook(
-    hook: &HookToRun,
+    hook: &InstalledHook,
     filter: &FileFilter<'_>,
     store: &Store,
     diff: Vec<u8>,
     verbose: bool,
+    dry_run: bool,
     printer: &StatusPrinter,
 ) -> Result<(bool, Vec<u8>)> {
-    let hook = match hook {
-        HookToRun::Skipped(hook) => {
-            printer.write_skipped(&hook.name, "", Style::new().black().on_yellow())?;
-            return Ok((true, diff));
-        }
-        HookToRun::ToRun(hook) => hook,
-    };
-
     let mut filenames = filter.for_hook(hook);
+    trace!(
+        "Files for `{}` after filtered: {}",
+        hook.id,
+        filenames.len()
+    );
 
     if filenames.is_empty() && !hook.always_run {
         printer.write_skipped(
@@ -641,18 +595,35 @@ async fn run_hook(
         vec![]
     };
 
-    let (status, output) = hook
-        .language
-        .run(hook, &filenames, store)
-        .await
-        .context(format!("Failed to run hook `{hook}`"))?;
+    let (status, output) = if dry_run {
+        let mut output = Vec::new();
+        if !filenames.is_empty() {
+            writeln!(
+                output,
+                "`{}` would be run on {} files:",
+                hook,
+                filenames.len()
+            )?;
+        }
+        for filename in &filenames {
+            writeln!(output, "- {}", filename.to_string_lossy())?;
+        }
+        (0, output)
+    } else {
+        hook.language
+            .run(hook, &filenames, store)
+            .await
+            .context(format!("Failed to run hook `{hook}`"))?
+    };
 
     let duration = start.elapsed();
 
-    let new_diff = git::get_diff().await?;
+    let new_diff = git::get_diff(hook.work_dir()).await?;
     let file_modified = diff != new_diff;
     let success = status == 0 && !file_modified;
-    if success {
+    if dry_run {
+        printer.write_dry_run()?;
+    } else if success {
         printer.write_passed()?;
     } else {
         printer.write_failed()?;

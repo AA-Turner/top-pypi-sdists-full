@@ -69,7 +69,7 @@ fn commit_info(workspace_root: &Path) {
         .arg("--date=short")
         .arg("--abbrev=9")
         // describe:tags => Instead of only considering annotated tags, consider lightweight tags as well.
-        .arg("--format=%H %h %cd %(describe:tags)")
+        .arg("--format='%H %h %cd %(describe:tags)'")
         .output()
     {
         Ok(output) if output.status.success() => output,
@@ -85,16 +85,16 @@ fn commit_info(workspace_root: &Path) {
     // Describe can fail for some commits
     // https://git-scm.com/docs/pretty-formats#Documentation/pretty-formats.txt-emdescribeoptionsem
     if let Some(describe) = parts.next() {
-        let mut describe_parts = describe.split('-');
-        println!(
-            "cargo:rustc-env=PREK_LAST_TAG={}",
-            describe_parts.next().unwrap()
-        );
-        // If this is the tagged commit, this component will be missing
+        // e.g. 'v0.2.0-alpha.5-1-g4e9faf2'
+        let mut describe_parts = describe.rsplitn(3, '-');
+        describe_parts.next();
         println!(
             "cargo:rustc-env=PREK_LAST_TAG_DISTANCE={}",
             describe_parts.next().unwrap_or("0")
         );
+        if let Some(last_tag) = describe_parts.next() {
+            println!("cargo:rustc-env=PREK_LAST_TAG={last_tag}");
+        }
     }
 }
 

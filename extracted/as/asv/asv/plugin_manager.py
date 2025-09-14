@@ -1,19 +1,26 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 
-import sys
-import pkgutil
 import importlib
+import pkgutil
+import re
+import sys
 
 from . import commands, plugins
 from .console import log
+
+ENV_PLUGIN_REGEXES = [
+    r"\.virtualenv$",
+    r"\.conda$",
+    r"\.rattler$",
+]
 
 
 class PluginManager:
     """
     A class to load and manage plugins.
 
-    By default in asv, plugins are searched for in the `asv.plugins`
-    namespace package and in the `asv.commands` package.
+    By default in asv, plugins are searched for in the :py:mod:`asv.plugins`
+    namespace package and in the :py:mod:`asv.commands` package.
 
     Then, any modules specified in the ``plugins`` entry in the
     ``asv.conf.json`` file are loaded.
@@ -30,7 +37,7 @@ class PluginManager:
                 self.init_plugin(mod)
                 self._plugins.append(mod)
             except ModuleNotFoundError as err:
-                if any(keyword in name for keyword in [".mamba", ".virtualenv", ".conda"]):
+                if any(re.search(regex, name) for regex in ENV_PLUGIN_REGEXES):
                     continue  # Fine to not have these
                 else:
                     log.error(f"Couldn't load {name} because\n{err}")

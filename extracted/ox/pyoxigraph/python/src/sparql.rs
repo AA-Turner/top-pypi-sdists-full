@@ -8,33 +8,34 @@ use oxigraph::sparql::results::{
     ReaderQueryResultsParserOutput, ReaderSolutionsParser,
 };
 use oxigraph::sparql::{
-    EvaluationError, Query, QueryOptions, QueryResults, QuerySolution, QuerySolutionIter,
-    QueryTripleIter, Variable,
+    AggregateFunctionAccumulator, PreparedSparqlQuery, QueryEvaluationError, QueryResults,
+    QuerySolution, QuerySolutionIter, QueryTripleIter, SparqlEvaluator, UpdateEvaluationError,
+    Variable,
 };
+use pyo3::IntoPyObjectExt;
 use pyo3::exceptions::{PyRuntimeError, PySyntaxError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::pybacked::PyBackedStr;
 use pyo3::types::PyTuple;
-use pyo3::IntoPyObjectExt;
 #[cfg(feature = "geosparql")]
-use spargeo::register_geosparql_functions;
+use spargeo::GEOSPARQL_EXTENSION_FUNCTIONS;
 use std::collections::HashMap;
+use std::error::Error;
 use std::ffi::OsStr;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::vec::IntoIter;
 
-pub fn parse_query(
+pub fn prepare_sparql_query(
+    evaluator: SparqlEvaluator,
     query: &str,
-    base_iri: Option<&str>,
     use_default_graph_as_union: bool,
     default_graph: Option<&Bound<'_, PyAny>>,
     named_graphs: Option<&Bound<'_, PyAny>>,
-    py: Python<'_>,
-) -> PyResult<Query> {
-    let mut query = py
-        .allow_threads(|| Query::parse(query, base_iri))
-        .map_err(|e| map_evaluation_error(e.into()))?;
+) -> PyResult<PreparedSparqlQuery> {
+    let mut prepared = evaluator
+        .parse_query(query)
+        .map_err(|e| PySyntaxError::new_err(e.to_string()))?;
 
     if use_default_graph_as_union && default_graph.is_some() {
         return Err(PyValueError::new_err(
@@ -43,29 +44,30 @@ pub fn parse_query(
     }
 
     if use_default_graph_as_union {
-        query.dataset_mut().set_default_graph_as_union();
+        prepared.dataset_mut().set_default_graph_as_union();
     }
 
     if let Some(default_graph) = default_graph {
         if let Ok(default_graphs) = default_graph.try_iter() {
-            query.dataset_mut().set_default_graph(
+            prepared.dataset_mut().set_default_graph(
                 default_graphs
                     .map(|graph| Ok(graph?.extract::<PyGraphName>()?.into()))
                     .collect::<PyResult<_>>()?,
             )
         } else if let Ok(default_graph) = default_graph.extract::<PyGraphName>() {
-            query
+            prepared
                 .dataset_mut()
                 .set_default_graph(vec![default_graph.into()]);
         } else {
-            return Err(PyValueError::new_err(
-                format!("The query() method default_graph argument should be a NamedNode, a BlankNode, the DefaultGraph or a not empty list of them. {} found", default_graph.get_type()
-                )));
+            return Err(PyValueError::new_err(format!(
+                "The query() method default_graph argument should be a NamedNode, a BlankNode, the DefaultGraph or a not empty list of them. {} found",
+                default_graph.get_type()
+            )));
         }
     }
 
     if let Some(named_graphs) = named_graphs {
-        query.dataset_mut().set_available_named_graphs(
+        prepared.dataset_mut().set_available_named_graphs(
             named_graphs
                 .try_iter()?
                 .map(|graph| Ok(graph?.extract::<PyNamedOrBlankNode>()?.into()))
@@ -73,22 +75,25 @@ pub fn parse_query(
         )
     }
 
-    Ok(query)
+    Ok(prepared)
 }
 
-pub fn query_options_from_python(
-    custom_functions: Option<HashMap<PyNamedNode, PyObject>>,
-) -> QueryOptions {
-    let mut options = QueryOptions::default();
+pub fn sparql_evaluator_from_python(
+    base_iri: Option<&str>,
+    prefixes: Option<HashMap<String, String>>,
+    custom_functions: Option<HashMap<PyNamedNode, Py<PyAny>>>,
+    custom_aggregate_functions: Option<HashMap<PyNamedNode, Py<PyAny>>>,
+) -> PyResult<SparqlEvaluator> {
+    let mut evaluator = SparqlEvaluator::default();
     #[cfg(feature = "geosparql")]
-    {
-        options = register_geosparql_functions(options);
+    for (name, implementation) in GEOSPARQL_EXTENSION_FUNCTIONS {
+        evaluator = evaluator.with_custom_function(name.into(), implementation)
     }
 
     if let Some(custom_functions) = custom_functions {
         for (name, function) in custom_functions {
-            options = options.with_custom_function(name.into(), move |args| {
-                Python::with_gil(|py| {
+            evaluator = evaluator.with_custom_function(name.into(), move |args| {
+                Python::attach(|py| {
                     Some(
                         function
                             .call1(
@@ -105,13 +110,74 @@ pub fn query_options_from_python(
             })
         }
     }
-    options
+    if let Some(custom_aggregate_functions) = custom_aggregate_functions {
+        for (name, function) in custom_aggregate_functions {
+            evaluator = evaluator.with_custom_aggregate_function(name.into(), move || {
+                Python::attach(|py| {
+                    Box::new(PyAggregateFunctionAccumulator {
+                        inner: function.call0(py).ok(),
+                    })
+                })
+            })
+        }
+    }
+
+    if let Some(base_iri) = base_iri {
+        evaluator = evaluator
+            .with_base_iri(base_iri)
+            .map_err(|e| PyValueError::new_err(format!("Invalid base IRI '{base_iri}': {e}")))?;
+    }
+
+    if let Some(prefixes) = prefixes {
+        for (prefix_name, prefix_iri) in prefixes {
+            evaluator = evaluator
+                .with_prefix(&prefix_name, &prefix_iri)
+                .map_err(|e| {
+                    PyValueError::new_err(format!(
+                        "Invalid prefix IRI '{prefix_iri}' for {prefix_name}: {e}"
+                    ))
+                })?;
+        }
+    }
+
+    Ok(evaluator)
 }
 
-pub fn query_results_to_python(
-    py: Python<'_>,
-    results: QueryResults,
-) -> PyResult<Bound<'_, PyAny>> {
+struct PyAggregateFunctionAccumulator {
+    inner: Option<Py<PyAny>>,
+}
+
+impl AggregateFunctionAccumulator for PyAggregateFunctionAccumulator {
+    fn accumulate(&mut self, element: Term) {
+        Python::attach(|py| {
+            self.inner = self.inner.take().and_then(|inner| {
+                inner
+                    .call_method1(py, "accumulate", (PyTerm::from(element),))
+                    .ok()?;
+                Some(inner)
+            })
+        })
+    }
+
+    fn finish(&mut self) -> Option<Term> {
+        Python::attach(|py| {
+            Some(
+                self.inner
+                    .take()?
+                    .call_method0(py, "finish")
+                    .ok()?
+                    .extract::<PyTerm>(py)
+                    .ok()?
+                    .into(),
+            )
+        })
+    }
+}
+
+pub fn query_results_to_python<'py>(
+    py: Python<'py>,
+    results: QueryResults<'static>,
+) -> PyResult<Bound<'py, PyAny>> {
     match results {
         QueryResults::Solutions(inner) => PyQuerySolutions {
             inner: PyQuerySolutionsVariant::Query(UngilQuerySolutionIter(inner)),
@@ -181,7 +247,6 @@ impl PyQuerySolution {
         .map(|term| PyTerm::from(term.clone()))
     }
 
-    #[allow(clippy::unnecessary_to_owned)]
     fn __iter__(&self) -> SolutionValueIter {
         SolutionValueIter {
             inner: self.inner.values().to_vec().into_iter(),
@@ -195,7 +260,7 @@ impl PyQuerySolution {
 
     /// :type memo: typing.Any
     /// :rtype: QuerySolution
-    #[allow(unused_variables)]
+    #[expect(unused_variables)]
     fn __deepcopy__<'a>(slf: PyRef<'a, Self>, memo: &'_ Bound<'_, PyAny>) -> PyRef<'a, Self> {
         slf
     }
@@ -235,7 +300,7 @@ pub struct PyQuerySolutions {
     inner: PyQuerySolutionsVariant,
 }
 
-#[allow(clippy::large_enum_variant)]
+#[allow(clippy::large_enum_variant, clippy::allow_attributes)]
 enum PyQuerySolutionsVariant {
     Query(UngilQuerySolutionIter),
     Reader {
@@ -244,9 +309,9 @@ enum PyQuerySolutionsVariant {
     },
 }
 
-struct UngilQuerySolutionIter(QuerySolutionIter);
+struct UngilQuerySolutionIter(QuerySolutionIter<'static>);
 
-#[allow(unsafe_code)]
+#[expect(unsafe_code)]
 // SAFETY: To derive Ungil
 unsafe impl Send for UngilQuerySolutionIter {}
 
@@ -282,9 +347,6 @@ impl PyQuerySolutions {
     /// * `CSV <https://www.w3.org/TR/sparql11-results-csv-tsv/>`_ (:py:attr:`QueryResultsFormat.CSV`)
     /// * `TSV <https://www.w3.org/TR/sparql11-results-csv-tsv/>`_ (:py:attr:`QueryResultsFormat.TSV`)
     ///
-    /// It supports also some media type and extension aliases.
-    /// For example, ``application/json`` could also be used for `JSON <https://www.w3.org/TR/sparql11-results-json/>`_.
-    ///
     /// :param output: The binary I/O object or file path to write to. For example, it could be a file path as a string or a file writer opened in binary mode with ``open('my_file.ttl', 'wb')``. If :py:const:`None`, a :py:class:`bytes` buffer is returned with the serialized content.
     /// :type output: typing.IO[bytes] or str or os.PathLike[str] or None, optional
     /// :param format: the format of the query results serialization. If :py:const:`None`, the format is guessed from the file name extension.
@@ -298,6 +360,7 @@ impl PyQuerySolutions {
     /// >>> results = store.query("SELECT ?s ?p ?o WHERE { ?s ?p ?o }")
     /// >>> results.serialize(format=QueryResultsFormat.JSON)
     /// b'{"head":{"vars":["s","p","o"]},"results":{"bindings":[{"s":{"type":"uri","value":"http://example.com"},"p":{"type":"uri","value":"http://example.com/p"},"o":{"type":"literal","value":"1"}}]}}'
+    #[expect(clippy::doc_link_with_quotes)]
     #[pyo3(signature = (output = None, format = None))]
     fn serialize(
         &mut self,
@@ -308,7 +371,7 @@ impl PyQuerySolutions {
         PyWritable::do_write(
             |output, file_path| {
                 let format = lookup_query_results_format(format, file_path.as_deref())?;
-                py.allow_threads(|| {
+                py.detach(|| {
                     let mut serializer = QueryResultsSerializer::from_format(format)
                         .serialize_solutions_to_writer(
                             output,
@@ -351,11 +414,11 @@ impl PyQuerySolutions {
     fn __next__(&mut self, py: Python<'_>) -> PyResult<Option<PyQuerySolution>> {
         Ok(match &mut self.inner {
             PyQuerySolutionsVariant::Query(inner) => py
-                .allow_threads(move || inner.0.next())
+                .detach(move || inner.0.next())
                 .transpose()
                 .map_err(map_evaluation_error),
             PyQuerySolutionsVariant::Reader { iter, file_path } => py
-                .allow_threads(|| iter.next())
+                .detach(|| iter.next())
                 .transpose()
                 .map_err(|e| map_query_results_parse_error(e, file_path.clone())),
         }?
@@ -388,9 +451,6 @@ impl PyQueryBoolean {
     /// * `CSV <https://www.w3.org/TR/sparql11-results-csv-tsv/>`_ (:py:attr:`QueryResultsFormat.CSV`)
     /// * `TSV <https://www.w3.org/TR/sparql11-results-csv-tsv/>`_ (:py:attr:`QueryResultsFormat.TSV`)
     ///
-    /// It supports also some media type and extension aliases.
-    /// For example, ``application/json`` could also be used for `JSON <https://www.w3.org/TR/sparql11-results-json/>`_.
-    ///
     /// :param output: The binary I/O object or file path to write to. For example, it could be a file path as a string or a file writer opened in binary mode with ``open('my_file.ttl', 'wb')``. If :py:const:`None`, a :py:class:`bytes` buffer is returned with the serialized content.
     /// :type output: typing.IO[bytes] or str or os.PathLike[str] or None, optional
     /// :param format: the format of the query results serialization. If :py:const:`None`, the format is guessed from the file name extension.
@@ -414,7 +474,7 @@ impl PyQueryBoolean {
         PyWritable::do_write(
             |output, file_path| {
                 let format = lookup_query_results_format(format, file_path.as_deref())?;
-                py.allow_threads(|| {
+                py.detach(|| {
                     Ok(QueryResultsSerializer::from_format(format)
                         .serialize_boolean_to_writer(output, self.inner)?)
                 })
@@ -444,9 +504,9 @@ pub struct PyQueryTriples {
     inner: UngilQueryTripleIter,
 }
 
-struct UngilQueryTripleIter(QueryTripleIter);
+struct UngilQueryTripleIter(QueryTripleIter<'static>);
 
-#[allow(unsafe_code)]
+#[expect(unsafe_code)]
 // SAFETY: To derive Ungil
 unsafe impl Send for UngilQueryTripleIter {}
 
@@ -463,10 +523,6 @@ impl PyQueryTriples {
     /// * `TriG <https://www.w3.org/TR/trig/>`_ (:py:attr:`RdfFormat.TRIG`)
     /// * `N3 <https://w3c.github.io/N3/spec/>`_ (:py:attr:`RdfFormat.N3`)
     /// * `RDF/XML <https://www.w3.org/TR/rdf-syntax-grammar/>`_ (:py:attr:`RdfFormat.RDF_XML`)
-    ///
-    /// It supports also some media type and extension aliases.
-    /// For example, ``application/turtle`` could also be used for `Turtle <https://www.w3.org/TR/turtle/>`_
-    /// and ``application/xml`` or ``xml`` for `RDF/XML <https://www.w3.org/TR/rdf-syntax-grammar/>`_.
     ///
     /// :param output: The binary I/O object or file path to write to. For example, it could be a file path as a string or a file writer opened in binary mode with ``open('my_file.ttl', 'wb')``. If :py:const:`None`, a :py:class:`bytes` buffer is returned with the serialized content.
     /// :type output: typing.IO[bytes] or str or os.PathLike[str] or None, optional
@@ -491,7 +547,7 @@ impl PyQueryTriples {
         PyWritable::do_write(
             |output, file_path| {
                 let format = lookup_rdf_format(format, file_path.as_deref())?;
-                py.allow_threads(move || {
+                py.detach(move || {
                     let mut serializer = RdfSerializer::from_format(format).for_writer(output);
                     for triple in &mut self.inner.0 {
                         serializer.serialize_triple(&triple.map_err(map_evaluation_error)?)?;
@@ -510,7 +566,7 @@ impl PyQueryTriples {
 
     fn __next__(&mut self, py: Python<'_>) -> PyResult<Option<PyTriple>> {
         Ok(py
-            .allow_threads(move || self.inner.0.next())
+            .detach(move || self.inner.0.next())
             .transpose()
             .map_err(map_evaluation_error)?
             .map(Into::into))
@@ -524,9 +580,6 @@ impl PyQueryTriples {
 /// * `XML <https://www.w3.org/TR/rdf-sparql-XMLres/>`_ (:py:attr:`QueryResultsFormat.XML`)
 /// * `JSON <https://www.w3.org/TR/sparql11-results-json/>`_ (:py:attr:`QueryResultsFormat.JSON`)
 /// * `TSV <https://www.w3.org/TR/sparql11-results-csv-tsv/>`_ (:py:attr:`QueryResultsFormat.TSV`)
-///
-/// It supports also some media type and extension aliases.
-/// For example, ``application/json`` could also be used for `JSON <https://www.w3.org/TR/sparql11-results-json/>`_.
 ///
 /// :param input: The :py:class:`str`, :py:class:`bytes` or I/O object to read from. For example, it could be the file content as a string or a file reader opened in binary mode with ``open('my_file.ttl', 'rb')``.
 /// :type input: bytes or str or typing.IO[bytes] or typing.IO[str] or None, optional
@@ -701,7 +754,7 @@ impl PyQueryResultsFormat {
 
     /// :type memo: typing.Any
     /// :rtype: QueryResultsFormat
-    #[allow(unused_variables)]
+    #[expect(unused_variables)]
     fn __deepcopy__<'a>(slf: PyRef<'a, Self>, memo: &'_ Bound<'_, PyAny>) -> PyRef<'a, Self> {
         slf
     }
@@ -715,7 +768,9 @@ fn lookup_query_results_format(
         return match format {
             PyQueryResultsFormatInput::Object(format) => Ok(format.inner),
             PyQueryResultsFormatInput::MediaType(media_type) => {
-                deprecation_warning("Using a string to specify a query results format is deprecated, please use a QueryResultsFormat object instead.")?;
+                deprecation_warning(
+                    "Using a string to specify a query results format is deprecated, please use a QueryResultsFormat object instead.",
+                )?;
                 QueryResultsFormat::from_media_type(&media_type).ok_or_else(|| {
                     PyValueError::new_err(format!(
                         "The media type {media_type} is not supported by pyoxigraph"
@@ -745,16 +800,45 @@ pub enum PyQueryResultsFormatInput {
     MediaType(String),
 }
 
-pub fn map_evaluation_error(error: EvaluationError) -> PyErr {
+pub fn map_evaluation_error(error: QueryEvaluationError) -> PyErr {
     match error {
-        EvaluationError::Parsing(error) => PySyntaxError::new_err(error.to_string()),
-        EvaluationError::Storage(error) => map_storage_error(error),
-        EvaluationError::GraphParsing(error) => map_parse_error(error, None),
-        EvaluationError::ResultsParsing(error) => map_query_results_parse_error(error, None),
-        EvaluationError::ResultsSerialization(error) => error.into(),
-        EvaluationError::Service(error) => match error.downcast::<io::Error>() {
+        QueryEvaluationError::Dataset(error) => match error.downcast() {
+            Ok(error) => map_storage_error(*error),
+            Err(error) => io_or_runtime_error(error),
+        },
+        QueryEvaluationError::Service(error) => io_or_runtime_error(error),
+        QueryEvaluationError::Unexpected(error) => match error.downcast() {
+            Ok(error) => map_parse_error(*error, None),
+            Err(error) => match error.downcast() {
+                Ok(error) => map_query_results_parse_error(*error, None),
+                Err(error) => io_or_runtime_error(error),
+            },
+        },
+        _ => PyRuntimeError::new_err(error.to_string()),
+    }
+}
+
+fn io_or_runtime_error(error: Box<dyn Error>) -> PyErr {
+    match error.downcast::<io::Error>() {
+        Ok(error) => (*error).into(),
+        Err(error) => PyRuntimeError::new_err(error.to_string()),
+    }
+}
+
+pub fn map_update_evaluation_error(error: UpdateEvaluationError) -> PyErr {
+    match error {
+        UpdateEvaluationError::Storage(error) => map_storage_error(error),
+        UpdateEvaluationError::GraphParsing(error) => map_parse_error(error, None),
+        UpdateEvaluationError::Service(error) => match error.downcast::<io::Error>() {
             Ok(error) => (*error).into(),
             Err(error) => PyRuntimeError::new_err(error.to_string()),
+        },
+        UpdateEvaluationError::Unexpected(error) => match error.downcast() {
+            Ok(error) => map_parse_error(*error, None),
+            Err(error) => match error.downcast() {
+                Ok(error) => map_query_results_parse_error(*error, None),
+                Err(error) => io_or_runtime_error(error),
+            },
         },
         _ => PyRuntimeError::new_err(error.to_string()),
     }

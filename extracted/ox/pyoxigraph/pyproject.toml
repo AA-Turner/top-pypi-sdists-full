@@ -24,7 +24,7 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 requires-python = ">=3.8"
-dynamic = ["version"]
+dynamic = ["authors", "description", "keywords", "license", "license-files", "maintainers", "readme", "version"]
 
 [project.urls]
 Changelog = "https://github.com/oxigraph/oxigraph/blob/main/CHANGELOG.md"
@@ -36,7 +36,7 @@ Tracker = "https://github.com/oxigraph/oxigraph/issues"
 [dependency-groups]
 build = [
     "maturin~=1.0",
-    "ruff~=0.11.0"
+    "ruff~=0.12.0"
 ]
 dev = [
     { include-group = "build" },

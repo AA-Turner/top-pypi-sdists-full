@@ -14,39 +14,163 @@ use std::collections::{HashMap, HashSet};
 use std::mem::take;
 use std::str::FromStr;
 
-/// Parses a SPARQL query with an optional base IRI to resolve relative IRIs in the query.
-pub fn parse_query(query: &str, base_iri: Option<&str>) -> Result<Query, SparqlSyntaxError> {
-    let mut state = ParserState::from_base_iri(base_iri)?;
-    parser::QueryUnit(query, &mut state).map_err(|e| SparqlSyntaxError(ParseErrorKind::Syntax(e)))
+/// A SPARQL parser
+///
+/// ```
+/// use spargebra::SparqlParser;
+///
+/// let query_str = "SELECT ?s ?p ?o WHERE { ?s ?p ?o . }";
+/// let query = SparqlParser::new().parse_query(query_str)?;
+/// assert_eq!(query.to_string(), query_str);
+/// # Ok::<_, spargebra::SparqlSyntaxError>(())
+/// ```
+#[must_use]
+#[derive(Clone, Default)]
+pub struct SparqlParser {
+    base_iri: Option<Iri<String>>,
+    prefixes: HashMap<String, String>,
+    custom_aggregate_functions: HashSet<NamedNode>,
 }
 
-/// Parses a SPARQL update with an optional base IRI to resolve relative IRIs in the query.
-pub fn parse_update(update: &str, base_iri: Option<&str>) -> Result<Update, SparqlSyntaxError> {
-    let mut state = ParserState::from_base_iri(base_iri)?;
-    let operations = parser::UpdateInit(update, &mut state)
-        .map_err(|e| SparqlSyntaxError(ParseErrorKind::Syntax(e)))?;
-    Ok(Update {
-        operations,
-        base_iri: state.base_iri,
-    })
+impl SparqlParser {
+    #[inline]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Provides an IRI that could be used to resolve the operation relative IRIs.
+    ///
+    /// ```
+    /// use spargebra::SparqlParser;
+    ///
+    /// let query = SparqlParser::new().with_base_iri("http://example.com/")?.parse_query("SELECT * WHERE { <s> <p> <o> }")?;
+    /// assert_eq!(query.to_string(), "BASE <http://example.com/>\nSELECT * WHERE { <http://example.com/s> <http://example.com/p> <http://example.com/o> . }");
+    /// # Result::<_, Box<dyn std::error::Error>>::Ok(())
+    /// ```
+    #[inline]
+    pub fn with_base_iri(mut self, base_iri: impl Into<String>) -> Result<Self, IriParseError> {
+        self.base_iri = Some(Iri::parse(base_iri.into())?);
+        Ok(self)
+    }
+
+    /// Set a default IRI prefix used during parsing.
+    ///
+    /// ```
+    /// use spargebra::SparqlParser;
+    ///
+    /// let query = SparqlParser::new()
+    ///     .with_prefix("ex", "http://example.com/")?
+    ///     .parse_query("SELECT * WHERE { ex:s ex:p ex:o }")?;
+    /// assert_eq!(
+    ///     query.to_string(),
+    ///     "SELECT * WHERE { <http://example.com/s> <http://example.com/p> <http://example.com/o> . }"
+    /// );
+    /// # Result::<_, Box<dyn std::error::Error>>::Ok(())
+    /// ```
+    #[inline]
+    pub fn with_prefix(
+        mut self,
+        prefix_name: impl Into<String>,
+        prefix_iri: impl Into<String>,
+    ) -> Result<Self, IriParseError> {
+        self.prefixes.insert(
+            prefix_name.into(),
+            Iri::parse(prefix_iri.into())?.into_inner(),
+        );
+        Ok(self)
+    }
+
+    /// Adds a new function to be parsed as a custom aggregate function and not as a regular custom function.
+    ///
+    /// ```
+    /// use oxrdf::NamedNode;
+    /// use spargebra::SparqlParser;
+    ///
+    /// SparqlParser::new()
+    ///     .with_custom_aggregate_function(NamedNode::new("http://example.com/concat")?)
+    ///     .parse_query(
+    ///         "PREFIX ex: <http://example.com/> SELECT (ex:concat(?o) AS ?concat) WHERE { ex:s ex:p ex:o }",
+    ///     )?;
+    /// # Result::<_, Box<dyn std::error::Error>>::Ok(())
+    /// ```
+    #[inline]
+    pub fn with_custom_aggregate_function(mut self, name: impl Into<NamedNode>) -> Self {
+        self.custom_aggregate_functions.insert(name.into());
+        self
+    }
+
+    /// Parse the given query string using the already set options.
+    ///
+    /// ```
+    /// use spargebra::SparqlParser;
+    ///
+    /// let query_str = "SELECT ?s ?p ?o WHERE { ?s ?p ?o . }";
+    /// let query = SparqlParser::new().parse_query(query_str)?;
+    /// assert_eq!(query.to_string(), query_str);
+    /// # Ok::<_, spargebra::SparqlSyntaxError>(())
+    /// ```
+    pub fn parse_query(self, query: &str) -> Result<Query, SparqlSyntaxError> {
+        let mut state = ParserState::new(
+            self.base_iri,
+            self.prefixes,
+            self.custom_aggregate_functions,
+        );
+        Ok(parser::QueryUnit(query, &mut state).map_err(SparqlSyntaxErrorKind::Syntax)?)
+    }
+
+    /// Parse the given update string using the already set options.
+    ///
+    /// ```
+    /// use spargebra::SparqlParser;
+    ///
+    /// let update_str = "CLEAR ALL ;";
+    /// let update = SparqlParser::new().parse_update(update_str)?;
+    /// assert_eq!(update.to_string().trim(), update_str);
+    /// # Ok::<_, spargebra::SparqlSyntaxError>(())
+    /// ```
+    pub fn parse_update(self, update: &str) -> Result<Update, SparqlSyntaxError> {
+        let mut state = ParserState::new(
+            self.base_iri,
+            self.prefixes,
+            self.custom_aggregate_functions,
+        );
+        let operations =
+            parser::UpdateInit(update, &mut state).map_err(SparqlSyntaxErrorKind::Syntax)?;
+        check_if_insert_data_are_sharing_blank_nodes(&operations)?;
+        Ok(Update {
+            operations,
+            base_iri: state.base_iri,
+        })
+    }
 }
 
 /// Error returned during SPARQL parsing.
 #[derive(Debug, thiserror::Error)]
 #[error(transparent)]
-pub struct SparqlSyntaxError(#[from] ParseErrorKind);
+pub struct SparqlSyntaxError {
+    #[from]
+    kind: SparqlSyntaxErrorKind,
+}
+
+impl SparqlSyntaxError {
+    pub(crate) fn from_bad_base_iri(e: IriParseError) -> Self {
+        SparqlSyntaxErrorKind::InvalidBaseIri(e).into()
+    }
+}
 
 #[derive(Debug, thiserror::Error)]
-enum ParseErrorKind {
+enum SparqlSyntaxErrorKind {
     #[error("Invalid SPARQL base IRI provided: {0}")]
     InvalidBaseIri(#[from] IriParseError),
     #[error(transparent)]
     Syntax(#[from] peg::error::ParseError<LineCol>),
+    #[error("The blank node {0} cannot be shared by multiple blocks")]
+    SharedBlankNode(BlankNode),
 }
 
-struct AnnotatedTerm {
+struct ReifiedTerm {
     term: TermPattern,
-    annotations: Vec<(NamedNodePattern, Vec<AnnotatedTerm>)>,
+    reifiers: Vec<TermPattern>,
 }
 
 #[derive(Default)]
@@ -56,9 +180,9 @@ struct FocusedTriplePattern<F> {
 }
 
 impl<F> FocusedTriplePattern<F> {
-    fn new(focus: F) -> Self {
+    fn new(focus: impl Into<F>) -> Self {
         Self {
-            focus,
+            focus: focus.into(),
             patterns: Vec::new(),
         }
     }
@@ -100,22 +224,25 @@ impl From<PropertyPathExpression> for VariableOrPropertyPath {
     }
 }
 
+#[cfg_attr(feature = "sparql-12", expect(clippy::unnecessary_wraps))]
 fn add_to_triple_patterns(
     subject: TermPattern,
     predicate: NamedNodePattern,
-    object: AnnotatedTerm,
+    object: ReifiedTerm,
     patterns: &mut Vec<TriplePattern>,
 ) -> Result<(), &'static str> {
     let triple = TriplePattern::new(subject, predicate, object.term);
-    #[cfg(feature = "rdf-star")]
-    for (p, os) in object.annotations {
-        for o in os {
-            add_to_triple_patterns(triple.clone().into(), p.clone(), o, patterns)?
-        }
+    #[cfg(feature = "sparql-12")]
+    for reifier in object.reifiers {
+        patterns.push(TriplePattern {
+            subject: reifier.clone(),
+            predicate: rdf::REIFIES.into_owned().into(),
+            object: triple.clone().into(),
+        });
     }
-    #[cfg(not(feature = "rdf-star"))]
-    if !object.annotations.is_empty() {
-        return Err("Embedded triples are only available in SPARQL-star");
+    #[cfg(not(feature = "sparql-12"))]
+    if !object.reifiers.is_empty() {
+        return Err("Triple terms are only available in SPARQL 1.2");
     }
     patterns.push(triple);
     Ok(())
@@ -124,7 +251,7 @@ fn add_to_triple_patterns(
 fn add_to_triple_or_path_patterns(
     subject: TermPattern,
     predicate: impl Into<VariableOrPropertyPath>,
-    object: AnnotatedTermPath,
+    object: ReifiedTerm,
     patterns: &mut Vec<TripleOrPathPattern>,
 ) -> Result<(), &'static str> {
     match predicate.into() {
@@ -138,39 +265,39 @@ fn add_to_triple_or_path_patterns(
             PropertyPathExpression::Reverse(p) => add_to_triple_or_path_patterns(
                 object.term,
                 *p,
-                AnnotatedTermPath {
+                ReifiedTerm {
                     term: subject,
-                    annotations: object.annotations,
+                    reifiers: object.reifiers,
                 },
                 patterns,
             )?,
             PropertyPathExpression::Sequence(a, b) => {
-                if !object.annotations.is_empty() {
-                    return Err("Annotations are not allowed on property paths");
+                if !object.reifiers.is_empty() {
+                    return Err("Reifiers are not allowed on property paths");
                 }
                 let middle = BlankNode::default();
                 add_to_triple_or_path_patterns(
                     subject,
                     *a,
-                    AnnotatedTermPath {
+                    ReifiedTerm {
                         term: middle.clone().into(),
-                        annotations: Vec::new(),
+                        reifiers: Vec::new(),
                     },
                     patterns,
                 )?;
                 add_to_triple_or_path_patterns(
                     middle.into(),
                     *b,
-                    AnnotatedTermPath {
+                    ReifiedTerm {
                         term: object.term,
-                        annotations: Vec::new(),
+                        reifiers: Vec::new(),
                     },
                     patterns,
                 )?;
             }
             path => {
-                if !object.annotations.is_empty() {
-                    return Err("Annotations are not allowed on property paths");
+                if !object.reifiers.is_empty() {
+                    return Err("Reifiers are not allowed on property paths");
                 }
                 patterns.push(TripleOrPathPattern::Path {
                     subject,
@@ -183,22 +310,28 @@ fn add_to_triple_or_path_patterns(
     Ok(())
 }
 
+#[cfg_attr(feature = "sparql-12", expect(clippy::unnecessary_wraps))]
 fn add_triple_to_triple_or_path_patterns(
     subject: TermPattern,
     predicate: impl Into<NamedNodePattern>,
-    object: AnnotatedTermPath,
+    object: ReifiedTerm,
     patterns: &mut Vec<TripleOrPathPattern>,
 ) -> Result<(), &'static str> {
     let triple = TriplePattern::new(subject, predicate, object.term);
-    #[cfg(feature = "rdf-star")]
-    for (p, os) in object.annotations {
-        for o in os {
-            add_to_triple_or_path_patterns(triple.clone().into(), p.clone(), o, patterns)?
-        }
+    #[cfg(feature = "sparql-12")]
+    for reifier in object.reifiers {
+        patterns.push(
+            TriplePattern {
+                subject: reifier.clone(),
+                predicate: rdf::REIFIES.into_owned().into(),
+                object: triple.clone().object,
+            }
+            .into(),
+        );
     }
-    #[cfg(not(feature = "rdf-star"))]
-    if !object.annotations.is_empty() {
-        return Err("Embedded triples are only available in SPARQL-star");
+    #[cfg(not(feature = "sparql-12"))]
+    if !object.reifiers.is_empty() {
+        return Err("Triple terms are only available in SPARQL 1.2");
     }
     patterns.push(triple.into());
     Ok(())
@@ -250,25 +383,6 @@ impl From<TriplePattern> for TripleOrPathPattern {
     }
 }
 
-#[derive(Debug)]
-struct AnnotatedTermPath {
-    term: TermPattern,
-    annotations: Vec<(VariableOrPropertyPath, Vec<AnnotatedTermPath>)>,
-}
-
-impl From<AnnotatedTerm> for AnnotatedTermPath {
-    fn from(term: AnnotatedTerm) -> Self {
-        Self {
-            term: term.term,
-            annotations: term
-                .annotations
-                .into_iter()
-                .map(|(p, o)| (p.into(), o.into_iter().map(Self::from).collect()))
-                .collect(),
-        }
-    }
-}
-
 #[derive(Debug, Default)]
 struct FocusedTripleOrPathPattern<F> {
     focus: F,
@@ -276,9 +390,9 @@ struct FocusedTripleOrPathPattern<F> {
 }
 
 impl<F> FocusedTripleOrPathPattern<F> {
-    fn new(focus: F) -> Self {
+    fn new(focus: impl Into<F>) -> Self {
         Self {
-            focus,
+            focus: focus.into(),
             patterns: Vec::new(),
         }
     }
@@ -655,6 +769,56 @@ fn copy_graph(from: impl Into<GraphName>, to: impl Into<GraphNamePattern>) -> Gr
     }
 }
 
+fn check_if_insert_data_are_sharing_blank_nodes(
+    update: &[GraphUpdateOperation],
+) -> Result<(), SparqlSyntaxError> {
+    #[cfg(feature = "sparql-12")]
+    fn add_triple_blank_nodes<'a>(triple: &'a Triple, bnodes: &mut HashSet<&'a BlankNode>) {
+        if let NamedOrBlankNode::BlankNode(bnode) = &triple.subject {
+            bnodes.insert(bnode);
+        }
+        if let Term::BlankNode(bnode) = &triple.object {
+            bnodes.insert(bnode);
+        } else if let Term::Triple(triple) = &triple.object {
+            add_triple_blank_nodes(triple, bnodes);
+        }
+    }
+
+    if update
+        .iter()
+        .filter(|op| matches!(op, GraphUpdateOperation::InsertData { .. }))
+        .count()
+        < 2
+    {
+        // Fast path, no need to validate
+        return Ok(());
+    }
+
+    let mut existing_blank_nodes = HashSet::new();
+    for operation in update {
+        if let GraphUpdateOperation::InsertData { data } = operation {
+            let mut new_blank_nodes = HashSet::new();
+            for quad in data {
+                if let NamedOrBlankNode::BlankNode(bnode) = &quad.subject {
+                    new_blank_nodes.insert(bnode);
+                }
+                if let Term::BlankNode(bnode) = &quad.object {
+                    new_blank_nodes.insert(bnode);
+                }
+                #[cfg(feature = "sparql-12")]
+                if let Term::Triple(triple) = &quad.object {
+                    add_triple_blank_nodes(triple, &mut new_blank_nodes);
+                }
+            }
+            if let Some(error) = existing_blank_nodes.intersection(&new_blank_nodes).next() {
+                return Err(SparqlSyntaxErrorKind::SharedBlankNode((**error).clone()).into());
+            }
+            existing_blank_nodes.extend(new_blank_nodes);
+        }
+    }
+    Ok(())
+}
+
 enum Either<L, R> {
     Left(L),
     Right(R),
@@ -663,27 +827,26 @@ enum Either<L, R> {
 pub struct ParserState {
     base_iri: Option<Iri<String>>,
     prefixes: HashMap<String, String>,
+    custom_aggregate_functions: HashSet<NamedNode>,
     used_bnodes: HashSet<BlankNode>,
     currently_used_bnodes: HashSet<BlankNode>,
     aggregates: Vec<Vec<(Variable, AggregateExpression)>>,
 }
 
 impl ParserState {
-    pub(crate) fn from_base_iri(base_iri: Option<&str>) -> Result<Self, SparqlSyntaxError> {
-        Ok(Self {
-            base_iri: if let Some(base_iri) = base_iri {
-                Some(
-                    Iri::parse(base_iri.to_owned())
-                        .map_err(|e| SparqlSyntaxError(ParseErrorKind::InvalidBaseIri(e)))?,
-                )
-            } else {
-                None
-            },
-            prefixes: HashMap::new(),
+    pub(crate) fn new(
+        base_iri: Option<Iri<String>>,
+        prefixes: HashMap<String, String>,
+        custom_aggregate_functions: HashSet<NamedNode>,
+    ) -> Self {
+        Self {
+            base_iri,
+            prefixes,
+            custom_aggregate_functions,
             used_bnodes: HashSet::new(),
             currently_used_bnodes: HashSet::new(),
             aggregates: Vec::new(),
-        })
+        }
     }
 
     fn parse_iri(&self, iri: String) -> Result<Iri<String>, IriParseError> {
@@ -719,7 +882,7 @@ fn unescape_iriref(mut input: &str) -> Result<String, &'static str> {
             Some(_) => {
                 return Err(
                     "IRIs are only allowed to contain escape sequences \\uXXXX and \\UXXXXXXXX",
-                )
+                );
             }
             None => return Err("IRIs are not allowed to end with a '\'"),
         };
@@ -829,7 +992,7 @@ parser! {
             "(" _ e:Expression() _ i("AS") _ v:Var() _ ")" _ { SelectionMember::Expression(e, v) }
 
         rule ConstructQuery() -> Query =
-            i("CONSTRUCT") _ c:ConstructTemplate() _ d:DatasetClauses() _ w:WhereClause() _ g:GroupClause()? _ h:HavingClause()? _ o:OrderClause()? _ l:LimitOffsetClauses()? _ v:ValuesClause() {?
+            i("CONSTRUCT") _ c:ConstructTemplate() ConstructQuery_clear() _ d:DatasetClauses() _ w:WhereClause() _ g:GroupClause()? _ h:HavingClause()? _ o:OrderClause()? _ l:LimitOffsetClauses()? _ v:ValuesClause() {?
                 Ok(Query::Construct {
                     template: c,
                     dataset: d,
@@ -849,6 +1012,9 @@ parser! {
                     base_iri: state.base_iri.clone()
                 })
             }
+        rule ConstructQuery_clear() = {
+            state.currently_used_bnodes.clear();
+        }
 
         rule ConstructQuery_optional_triple_template() -> Vec<TriplePattern> = TriplesTemplate() / { Vec::new() }
 
@@ -970,7 +1136,12 @@ parser! {
             i("VALUES") _ p:DataBlock() { Some(p) } /
             { None }
 
-        rule Update() -> Vec<GraphUpdateOperation> = _ Prologue() _ u:(Update1() ** (_ ";" _))  _ ( ";" _)? { u.into_iter().flatten().collect() }
+        rule Update() -> Vec<GraphUpdateOperation> = _ Prologue() _ u:(Update_item() ** (";" _))  ( ";" _)? { u.into_iter().flatten().collect() }
+        rule Update_item() -> Vec<GraphUpdateOperation> = u:Update1() Update_clear() _ { u }
+        rule Update_clear() = {
+            state.used_bnodes.clear();
+            state.currently_used_bnodes.clear();
+        }
 
         rule Update1() -> Vec<GraphUpdateOperation> = Load() / Clear() / Drop() / Add() / Move() / Copy() / Create() / InsertData() / DeleteData() / DeleteWhere() / Modify()
         rule Update1_silent() -> bool = i("SILENT") { true } / { false }
@@ -1048,11 +1219,11 @@ parser! {
             }])
         }
 
-        rule Modify() -> Vec<GraphUpdateOperation> = with:Modify_with()? _ Modify_clear() c:Modify_clauses() _ u:(UsingClause() ** (_)) _ i("WHERE") _ pattern:GroupGraphPattern() {
+        rule Modify() -> Vec<GraphUpdateOperation> = with:Modify_with()? _ c:Modify_clauses() _ u:(UsingClause() ** (_)) _ i("WHERE") _ pattern:GroupGraphPattern() {
             let (delete, insert) = c;
             let mut delete = delete.unwrap_or_default();
             let mut insert = insert.unwrap_or_default();
-            #[allow(clippy::shadow_same)]
+            #[expect(clippy::shadow_same)]
             let mut pattern = pattern;
 
             let mut using = if u.is_empty() {
@@ -1106,13 +1277,12 @@ parser! {
             }]
         }
         rule Modify_with() -> NamedNode = i("WITH") _ i:iri() _ { i }
-        rule Modify_clauses() -> (Option<Vec<GroundQuadPattern>>, Option<Vec<QuadPattern>>) = d:DeleteClause() _ i:InsertClause()? {
+        rule Modify_clauses() -> (Option<Vec<GroundQuadPattern>>, Option<Vec<QuadPattern>>) = d:DeleteClause() Modify_clear() _ i:InsertClause()? Modify_clear() {
             (Some(d), i)
-        } / i:InsertClause() {
+        } / i:InsertClause() Modify_clear() {
             (None, Some(i))
         }
         rule Modify_clear() = {
-            state.used_bnodes.clear();
             state.currently_used_bnodes.clear();
         }
 
@@ -1244,6 +1414,28 @@ parser! {
         }
         rule TriplesBlock_inner() -> Vec<TripleOrPathPattern> = _ h:TriplesSameSubjectPath() _ { h }
 
+        rule ReifiedTripleBlock() -> Vec<TriplePattern> = s:ReifiedTriple() _ po:PropertyList() {?
+            let mut patterns = po.patterns;
+            patterns.extend(s.patterns);
+            for (p, os) in po.focus {
+                for o in os {
+                    add_to_triple_patterns(s.focus.clone(), p.clone(), o, &mut patterns)?;
+                }
+            }
+            Ok(patterns)
+        }
+
+        rule ReifiedTripleBlockPath() -> Vec<TripleOrPathPattern> = s:ReifiedTriple() _ po:PropertyListPath() {?
+            let mut patterns = po.patterns;
+            patterns.extend(s.patterns.into_iter().map(Into::into));
+            for (p, os) in po.focus {
+                for o in os {
+                    add_to_triple_or_path_patterns(s.focus.clone(), p.clone(), o, &mut patterns)?;
+                }
+            }
+            Ok(patterns)
+        }
+
         rule GraphPatternNotTriples() -> PartialGraphPattern = GroupOrUnionGraphPattern() / OptionalGraphPattern() / LateralGraphPattern() / MinusGraphPattern() / GraphGraphPattern() / ServiceGraphPattern() / Filter() / Bind() / InlineData()
 
         rule OptionalGraphPattern() -> PartialGraphPattern = i("OPTIONAL") _ p:GroupGraphPattern() {
@@ -1294,15 +1486,22 @@ parser! {
         rule InlineDataFull_value() -> Option<GroundTerm> = v:DataBlockValue() _ { v }
 
         rule DataBlockValue() -> Option<GroundTerm> =
-            t:QuotedTripleData() {?
-                #[cfg(feature = "rdf-star")]{Ok(Some(t.into()))}
-                #[cfg(not(feature = "rdf-star"))]{Err("Embedded triples are only available in SPARQL-star")}
+            t:TripleTermData() {?
+                #[cfg(feature = "sparql-12")]{Ok(Some(t.into()))}
+                #[cfg(not(feature = "sparql-12"))]{Err("Triple terms are only available in SPARQL 1.2")}
             } /
             i:iri() { Some(i.into()) } /
             l:RDFLiteral() { Some(l.into()) } /
             l:NumericLiteral() { Some(l.into()) } /
             l:BooleanLiteral() { Some(l.into()) } /
             i("UNDEF") { None }
+
+        rule Reifier() -> TermPattern = "~" _ v:VarOrReifierId()? { v.unwrap_or_else(|| BlankNode::default().into()) }
+
+        rule VarOrReifierId() -> TermPattern =
+            v:Var() { v.into() } /
+            i:iri() { i.into() } /
+            b:BlankNode() { b.into() }
 
         rule MinusGraphPattern() -> PartialGraphPattern = i("MINUS") _ p: GroupGraphPattern() {
             PartialGraphPattern::Minus(p)
@@ -1321,8 +1520,12 @@ parser! {
 
         rule Constraint() -> Expression = BrackettedExpression() / FunctionCall() / BuiltInCall()
 
-        rule FunctionCall() -> Expression = f: iri() _ a: ArgList() {
-            Expression::FunctionCall(Function::Custom(f), a)
+        rule FunctionCall() -> Expression = f:iri() _ a:ArgList() {?
+            if state.custom_aggregate_functions.contains(&f) {
+                Err("This custom function is an aggregate function and not a regular function")
+            } else {
+                Ok(Expression::FunctionCall(Function::Custom(f), a))
+            }
         }
 
         rule ArgList() -> Vec<Expression> =
@@ -1343,6 +1546,7 @@ parser! {
         rule ConstructTriples_item() -> Vec<TriplePattern> = t:TriplesSameSubject() _ { t }
 
         rule TriplesSameSubject() -> Vec<TriplePattern> =
+            ReifiedTripleBlock() /
             s:VarOrTerm() _ po:PropertyListNotEmpty() {?
                 let mut patterns = po.patterns;
                 for (p, os) in po.focus {
@@ -1363,11 +1567,11 @@ parser! {
                 Ok(patterns)
             }
 
-        rule PropertyList() -> FocusedTriplePattern<Vec<(NamedNodePattern,Vec<AnnotatedTerm>)>> =
+        rule PropertyList() -> FocusedTriplePattern<Vec<(NamedNodePattern,Vec<ReifiedTerm>)>> =
             PropertyListNotEmpty() /
             { FocusedTriplePattern::default() }
 
-        rule PropertyListNotEmpty() -> FocusedTriplePattern<Vec<(NamedNodePattern,Vec<AnnotatedTerm>)>> = hp:Verb() _ ho:ObjectList() _ l:PropertyListNotEmpty_item()* {
+        rule PropertyListNotEmpty() -> FocusedTriplePattern<Vec<(NamedNodePattern,Vec<ReifiedTerm>)>> = hp:Verb() _ ho:ObjectList() _ l:PropertyListNotEmpty_item()* {
             l.into_iter().flatten().fold(FocusedTriplePattern {
                 focus: vec![(hp, ho.focus)],
                 patterns: ho.patterns
@@ -1377,10 +1581,10 @@ parser! {
                 a
             })
         }
-        rule PropertyListNotEmpty_item() -> Option<FocusedTriplePattern<(NamedNodePattern,Vec<AnnotatedTerm>)>> = ";" _ c:PropertyListNotEmpty_item_content()? {
+        rule PropertyListNotEmpty_item() -> Option<FocusedTriplePattern<(NamedNodePattern,Vec<ReifiedTerm>)>> = ";" _ c:PropertyListNotEmpty_item_content()? {
             c
         }
-        rule PropertyListNotEmpty_item_content() -> FocusedTriplePattern<(NamedNodePattern,Vec<AnnotatedTerm>)> = p:Verb() _ o:ObjectList() _ {
+        rule PropertyListNotEmpty_item_content() -> FocusedTriplePattern<(NamedNodePattern,Vec<ReifiedTerm>)> = p:Verb() _ o:ObjectList() _ {
             FocusedTriplePattern {
                 focus: (p, o.focus),
                 patterns: o.patterns
@@ -1389,31 +1593,31 @@ parser! {
 
         rule Verb() -> NamedNodePattern = VarOrIri() / "a" { rdf::TYPE.into_owned().into() }
 
-        rule ObjectList() -> FocusedTriplePattern<Vec<AnnotatedTerm>> = o:ObjectList_item() **<1,> ("," _) {
-            o.into_iter().fold(FocusedTriplePattern::<Vec<AnnotatedTerm>>::default(), |mut a, b| {
+        rule ObjectList() -> FocusedTriplePattern<Vec<ReifiedTerm >> = o:ObjectList_item() **<1,> ("," _) {
+            o.into_iter().fold(FocusedTriplePattern::<Vec<ReifiedTerm >>::default(), |mut a, b| {
                 a.focus.push(b.focus);
                 a.patterns.extend_from_slice(&b.patterns);
                 a
             })
         }
-        rule ObjectList_item() -> FocusedTriplePattern<AnnotatedTerm> = o:Object() _ { o }
+        rule ObjectList_item() -> FocusedTriplePattern<ReifiedTerm> = o:Object() _ { o }
 
-        rule Object() -> FocusedTriplePattern<AnnotatedTerm> = g:GraphNode() _ a:Annotation()? {
+        rule Object() -> FocusedTriplePattern<ReifiedTerm> = g:GraphNode() _ a:Annotation()? {
             if let Some(a) = a {
                 let mut patterns = g.patterns;
                 patterns.extend(a.patterns);
                 FocusedTriplePattern {
-                    focus: AnnotatedTerm {
+                    focus: ReifiedTerm {
                         term: g.focus,
-                        annotations: a.focus
+                        reifiers: a.focus
                     },
                     patterns
                 }
             } else {
                 FocusedTriplePattern {
-                    focus: AnnotatedTerm {
+                    focus: ReifiedTerm {
                         term: g.focus,
-                        annotations: Vec::new()
+                        reifiers: Vec::new()
                     },
                     patterns: g.patterns
                 }
@@ -1421,6 +1625,7 @@ parser! {
         }
 
         rule TriplesSameSubjectPath() -> Vec<TripleOrPathPattern> =
+            ReifiedTripleBlockPath() /
             s:VarOrTerm() _ po:PropertyListPathNotEmpty() {?
                 let mut patterns = po.patterns;
                 for (p, os) in po.focus {
@@ -1441,11 +1646,11 @@ parser! {
                 Ok(patterns)
             }
 
-        rule PropertyListPath() -> FocusedTripleOrPathPattern<Vec<(VariableOrPropertyPath,Vec<AnnotatedTermPath>)>> =
+        rule PropertyListPath() -> FocusedTripleOrPathPattern<Vec<(VariableOrPropertyPath,Vec<ReifiedTerm>)>> =
             PropertyListPathNotEmpty() /
             { FocusedTripleOrPathPattern::default() }
 
-        rule PropertyListPathNotEmpty() -> FocusedTripleOrPathPattern<Vec<(VariableOrPropertyPath,Vec<AnnotatedTermPath>)>> = hp:(VerbPath() / VerbSimple()) _ ho:ObjectListPath() _ t:PropertyListPathNotEmpty_item()* {
+        rule PropertyListPathNotEmpty() -> FocusedTripleOrPathPattern<Vec<(VariableOrPropertyPath,Vec<ReifiedTerm>)>> = hp:(VerbPath() / VerbSimple()) _ ho:ObjectListPath() _ t:PropertyListPathNotEmpty_item()* {
                 t.into_iter().flatten().fold(FocusedTripleOrPathPattern {
                     focus: vec![(hp, ho.focus)],
                     patterns: ho.patterns
@@ -1455,10 +1660,10 @@ parser! {
                     a
                 })
         }
-        rule PropertyListPathNotEmpty_item() -> Option<FocusedTripleOrPathPattern<(VariableOrPropertyPath,Vec<AnnotatedTermPath>)>> = ";" _ c:PropertyListPathNotEmpty_item_content()? {
+        rule PropertyListPathNotEmpty_item() -> Option<FocusedTripleOrPathPattern<(VariableOrPropertyPath,Vec<ReifiedTerm>)>> = ";" _ c:PropertyListPathNotEmpty_item_content()? {
             c
         }
-        rule PropertyListPathNotEmpty_item_content() -> FocusedTripleOrPathPattern<(VariableOrPropertyPath,Vec<AnnotatedTermPath>)> = p:(VerbPath() / VerbSimple()) _ o:ObjectListPath() _ {
+        rule PropertyListPathNotEmpty_item_content() -> FocusedTripleOrPathPattern<(VariableOrPropertyPath,Vec<ReifiedTerm>)> = p:(VerbPath() / VerbSimple()) _ o:ObjectListPath() _ {
             FocusedTripleOrPathPattern {
                 focus: (p, o.focus),
                 patterns: o.patterns
@@ -1473,31 +1678,31 @@ parser! {
             v.into()
         }
 
-        rule ObjectListPath() -> FocusedTripleOrPathPattern<Vec<AnnotatedTermPath>> = o:ObjectListPath_item() **<1,> ("," _) {
-            o.into_iter().fold(FocusedTripleOrPathPattern::<Vec<AnnotatedTermPath>>::default(), |mut a, b| {
+        rule ObjectListPath() -> FocusedTripleOrPathPattern<Vec<ReifiedTerm>> = o:ObjectListPath_item() **<1,> ("," _) {
+            o.into_iter().fold(FocusedTripleOrPathPattern::<Vec<ReifiedTerm>>::default(), |mut a, b| {
                 a.focus.push(b.focus);
                 a.patterns.extend(b.patterns);
                 a
             })
         }
-        rule ObjectListPath_item() -> FocusedTripleOrPathPattern<AnnotatedTermPath> = o:ObjectPath() _ { o }
+        rule ObjectListPath_item() -> FocusedTripleOrPathPattern<ReifiedTerm> = o:ObjectPath() _ { o }
 
-        rule ObjectPath() -> FocusedTripleOrPathPattern<AnnotatedTermPath> = g:GraphNodePath() _ a:AnnotationPath()? {
+        rule ObjectPath() -> FocusedTripleOrPathPattern<ReifiedTerm> = g:GraphNodePath() _ a:AnnotationPath()? {
              if let Some(a) = a {
                 let mut patterns = g.patterns;
                 patterns.extend(a.patterns);
                 FocusedTripleOrPathPattern {
-                    focus: AnnotatedTermPath {
+                    focus: ReifiedTerm {
                         term: g.focus,
-                        annotations: a.focus
+                        reifiers: a.focus
                     },
                     patterns
                 }
             } else {
                 FocusedTripleOrPathPattern {
-                    focus: AnnotatedTermPath {
+                    focus: ReifiedTerm {
                         term: g.focus,
-                        annotations: Vec::new()
+                        reifiers: Vec::new()
                     },
                     patterns: g.patterns
                 }
@@ -1645,66 +1850,184 @@ parser! {
         }
         rule CollectionPath_item() -> FocusedTripleOrPathPattern<TermPattern> = p:GraphNodePath() _ { p }
 
-
-        rule Annotation() -> FocusedTriplePattern<Vec<(NamedNodePattern,Vec<AnnotatedTerm>)>> = "{|" _ a:PropertyListNotEmpty() _ "|}" { a }
-
-        rule AnnotationPath() -> FocusedTripleOrPathPattern<Vec<(VariableOrPropertyPath,Vec<AnnotatedTermPath>)>> = "{|" _ a: PropertyListPathNotEmpty() _ "|}" { a }
-
-        rule GraphNode() -> FocusedTriplePattern<TermPattern> =
-            t:VarOrTerm() { FocusedTriplePattern::new(t) } /
-            TriplesNode()
-
-        rule GraphNodePath() -> FocusedTripleOrPathPattern<TermPattern> =
-            t:VarOrTerm() { FocusedTripleOrPathPattern::new(t) } /
-            TriplesNodePath()
-
         rule VarOrTerm() -> TermPattern =
             v:Var() { v.into() } /
-            t:QuotedTriple() {?
-                #[cfg(feature = "rdf-star")]{Ok(t.into())}
-                #[cfg(not(feature = "rdf-star"))]{Err("Embedded triples are only available in SPARQL-star")}
+            t:TripleTerm() {?
+                #[cfg(feature = "sparql-12")]{Ok(t.into())}
+                #[cfg(not(feature = "sparql-12"))]{Err("Triple terms are only available in SPARQL 1.2")}
             } /
-            t:GraphTerm() { t.into() }
-
-        rule QuotedTriple() -> TriplePattern = "<<" _ s:VarOrTerm() _ p:Verb() _ o:VarOrTerm() _ ">>" {?
-            Ok(TriplePattern {
-                subject: s,
-                predicate: p,
-                object: o
-            })
-        }
-
-        rule QuotedTripleData() -> GroundTriple = "<<" _ s:DataValueTerm() _ p:QuotedTripleData_p() _ o:DataValueTerm() _ ">>" {?
-            Ok(GroundTriple {
-                subject: s.try_into().map_err(|()| "Literals are not allowed in subject position of nested patterns")?,
-                predicate: p,
-                object: o
-            })
-        }
-        rule QuotedTripleData_p() -> NamedNode = i: iri() { i } / "a" { rdf::TYPE.into() }
-
-        rule DataValueTerm() -> GroundTerm = i:iri() { i.into() } /
-            l:RDFLiteral() { l.into() } /
-            l:NumericLiteral() { l.into() } /
-            l:BooleanLiteral() { l.into() } /
-            t:QuotedTripleData() {?
-                #[cfg(feature = "rdf-star")]{Ok(t.into())}
-                #[cfg(not(feature = "rdf-star"))]{Err("Embedded triples are only available in SPARQL-star")}
-            }
-
-        rule VarOrIri() -> NamedNodePattern =
-            v:Var() { v.into() } /
-            i:iri() { i.into() }
-
-        rule Var() -> Variable = name:(VAR1() / VAR2()) { Variable::new_unchecked(name) }
-
-        rule GraphTerm() -> Term =
             i:iri() { i.into() } /
             l:RDFLiteral() { l.into() } /
             l:NumericLiteral() { l.into() } /
             l:BooleanLiteral() { l.into() } /
             b:BlankNode() { b.into() } /
             NIL() { rdf::NIL.into_owned().into() }
+
+        rule AnnotationPath() -> FocusedTripleOrPathPattern<Vec<TermPattern>> = a:AnnotationPath_e()* {
+            let mut output: FocusedTripleOrPathPattern<Vec<TermPattern>> = FocusedTripleOrPathPattern::new(Vec::new());
+            for a in a {
+                output.focus.push(a.focus);
+                output.patterns.extend(a.patterns);
+            }
+            output
+        }
+        rule AnnotationPath_e() -> FocusedTripleOrPathPattern<TermPattern> =
+            r:Reifier() _ a:AnnotationBlockPath()? _ {?
+                let mut output: FocusedTripleOrPathPattern<TermPattern> = FocusedTripleOrPathPattern::new(r);
+                if let Some(annotations) = a {
+                    for (p, os) in annotations.focus {
+                        for o in os {
+                            add_to_triple_or_path_patterns(output.focus.clone(), p.clone(), o, &mut output.patterns)?;
+                        }
+                    }
+                    output.patterns.extend(annotations.patterns);
+                }
+                Ok(output)
+            } /
+            a:AnnotationBlockPath() _ {?
+                let mut output: FocusedTripleOrPathPattern<TermPattern> = FocusedTripleOrPathPattern::new(BlankNode::default());
+                for (p, os) in a.focus {
+                    for o in os {
+                        add_to_triple_or_path_patterns(output.focus.clone(), p.clone(), o, &mut output.patterns)?;
+                    }
+                }
+                output.patterns.extend(a.patterns);
+                Ok(output)
+            }
+
+        rule AnnotationBlockPath() -> FocusedTripleOrPathPattern<Vec<(VariableOrPropertyPath,Vec<ReifiedTerm>)>> = "{|" _ a:PropertyListPathNotEmpty() _ "|}" { a }
+
+        rule Annotation() -> FocusedTriplePattern<Vec<TermPattern>> = a:Annotation_e()* {
+            let mut output: FocusedTriplePattern<Vec<TermPattern>> = FocusedTriplePattern::new(Vec::new());
+            for a in a {
+                output.focus.push(a.focus);
+                output.patterns.extend(a.patterns);
+            }
+            output
+        }
+        rule Annotation_e() -> FocusedTriplePattern<TermPattern> =
+            r:Reifier() _ a:AnnotationBlock()? _ {?
+                let mut output: FocusedTriplePattern<TermPattern> = FocusedTriplePattern::new(r);
+                if let Some(annotations) = a {
+                    for (p, os) in annotations.focus {
+                        for o in os {
+                            add_to_triple_patterns(output.focus.clone(), p.clone(), o, &mut output.patterns)?;
+                        }
+                    }
+                    output.patterns.extend(annotations.patterns);
+                }
+                Ok(output)
+            } /
+            a:AnnotationBlock() _ {?
+                let mut output: FocusedTriplePattern<TermPattern> = FocusedTriplePattern::new(BlankNode::default());
+                for (p, os) in a.focus {
+                    for o in os {
+                        add_to_triple_patterns(output.focus.clone(), p.clone(), o, &mut output.patterns)?;
+                    }
+                }
+                output.patterns.extend(a.patterns);
+                Ok(output)
+            }
+
+        rule AnnotationBlock() -> FocusedTriplePattern<Vec<(NamedNodePattern,Vec<ReifiedTerm>)>> = "{|" _ a:PropertyListNotEmpty() _ "|}" { a }
+
+        rule GraphNode() -> FocusedTriplePattern<TermPattern> =
+            ReifiedTriple() /
+            t:VarOrTerm() { FocusedTriplePattern::new(t) } /
+            TriplesNode()
+
+        rule GraphNodePath() -> FocusedTripleOrPathPattern<TermPattern> =
+            t:ReifiedTriple() { t.into() } /
+            t:VarOrTerm() { FocusedTripleOrPathPattern::new(t) } /
+            TriplesNodePath()
+
+        rule ReifiedTriple() -> FocusedTriplePattern<TermPattern> = "<<" _ s:ReifiedTripleSubject() _ p:Verb() _ o:ReifiedTripleObject() _ r:Reifier()? _ ">>" {?
+            #[cfg(feature = "sparql-12")]
+            {
+                let r = r.unwrap_or_else(|| BlankNode::default().into());
+                let mut output = FocusedTriplePattern::new(r.clone());
+                output.patterns.push(TriplePattern {
+                        subject: r,
+                        predicate: rdf::REIFIES.into_owned().into(),
+                        object: TriplePattern {
+                            subject: s.focus,
+                            predicate: p,
+                            object: o.focus
+                        }.into()
+                    });
+                output.patterns.extend(s.patterns);
+                output.patterns.extend(o.patterns);
+                Ok(output)
+            }
+            #[cfg(not(feature = "sparql-12"))]
+            {
+                Err("Reified triples are only available in SPARQL 1.2")
+            }
+        }
+
+        rule ReifiedTripleSubject() -> FocusedTriplePattern<TermPattern> = ReifiedTripleObject()
+
+        rule ReifiedTripleObject() -> FocusedTriplePattern<TermPattern> =
+            v:Var() { FocusedTriplePattern::new(v) } /
+            t:TripleTerm() {?
+                #[cfg(feature = "sparql-12")]{Ok(FocusedTriplePattern::new(t))}
+                #[cfg(not(feature = "sparql-12"))]{Err("Triples terms are only available in SPARQL 1.2")}
+            } /
+            ReifiedTriple() /
+            i:iri() { FocusedTriplePattern::new(i) } /
+            l:RDFLiteral() { FocusedTriplePattern::new(l) } /
+            l:NumericLiteral() { FocusedTriplePattern::new(l) } /
+            l:BooleanLiteral() { FocusedTriplePattern::new(l) } /
+            b:BlankNode() { FocusedTriplePattern::new(b) }
+
+        rule TripleTerm() -> TriplePattern = "<<(" _ s:TripleTermSubject() _ p:Verb() _ o:TripleTermObject() _ ")>>" {
+            TriplePattern {
+                subject: s,
+                predicate: p,
+                object: o
+            }
+        }
+
+        rule TripleTermSubject() -> TermPattern = TripleTermObject()
+
+        rule TripleTermObject() -> TermPattern =
+            v:Var() { v.into() } /
+            t:TripleTerm() {?
+                #[cfg(feature = "sparql-12")]{Ok(t.into())}
+                #[cfg(not(feature = "sparql-12"))]{Err("Triples terms are only available in SPARQL 1.2")}
+            } /
+            i:iri() { i.into() } /
+            l:RDFLiteral() { l.into() } /
+            l:NumericLiteral() { l.into() } /
+            l:BooleanLiteral() { l.into() } /
+            b:BlankNode() { b.into() }
+
+        rule TripleTermData() -> GroundTriple = "<<(" _ s:TripleTermDataSubject() _ p:TripleTermData_p() _ o:TripleTermDataObject() _ ")>>" {?
+            Ok(GroundTriple {
+                subject: if let GroundTerm::NamedNode(s) = s { s } else { return Err("Literals or triple terms are not allowed in subject position of nested patterns") },
+                predicate: p,
+                object: o
+            })
+        }
+        rule TripleTermData_p() -> NamedNode = i: iri() { i } / "a" { rdf::TYPE.into() }
+
+        rule TripleTermDataSubject() -> GroundTerm = TripleTermDataObject()
+
+        rule TripleTermDataObject() -> GroundTerm =
+            t:TripleTermData() {?
+                #[cfg(feature = "sparql-12")]{Ok(t.into())}
+                #[cfg(not(feature = "sparql-12"))]{Err("Triples terms are only available in SPARQL 1.2")}
+            } /
+            i:iri() { i.into() } /
+            l:RDFLiteral() { l.into() } /
+            l:NumericLiteral() { l.into() } /
+            l:BooleanLiteral() { l.into() }
+
+        rule VarOrIri() -> NamedNodePattern =
+            v:Var() { v.into() } /
+            i:iri() { i.into() }
+
+        rule Var() -> Variable = name:(VAR1() / VAR2()) { Variable::new_unchecked(name) }
 
         rule Expression() -> Expression = e:ConditionalOrExpression() {e}
 
@@ -1759,7 +2082,10 @@ parser! {
             (s, e)
         }
 
-        rule UnaryExpression() -> Expression = s: $("!" / "+" / "-")? _ e:PrimaryExpression() { match s {
+        rule UnaryExpression() -> Expression = s: "!" _ e:UnaryExpression() {?
+            #[cfg(feature = "sparql-12")]{Ok(Expression::Not(Box::new(e)))}
+            #[cfg(not(feature = "sparql-12"))]{Err("Double negation (!!) is only available in SPARQL 1.2")}
+        } / s: $("!" / "+" / "-")? _ e:PrimaryExpression() { match s {
             Some("!") => Expression::Not(Box::new(e)),
             Some("+") => Expression::UnaryPlus(Box::new(e)),
             Some("-") => Expression::UnaryMinus(Box::new(e)),
@@ -1768,8 +2094,8 @@ parser! {
         } }
 
         rule PrimaryExpression() -> Expression =
-            BrackettedExpression()  /
-            ExprQuotedTriple() /
+            BrackettedExpression() /
+            ExprTripleTerm() /
             iriOrFunction() /
             v:Var() { v.into() } /
             l:RDFLiteral() { l.into() } /
@@ -1777,18 +2103,20 @@ parser! {
             l:BooleanLiteral() { l.into() } /
             BuiltInCall()
 
-        rule ExprVarOrTerm() -> Expression =
-            ExprQuotedTriple() /
+        rule ExprTripleTerm() -> Expression = "<<(" _ s:ExprTripleTermSubject() _ p:Verb() _ o:ExprTripleTermObject() _ ")>>" {?
+            #[cfg(feature = "sparql-12")]{Ok(Expression::FunctionCall(Function::Triple, vec![s, p.into(), o]))}
+            #[cfg(not(feature = "sparql-12"))]{Err("Triple terms are only available in SPARQL 1.2")}
+        }
+
+        rule ExprTripleTermSubject() -> Expression = ExprTripleTermObject()
+
+        rule ExprTripleTermObject() -> Expression =
+            ExprTripleTerm() /
             i:iri() { i.into() } /
             l:RDFLiteral() { l.into() } /
             l:NumericLiteral() { l.into() } /
             l:BooleanLiteral() { l.into() } /
             v:Var() { v.into() }
-
-        rule ExprQuotedTriple() -> Expression = "<<" _ s:ExprVarOrTerm() _ p:Verb() _ o:ExprVarOrTerm() _ ">>" {?
-            #[cfg(feature = "rdf-star")]{Ok(Expression::FunctionCall(Function::Triple, vec![s, p.into(), o]))}
-            #[cfg(not(feature = "rdf-star"))]{Err("Embedded triples are only available in SPARQL-star")}
-        }
 
         rule BrackettedExpression() -> Expression = "(" _ e:Expression() _ ")" { e }
 
@@ -1797,6 +2125,10 @@ parser! {
             i("STR") _ "(" _ e:Expression() _ ")" { Expression::FunctionCall(Function::Str, vec![e]) } /
             i("LANG") _ "(" _ e:Expression() _ ")" { Expression::FunctionCall(Function::Lang, vec![e]) } /
             i("LANGMATCHES") _ "(" _ a:Expression() _ "," _ b:Expression() _ ")" { Expression::FunctionCall(Function::LangMatches, vec![a, b]) } /
+            i("LANGDIR") "(" _ e:Expression() _ ")" {?
+                #[cfg(feature = "sparql-12")]{Ok(Expression::FunctionCall(Function::LangDir, vec![e]))}
+                #[cfg(not(feature = "sparql-12"))]{Err("The LANGDIR function is only available in SPARQL 1.2")}
+            } /
             i("DATATYPE") _ "(" _ e:Expression() _ ")" { Expression::FunctionCall(Function::Datatype, vec![e]) } /
             i("BOUND") _ "(" _ v:Var() _ ")" { Expression::Bound(v) } /
             (i("IRI") / i("URI")) _ "(" _ e:Expression() _ ")" { Expression::FunctionCall(Function::Iri, vec![e]) } /
@@ -1838,38 +2170,50 @@ parser! {
             i("COALESCE") e:ExpressionList() { Expression::Coalesce(e) } /
             i("IF") _ "(" _ a:Expression() _ "," _ b:Expression() _ "," _ c:Expression() _ ")" { Expression::If(Box::new(a), Box::new(b), Box::new(c)) } /
             i("STRLANG") _ "(" _ a:Expression() _ "," _ b:Expression() _ ")" { Expression::FunctionCall(Function::StrLang, vec![a, b]) }  /
+            i("STRLANGDIR") "(" _ a:Expression() _ "," _ b:Expression() _ "," _ c:Expression() _ ")" {?
+                #[cfg(feature = "sparql-12")]{Ok(Expression::FunctionCall(Function::StrLangDir, vec![a, b, c]))}
+                #[cfg(not(feature = "sparql-12"))]{Err("The STRLANGDIR function is only available in SPARQL 1.2")}
+            } /
             i("STRDT") _ "(" _ a:Expression() _ "," _ b:Expression() _ ")" { Expression::FunctionCall(Function::StrDt, vec![a, b]) } /
             i("sameTerm") "(" _ a:Expression() _ "," _ b:Expression() _ ")" { Expression::SameTerm(Box::new(a), Box::new(b)) } /
             (i("isIRI") / i("isURI")) _ "(" _ e:Expression() _ ")" { Expression::FunctionCall(Function::IsIri, vec![e]) } /
             i("isBLANK") "(" _ e:Expression() _ ")" { Expression::FunctionCall(Function::IsBlank, vec![e]) } /
             i("isLITERAL") "(" _ e:Expression() _ ")" { Expression::FunctionCall(Function::IsLiteral, vec![e]) } /
             i("isNUMERIC") "(" _ e:Expression() _ ")" { Expression::FunctionCall(Function::IsNumeric, vec![e]) } /
+            i("hasLang") "(" _ e:Expression() _ ")" {?
+                #[cfg(feature = "sparql-12")]{Ok(Expression::FunctionCall(Function::HasLang, vec![e]))}
+                #[cfg(not(feature = "sparql-12"))]{Err("The hasLang function is only available in SPARQL 1.2")}
+            } /
+            i("hasLangDir") "(" _ e:Expression() _ ")" {?
+                #[cfg(feature = "sparql-12")]{Ok(Expression::FunctionCall(Function::HasLangDir, vec![e]))}
+                #[cfg(not(feature = "sparql-12"))]{Err("The hasLangDir function is only available in SPARQL 1.2")}
+            } /
             RegexExpression() /
             ExistsFunc() /
             NotExistsFunc() /
             i("TRIPLE") "(" _ s:Expression() _ "," _ p:Expression() "," _ o:Expression() ")" {?
-                #[cfg(feature = "rdf-star")]{Ok(Expression::FunctionCall(Function::Triple, vec![s, p, o]))}
-                #[cfg(not(feature = "rdf-star"))]{Err("The TRIPLE function is only available in SPARQL-star")}
+                #[cfg(feature = "sparql-12")]{Ok(Expression::FunctionCall(Function::Triple, vec![s, p, o]))}
+                #[cfg(not(feature = "sparql-12"))]{Err("The TRIPLE function is only available in SPARQL 1.2")}
             } /
             i("SUBJECT") "(" _ e:Expression() _ ")" {?
-                #[cfg(feature = "rdf-star")]{Ok(Expression::FunctionCall(Function::Subject, vec![e]))}
-                #[cfg(not(feature = "rdf-star"))]{Err("The SUBJECT function is only available in SPARQL-star")}
+                #[cfg(feature = "sparql-12")]{Ok(Expression::FunctionCall(Function::Subject, vec![e]))}
+                #[cfg(not(feature = "sparql-12"))]{Err("The SUBJECT function is only available in SPARQL 1.2")}
             } /
             i("PREDICATE") "(" _ e:Expression() _ ")" {?
-                #[cfg(feature = "rdf-star")]{Ok(Expression::FunctionCall(Function::Predicate, vec![e]))}
-                #[cfg(not(feature = "rdf-star"))]{Err("The PREDICATE function is only available in SPARQL-star")}
+                #[cfg(feature = "sparql-12")]{Ok(Expression::FunctionCall(Function::Predicate, vec![e]))}
+                #[cfg(not(feature = "sparql-12"))]{Err("The PREDICATE function is only available in SPARQL 1.2")}
             } /
             i("OBJECT") "(" _ e:Expression() _ ")" {?
-                #[cfg(feature = "rdf-star")]{Ok(Expression::FunctionCall(Function::Object, vec![e]))}
-                #[cfg(not(feature = "rdf-star"))]{Err("The OBJECT function is only available in SPARQL-star")}
+                #[cfg(feature = "sparql-12")]{Ok(Expression::FunctionCall(Function::Object, vec![e]))}
+                #[cfg(not(feature = "sparql-12"))]{Err("The OBJECT function is only available in SPARQL 1.2")}
             } /
             i("isTriple") "(" _ e:Expression() _ ")" {?
-                #[cfg(feature = "rdf-star")]{Ok(Expression::FunctionCall(Function::IsTriple, vec![e]))}
-                #[cfg(not(feature = "rdf-star"))]{Err("The isTriple function is only available in SPARQL-star")}
+                #[cfg(feature = "sparql-12")]{Ok(Expression::FunctionCall(Function::IsTriple, vec![e]))}
+                #[cfg(not(feature = "sparql-12"))]{Err("The isTriple function is only available in SPARQL 1.2")}
             } /
             i("ADJUST") "("  _ a:Expression() _ "," _ b:Expression() _ ")" {?
                 #[cfg(feature = "sep-0002")]{Ok(Expression::FunctionCall(Function::Adjust, vec![a, b]))}
-                #[cfg(not(feature = "sep-0002"))]{Err("The ADJUST function is only available in SPARQL 1.2 SEP 0002")}
+                #[cfg(not(feature = "sep-0002"))]{Err("The ADJUST function is only available in SPARQL-dev SEP 0002")}
             }
 
         rule RegexExpression() -> Expression =
@@ -1909,19 +2253,47 @@ parser! {
             i("GROUP_CONCAT") _ "(" _ i("DISTINCT") _ expr:Expression() _ ")" { AggregateExpression::FunctionCall { name: AggregateFunction::GroupConcat { separator: None }, expr, distinct: true } } /
             i("GROUP_CONCAT") _ "(" _ expr:Expression() _ ";" _ i("SEPARATOR") _ "=" _ s:String() _ ")" { AggregateExpression::FunctionCall { name: AggregateFunction::GroupConcat { separator: Some(s) }, expr, distinct: false } } /
             i("GROUP_CONCAT") _ "(" _ expr:Expression() _ ")" { AggregateExpression::FunctionCall { name: AggregateFunction::GroupConcat { separator: None }, expr, distinct: false } } /
-            name:iri() _ "(" _ i("DISTINCT") _ expr:Expression() _ ")" { AggregateExpression::FunctionCall { name: AggregateFunction::Custom(name), expr, distinct: true } } /
-            name:iri() _ "(" _ expr:Expression() _ ")" { AggregateExpression::FunctionCall { name: AggregateFunction::Custom(name), expr, distinct: false } }
+            name:iri() _ "(" _ i("DISTINCT") _ expr:Expression() _ ")" {?
+                if state.custom_aggregate_functions.contains(&name) {
+                    Ok(AggregateExpression::FunctionCall { name: AggregateFunction::Custom(name), expr, distinct: true })
+                } else {
+                    Err("This custom function is a regular function and not an aggregate function")
+                }
+            } /
+            name:iri() _ "(" _ expr:Expression() _ ")" {?
+                if state.custom_aggregate_functions.contains(&name) {
+                    Ok(AggregateExpression::FunctionCall { name: AggregateFunction::Custom(name), expr, distinct: false })
+                } else {
+                    Err("This custom function is a regular function and not an aggregate function")
+                }
+            }
 
-        rule iriOrFunction() -> Expression = i: iri() _ a: ArgList()? {
-            match a {
-                Some(a) => Expression::FunctionCall(Function::Custom(i), a),
-                None => i.into()
+        rule iriOrFunction() -> Expression = i: iri() _ a: ArgList()? {?
+            if let Some(a) = a {
+                if state.custom_aggregate_functions.contains(&i) {
+                    Err("This custom function is an aggregate function and not a regular function")
+                } else {
+                    Ok(Expression::FunctionCall(Function::Custom(i), a))
+                }
+            } else {
+                Ok(i.into())
             }
         }
 
         rule RDFLiteral() -> Literal =
             value:String() _ "^^" _ datatype:iri() { Literal::new_typed_literal(value, datatype) } /
-            value:String() _ language:LANGTAG() { Literal::new_language_tagged_literal_unchecked(value, language.into_inner()) } /
+            value:String() _ language_and_direction:LANGDIR() {?
+                let (language, direction) = language_and_direction;
+                #[cfg(feature = "sparql-12")]
+                if let Some(is_ltr) = direction {
+                    return Ok(Literal::new_directional_language_tagged_literal_unchecked(value, language.into_inner(), if is_ltr { oxrdf::BaseDirection::Ltr } else { oxrdf::BaseDirection::Rtl }))
+                }
+                #[cfg(not(feature = "sparql-12"))]
+                if direction.is_some() {
+                    return Err("Literal base directions are only supported in SPARQL 1.2")
+                }
+                Ok(Literal::new_language_tagged_literal_unchecked(value, language.into_inner()))
+            } /
             value:String() { Literal::new_simple_literal(value) }
 
         rule NumericLiteral() -> Literal  = NumericLiteralUnsigned() / NumericLiteralPositive() / NumericLiteralNegative()
@@ -1954,7 +2326,7 @@ parser! {
 
         rule PrefixedName() -> Iri<String> = PNAME_LN() /
             ns:PNAME_NS() {? if let Some(iri) = state.prefixes.get(ns).cloned() {
-                Iri::parse(iri).map_err(|_| "IRI parsing failed")
+                Iri::parse(iri).map_err(|_| "prefix IRI parsing failed")
             } else {
                 Err("Prefix not found")
             } }
@@ -1998,8 +2370,15 @@ parser! {
 
         rule VAR2() -> &'input str = "$" v:$(VARNAME()) { v }
 
-        rule LANGTAG() -> LanguageTag<String> = "@" l:$(['a' ..= 'z' | 'A' ..= 'Z']+ ("-" ['a' ..= 'z' | 'A' ..= 'Z' | '0' ..= '9']+)*) {?
-            LanguageTag::parse(l.to_ascii_lowercase()).map_err(|_| "language tag parsing failed")
+        rule LANGDIR() -> (LanguageTag<String>, Option<bool>) = "@" l:$(['a' ..= 'z' | 'A' ..= 'Z']+ ("-" ['a' ..= 'z' | 'A' ..= 'Z' | '0' ..= '9']+)*) d:$("--" ['a' ..= 'z' | 'A' ..= 'Z']+)? {?
+            Ok((
+                LanguageTag::parse(l.to_ascii_lowercase()).map_err(|_| "language tag parsing failed")?,
+                d.map(|d| match d {
+                    "--ltr" => Ok(true),
+                    "--rtl" => Ok(false),
+                    _ => Err("the only base directions allowed are 'rtl' and 'ltr'")
+                }).transpose()?
+            ))
         }
 
         rule INTEGER() = ['0'..='9']+

@@ -1,8 +1,11 @@
 use std::process::Command;
 
-use common::TestContext;
+use assert_fs::fixture::{FileWriteStr, PathChild, PathCreateDir};
+use constants::CONFIG_FILE;
+use constants::env_vars::EnvVars;
 use indoc::indoc;
 
+use crate::common::TestContext;
 use crate::common::cmd_snapshot;
 
 mod common;
@@ -172,6 +175,323 @@ fn hook_impl_pre_push() -> anyhow::Result<()> {
 
     ----- stderr -----
     Everything up-to-date
+    ");
+
+    Ok(())
+}
+
+fn workspace_hook_impl_root() -> anyhow::Result<()> {
+    let context = TestContext::new();
+    context.init_project();
+    context.configure_git_author();
+    context.disable_auto_crlf();
+
+    let config = indoc! {r#"
+    repos:
+      - repo: local
+        hooks:
+        - id: test-hook
+          name: Test Hook
+          language: python
+          entry: python -c 'import os; print("cwd:", os.getcwd())'
+          verbose: true
+    "#};
+
+    context.setup_workspace(&["project2", "project3"], config)?;
+    context.git_add(".");
+
+    // Install from root
+    cmd_snapshot!(context.filters(), context.install(), @r#"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+    prek installed at `.git/hooks/pre-commit`
+
+    ----- stderr -----
+    "#);
+
+    let mut commit = Command::new("git");
+    commit
+        .current_dir(context.work_dir())
+        .arg("commit")
+        .arg("-m")
+        .arg("Test commit from subdirectory");
+
+    let filters = context
+        .filters()
+        .into_iter()
+        .chain([("[a-f0-9]{7}", "abc1234")])
+        .collect::<Vec<_>>();
+
+    cmd_snapshot!(filters.clone(), commit, @r"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+    [master (root-commit) abc1234] Test commit from subdirectory
+     3 files changed, 24 insertions(+)
+     create mode 100644 .pre-commit-config.yaml
+     create mode 100644 project2/.pre-commit-config.yaml
+     create mode 100644 project3/.pre-commit-config.yaml
+
+    ----- stderr -----
+    Running hooks for `project2`:
+    Test Hook................................................................Passed
+    - hook id: test-hook
+    - duration: [TIME]
+      cwd: [TEMP_DIR]/project2
+
+    Running hooks for `project3`:
+    Test Hook................................................................Passed
+    - hook id: test-hook
+    - duration: [TIME]
+      cwd: [TEMP_DIR]/project3
+
+    Running hooks for `.`:
+    Test Hook................................................................Passed
+    - hook id: test-hook
+    - duration: [TIME]
+      cwd: [TEMP_DIR]/
+    ");
+
+    Ok(())
+}
+
+#[test]
+fn workspace_hook_impl_subdirectory() -> anyhow::Result<()> {
+    let context = TestContext::new();
+    let cwd = context.work_dir();
+    context.init_project();
+    context.configure_git_author();
+    context.disable_auto_crlf();
+
+    let config = indoc! {r#"
+    repos:
+      - repo: local
+        hooks:
+        - id: test-hook
+          name: Test Hook
+          language: python
+          entry: python -c 'import os; print("cwd:", os.getcwd())'
+          verbose: true
+    "#};
+
+    context.setup_workspace(&["project2", "project3"], config)?;
+    context.git_add(".");
+
+    // Install from a subdirectory
+    cmd_snapshot!(context.filters(), context.install().current_dir(cwd.join("project2")), @r"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+    prek installed at `../.git/hooks/pre-commit`
+
+    ----- stderr -----
+    ");
+
+    let mut commit = Command::new("git");
+    commit
+        .current_dir(cwd)
+        .arg("commit")
+        .arg("-m")
+        .arg("Test commit from subdirectory");
+
+    let filters = context
+        .filters()
+        .into_iter()
+        .chain([("[a-f0-9]{7}", "abc1234")])
+        .collect::<Vec<_>>();
+
+    cmd_snapshot!(filters.clone(), commit, @r"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+    [master (root-commit) abc1234] Test commit from subdirectory
+     3 files changed, 24 insertions(+)
+     create mode 100644 .pre-commit-config.yaml
+     create mode 100644 project2/.pre-commit-config.yaml
+     create mode 100644 project3/.pre-commit-config.yaml
+
+    ----- stderr -----
+    Test Hook................................................................Passed
+    - hook id: test-hook
+    - duration: [TIME]
+      cwd: [TEMP_DIR]/project2
+    ");
+
+    Ok(())
+}
+
+#[test]
+fn workspace_hook_impl_no_project_found() -> anyhow::Result<()> {
+    let context = TestContext::new();
+    context.init_project();
+    context.configure_git_author();
+    context.disable_auto_crlf();
+
+    // Create a directory without .pre-commit-config.yaml
+    let empty_dir = context.work_dir().child("empty");
+    empty_dir.create_dir_all()?;
+    empty_dir.child("file.txt").write_str("Some content")?;
+    context.git_add(".");
+
+    // Install hook that allows missing config
+    cmd_snapshot!(context.filters(), context.install(), @r#"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+    prek installed at `.git/hooks/pre-commit`
+
+    ----- stderr -----
+    "#);
+
+    // Try to run hook-impl from directory without config
+    let mut commit = Command::new("git");
+    commit
+        .current_dir(&empty_dir)
+        .arg("commit")
+        .arg("-m")
+        .arg("Test commit");
+
+    cmd_snapshot!(context.filters(), commit, @r"
+    success: false
+    exit_code: 1
+    ----- stdout -----
+
+    ----- stderr -----
+    error: No `.pre-commit-config.yaml` found in the current directory or parent directories in the repository
+    - To temporarily silence this, run `PREK_ALLOW_NO_CONFIG=1 git ...`
+    - To permanently silence this, install hooks with the `--allow-missing-config` flag
+    - To uninstall hooks, run `prek uninstall`
+    ");
+
+    // Commit with `PREK_ALLOW_NO_CONFIG=1`
+    let mut commit = Command::new("git");
+    commit
+        .current_dir(&empty_dir)
+        .env(EnvVars::PREK_ALLOW_NO_CONFIG, "1")
+        .arg("commit")
+        .arg("-m")
+        .arg("Test commit");
+
+    let filters = context
+        .filters()
+        .into_iter()
+        .chain([("[a-f0-9]{7}", "1d5e501")])
+        .collect::<Vec<_>>();
+
+    // The hook should simply succeed because there is no config
+    cmd_snapshot!(filters.clone(), commit, @r"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+    [master (root-commit) 1d5e501] Test commit
+     1 file changed, 1 insertion(+)
+     create mode 100644 empty/file.txt
+
+    ----- stderr -----
+    ");
+
+    // Create the root `.pre-commit-config.yaml`
+    context
+        .work_dir()
+        .child(CONFIG_FILE)
+        .write_str(indoc::indoc! {r"
+        repos:
+        - repo: local
+          hooks:
+           - id: fail
+             name: fail
+             entry: fail
+             language: fail
+    "})?;
+    context.git_add(".");
+
+    // Commit with `PREK_ALLOW_NO_CONFIG=1` again, the hooks should run (and fail)
+    let mut commit = Command::new("git");
+    commit
+        .current_dir(&empty_dir)
+        .env(EnvVars::PREK_ALLOW_NO_CONFIG, "1")
+        .arg("commit")
+        .arg("-m")
+        .arg("Test commit");
+
+    cmd_snapshot!(filters.clone(), commit, @r"
+    success: false
+    exit_code: 1
+    ----- stdout -----
+
+    ----- stderr -----
+    fail.....................................................................Failed
+    - hook id: fail
+    - exit code: 1
+      fail
+
+      .pre-commit-config.yaml
+    ");
+
+    Ok(())
+}
+
+#[test]
+fn workspace_hook_impl_with_selectors() -> anyhow::Result<()> {
+    let context = TestContext::new();
+    let cwd = context.work_dir();
+    context.init_project();
+    context.configure_git_author();
+    context.disable_auto_crlf();
+
+    let config = indoc! {r#"
+    repos:
+      - repo: local
+        hooks:
+        - id: test-hook
+          name: Test Hook
+          language: python
+          entry: python -c 'import os; print("cwd:", os.getcwd())'
+          verbose: true
+    "#};
+
+    context.setup_workspace(&["project2", "project3"], config)?;
+    context.git_add(".");
+
+    cmd_snapshot!(context.filters(), context.install().arg("project2/"), @r"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+    prek installed at `.git/hooks/pre-commit`
+
+    ----- stderr -----
+    ");
+
+    let mut commit = Command::new("git");
+    commit
+        .current_dir(cwd)
+        .arg("commit")
+        .arg("-m")
+        .arg("Test commit from subdirectory");
+
+    let filters = context
+        .filters()
+        .into_iter()
+        .chain([("[a-f0-9]{7}", "abc1234")])
+        .collect::<Vec<_>>();
+
+    cmd_snapshot!(filters.clone(), commit, @r"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+    [master (root-commit) abc1234] Test commit from subdirectory
+     3 files changed, 24 insertions(+)
+     create mode 100644 .pre-commit-config.yaml
+     create mode 100644 project2/.pre-commit-config.yaml
+     create mode 100644 project3/.pre-commit-config.yaml
+
+    ----- stderr -----
+    Running hooks for `project2`:
+    Test Hook................................................................Passed
+    - hook id: test-hook
+    - duration: [TIME]
+      cwd: [TEMP_DIR]/project2
     ");
 
     Ok(())

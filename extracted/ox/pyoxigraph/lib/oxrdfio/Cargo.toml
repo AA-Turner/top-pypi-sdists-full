@@ -1,6 +1,6 @@
 [package]
 name = "oxrdfio"
-version = "0.1.8"
+version = "0.2.0"
 authors.workspace = true
 license.workspace = true
 readme = "README.md"
@@ -14,7 +14,7 @@ rust-version.workspace = true
 [features]
 default = []
 async-tokio = ["dep:tokio", "oxrdfxml/async-tokio", "oxttl/async-tokio", "oxjsonld/async-tokio"]
-rdf-star = ["oxrdf/rdf-star", "oxttl/rdf-star"]
+rdf-12 = ["oxrdf/rdf-12", "oxttl/rdf-12", "oxjsonld/rdf-12"]
 
 [dependencies]
 oxjsonld.workspace = true
@@ -25,6 +25,7 @@ thiserror.workspace = true
 tokio = { workspace = true, optional = true, features = ["io-util"] }
 
 [dev-dependencies]
+tempfile.workspace = true
 tokio = { workspace = true, features = ["rt", "macros"] }
 
 [lints]

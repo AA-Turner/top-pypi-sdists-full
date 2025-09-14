@@ -3,30 +3,37 @@ use std::str::FromStr;
 use tombi_uri::SchemaUri;
 
 use crate::value::{
-    ErrorRuleOptions, TombiValueDirectiveContent, WithCommonRules, WithKeyTableRules,
+    EmptyFormatRules, ErrorRuleOptions, TombiValueDirectiveContent, WithCommonLintRules,
+    WithKeyTableLintRules,
 };
 use crate::TombiCommentDirectiveImpl;
 
-pub type KeyStringCommonRules = WithKeyTableRules<WithCommonRules<StringRules>>;
+pub type StringFormatRules = EmptyFormatRules;
 
-pub type StringCommonRules = WithCommonRules<StringRules>;
+pub type KeyStringCommonLintRules = WithKeyTableLintRules<WithCommonLintRules<StringLintRules>>;
 
-impl TombiCommentDirectiveImpl for TombiValueDirectiveContent<KeyStringCommonRules> {
+pub type StringCommonLintRules = WithCommonLintRules<StringLintRules>;
+
+impl TombiCommentDirectiveImpl
+    for TombiValueDirectiveContent<StringFormatRules, KeyStringCommonLintRules>
+{
     fn comment_directive_schema_url() -> SchemaUri {
         SchemaUri::from_str("tombi://json.tombi.dev/tombi-key-string-directive.json").unwrap()
     }
 }
 
-impl TombiCommentDirectiveImpl for TombiValueDirectiveContent<StringCommonRules> {
+impl TombiCommentDirectiveImpl
+    for TombiValueDirectiveContent<StringFormatRules, StringCommonLintRules>
+{
     fn comment_directive_schema_url() -> SchemaUri {
         SchemaUri::from_str("tombi://json.tombi.dev/tombi-string-directive.json").unwrap()
     }
 }
 
-#[derive(Debug, Default, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Default, Clone, PartialEq, serde::Deserialize)]
 #[serde(rename_all = "kebab-case")]
 #[cfg_attr(feature = "jsonschema", derive(schemars::JsonSchema))]
-pub struct StringRules {
+pub struct StringLintRules {
     /// # Integer Max length
     ///
     /// Check if the string is longer than the max length.

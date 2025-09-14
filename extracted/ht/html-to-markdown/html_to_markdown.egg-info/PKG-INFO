@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: html-to-markdown
-Version: 1.10.0
+Version: 1.11.0
 Summary: A modern, type-safe Python library for converting HTML to Markdown with comprehensive tag support and customizable options
 Author-email: Na'aman Hirschfeld <nhirschfeld@gmail.com>
 License: MIT
@@ -33,7 +33,7 @@ License-File: LICENSE
 Requires-Dist: beautifulsoup4>=4.13.5
 Requires-Dist: nh3>=0.3
 Provides-Extra: lxml
-Requires-Dist: lxml>=6.0.1; extra == "lxml"
+Requires-Dist: beautifulsoup4[lxml]>=4.13.5; extra == "lxml"
 Dynamic: license-file
 
 # html-to-markdown

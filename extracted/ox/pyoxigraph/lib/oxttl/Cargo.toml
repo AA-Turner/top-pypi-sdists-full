@@ -1,6 +1,6 @@
 [package]
 name = "oxttl"
-version = "0.1.8"
+version = "0.2.0"
 authors.workspace = true
 license.workspace = true
 readme = "README.md"
@@ -13,7 +13,7 @@ rust-version.workspace = true
 
 [features]
 default = []
-rdf-star = ["oxrdf/rdf-star"]
+rdf-12 = ["oxrdf/rdf-12"]
 async-tokio = ["dep:tokio"]
 
 [dependencies]
@@ -25,6 +25,7 @@ thiserror.workspace = true
 tokio = { workspace = true, optional = true, features = ["io-util"] }
 
 [dev-dependencies]
+tempfile.workspace = true
 tokio = { workspace = true, features = ["rt", "macros"] }
 rayon.workspace = true
 

@@ -3,7 +3,7 @@
 import os
 from os.path import dirname, join
 
-from asv import config, commands, environment, util
+from asv import commands, config, environment, util
 from asv.commands import Command
 
 
@@ -37,9 +37,7 @@ def test_config_default_install_timeout():
 class CustomCommand(Command):
     @classmethod
     def setup_arguments(cls, subparsers):
-        parser = subparsers.add_parser(
-            "custom", help="Custom command",
-            description="Juts a test.")
+        parser = subparsers.add_parser("custom", help="Custom command", description="Juts a test.")
 
         parser.set_defaults(func=cls.run_from_args)
 

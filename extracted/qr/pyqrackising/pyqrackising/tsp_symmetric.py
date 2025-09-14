@@ -1,6 +1,6 @@
 from .spin_glass_solver import spin_glass_solver
 import networkx as nx
-from numba import njit, prange
+from numba import njit
 import numpy as np
 
 
@@ -164,18 +164,18 @@ def targeted_three_opt(path, W, k_neighbors=20):
     return best_path, best_dist
 
 
-@njit(parallel=True)
+@njit
 def init_G_a_b(G_m, a, b):
     n_a_nodes = len(a)
     n_b_nodes = len(b)
     G_a = np.zeros((n_a_nodes, n_a_nodes), dtype=np.float64)
     G_b = np.zeros((n_b_nodes, n_b_nodes), dtype=np.float64)
-    for i in prange(n_a_nodes):
+    for i in range(n_a_nodes):
         for j in range(n_a_nodes):
             if i == j:
                 continue
             G_a[i, j] = G_m[a[i], a[j]]
-    for i in prange(n_b_nodes):
+    for i in range(n_b_nodes):
         for j in range(n_b_nodes):
             if i == j:
                 continue
@@ -196,16 +196,19 @@ def stitch(G_m, path_a, path_b, sol_weight):
         if is_single_a:
             singlet = path_a[0]
             bulk = path_b
-        elif is_single_b:
+        else:
             singlet = path_b[0]
             bulk = path_a
 
+        best_path = bulk.copy()
         best_weight = G_m[singlet, bulk[0]]
-        best_path = [singlet] + bulk
         weight = G_m[singlet, bulk[-1]]
         if weight < best_weight:
             best_weight = weight
-            best_path = bulk + [singlet]
+            best_path += [singlet]
+        else:
+            best_path = [singlet] + best_path
+
         for i in range(1, len(bulk)):
             weight = (
                 G_m[singlet, bulk[i - 1]] +
@@ -221,11 +224,14 @@ def stitch(G_m, path_a, path_b, sol_weight):
         terminals_b = [path_b[0], path_b[-1]]
 
         best_weight = G_m[terminals_a[1], terminals_b[0]]
-        best_path = path_a + path_b
+        best_path = path_b.copy()
         weight = G_m[terminals_a[0], terminals_b[1]]
         if weight < best_weight:
             best_weight = weight
-            best_path = path_b + path_a
+            best_path += path_a
+        else:
+            best_path = path_a + best_path
+
         for _ in range(2):
             for _ in range(2):
                 for i in range(1, len(path_b)):
@@ -246,6 +252,7 @@ def stitch(G_m, path_a, path_b, sol_weight):
     return best_path, best_weight
 
 
+
 def monte_carlo_loop(n_nodes):
     bits = ([], [])
     while (len(bits[0]) == 0) or (len(bits[1]) == 0):
@@ -259,7 +266,7 @@ def monte_carlo_loop(n_nodes):
     return bits
 
 
-def tsp_symmetric(G, start_node=None, end_node=None, quality=1, shots=None, correction_quality=2, monte_carlo=False, is_3_opt=True, k_neighbors=20, is_cyclic=True, multi_start=1, is_top_level=True):
+def tsp_symmetric(G, start_node=None, end_node=None, quality=1, shots=None, correction_quality=2, monte_carlo=False, k_neighbors=20, is_cyclic=True, multi_start=1, is_top_level=True):
     nodes = None
     n_nodes = 0
     G_m = None
@@ -312,8 +319,8 @@ def tsp_symmetric(G, start_node=None, end_node=None, quality=1, shots=None, corr
 
     G_a, G_b = init_G_a_b(G_m, a, b)
 
-    sol_a = tsp_symmetric(G_a, quality=quality, correction_quality=correction_quality, monte_carlo=monte_carlo, is_cyclic=False, is_top_level=False, is_3_opt=False, multi_start=multi_start)
-    sol_b = tsp_symmetric(G_b, quality=quality, correction_quality=correction_quality, monte_carlo=monte_carlo, is_cyclic=False, is_top_level=False, is_3_opt=False, multi_start=multi_start)
+    sol_a = tsp_symmetric(G_a, quality=quality, correction_quality=correction_quality, monte_carlo=monte_carlo, is_cyclic=False, is_top_level=False, k_neighbors=0, multi_start=multi_start)
+    sol_b = tsp_symmetric(G_b, quality=quality, correction_quality=correction_quality, monte_carlo=monte_carlo, is_cyclic=False, is_top_level=False, k_neighbors=0, multi_start=multi_start)
 
     path_a = [a[x] for x in sol_a[0]]
     path_b = [b[x] for x in sol_b[0]]
@@ -355,7 +362,7 @@ def tsp_symmetric(G, start_node=None, end_node=None, quality=1, shots=None, corr
         else:
             best_path, best_weight = one_way_two_opt(best_path, G_m)
 
-        if is_3_opt:
+        if k_neighbors > 0:
             best_path, best_weight = targeted_three_opt(best_path, G_m, k_neighbors)
     else:
         best_path, best_weight = one_way_two_opt(best_path, G_m)

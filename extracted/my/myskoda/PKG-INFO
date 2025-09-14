@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: myskoda
-Version: 2.3.4
+Version: 2.4.0
 Summary: Library for interaction with the MySkoda APIs.
 Author-email: Frederick Gnodtke <frederick@gnodtke.net>, WebSpider <bacardicoke@gmail.com>, Fabrice Devaux <fabrice.devaux@gmail.com>
 License-File: LICENSE
@@ -15,6 +15,7 @@ Provides-Extra: cli
 Requires-Dist: asyncclick~=8.1; extra == 'cli'
 Requires-Dist: coloredlogs~=15.0; extra == 'cli'
 Requires-Dist: pygments~=2.18; extra == 'cli'
+Requires-Dist: python-dateutil~=2.9; extra == 'cli'
 Requires-Dist: termcolor~=3.0; extra == 'cli'
 Provides-Extra: docs
 Requires-Dist: mkdocs-gen-files~=0.5; extra == 'docs'

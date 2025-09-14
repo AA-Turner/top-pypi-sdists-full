@@ -1,18 +1,18 @@
 #[cfg(feature = "async-tokio")]
 use crate::csv::{
-    tokio_async_write_boolean_csv_result, TokioAsyncWriterCsvSolutionsSerializer,
-    TokioAsyncWriterTsvSolutionsSerializer,
+    TokioAsyncWriterCsvSolutionsSerializer, TokioAsyncWriterTsvSolutionsSerializer,
+    tokio_async_write_boolean_csv_result,
 };
 use crate::csv::{
-    write_boolean_csv_result, WriterCsvSolutionsSerializer, WriterTsvSolutionsSerializer,
+    WriterCsvSolutionsSerializer, WriterTsvSolutionsSerializer, write_boolean_csv_result,
 };
 use crate::format::QueryResultsFormat;
 #[cfg(feature = "async-tokio")]
-use crate::json::{tokio_async_write_boolean_json_result, TokioAsyncWriterJsonSolutionsSerializer};
-use crate::json::{write_boolean_json_result, WriterJsonSolutionsSerializer};
+use crate::json::{TokioAsyncWriterJsonSolutionsSerializer, tokio_async_write_boolean_json_result};
+use crate::json::{WriterJsonSolutionsSerializer, write_boolean_json_result};
 #[cfg(feature = "async-tokio")]
-use crate::xml::{tokio_async_write_boolean_xml_result, TokioAsyncWriterXmlSolutionsSerializer};
-use crate::xml::{write_boolean_xml_result, WriterXmlSolutionsSerializer};
+use crate::xml::{TokioAsyncWriterXmlSolutionsSerializer, tokio_async_write_boolean_xml_result};
+use crate::xml::{WriterXmlSolutionsSerializer, write_boolean_xml_result};
 use oxrdf::{TermRef, Variable, VariableRef};
 use std::io::{self, Write};
 #[cfg(feature = "async-tokio")]
@@ -114,11 +114,6 @@ impl QueryResultsSerializer {
         }
     }
 
-    #[deprecated(note = "use serialize_boolean_to_writer", since = "0.4.0")]
-    pub fn write_boolean_result<W: Write>(&self, writer: W, value: bool) -> io::Result<W> {
-        self.clone().serialize_boolean_to_writer(writer, value)
-    }
-
     /// Returns a `SolutionsSerializer` allowing writing query solutions into the given [`Write`] implementation.
     ///
     /// <div class="warning">
@@ -215,18 +210,6 @@ impl QueryResultsSerializer {
                 ),
             },
         })
-    }
-
-    #[deprecated(note = "use serialize_solutions_to_writer", since = "0.4.0")]
-    pub fn solutions_writer<W: Write>(
-        &self,
-        writer: W,
-        variables: Vec<Variable>,
-    ) -> io::Result<WriterSolutionsSerializer<W>> {
-        Self {
-            format: self.format,
-        }
-        .serialize_solutions_to_writer(writer, variables)
     }
 }
 

@@ -133,10 +133,7 @@ CompactionJob::CompactionJob(
     LogBuffer* log_buffer, FSDirectory* db_directory,
     FSDirectory* output_directory, FSDirectory* blob_output_directory,
     Statistics* stats, InstrumentedMutex* db_mutex,
-    ErrorHandler* db_error_handler,
-    std::vector<SequenceNumber> existing_snapshots,
-    SequenceNumber earliest_write_conflict_snapshot,
-    const SnapshotChecker* snapshot_checker, JobContext* job_context,
+    ErrorHandler* db_error_handler, JobContext* job_context,
     std::shared_ptr<Cache> table_cache, EventLogger* event_logger,
     bool paranoid_file_checks, bool measure_io_stats, const std::string& dbname,
     CompactionJobStats* compaction_job_stats, Env::Priority thread_pri,
@@ -173,12 +170,7 @@ CompactionJob::CompactionJob(
       blob_output_directory_(blob_output_directory),
       db_mutex_(db_mutex),
       db_error_handler_(db_error_handler),
-      existing_snapshots_(std::move(existing_snapshots)),
-      earliest_snapshot_(existing_snapshots_.empty()
-                             ? kMaxSequenceNumber
-                             : existing_snapshots_.at(0)),
-      earliest_write_conflict_snapshot_(earliest_write_conflict_snapshot),
-      snapshot_checker_(snapshot_checker),
+      earliest_snapshot_(job_context->GetEarliestSnapshotSequence()),
       job_context_(job_context),
       table_cache_(std::move(table_cache)),
       event_logger_(event_logger),
@@ -193,6 +185,7 @@ CompactionJob::CompactionJob(
       bg_bottom_compaction_scheduled_(bg_bottom_compaction_scheduled) {
   assert(job_stats_ != nullptr);
   assert(log_buffer_ != nullptr);
+  assert(job_context->snapshot_context_initialized);
 
   const auto* cfd = compact_->compaction->column_family_data();
   ThreadStatusUtil::SetEnableTracking(db_options_.enable_thread_tracking);
@@ -224,10 +217,9 @@ void CompactionJob::ReportStartedCompaction(Compaction* compaction) {
       ThreadStatus::COMPACTION_PROP_FLAGS,
       compaction->is_manual_compaction() +
           (compaction->deletion_compaction() << 1));
-
+  auto total_input_bytes = compaction->CalculateTotalInputSize();
   ThreadStatusUtil::SetThreadOperationProperty(
-      ThreadStatus::COMPACTION_TOTAL_INPUT_BYTES,
-      compaction->CalculateTotalInputSize());
+      ThreadStatus::COMPACTION_TOTAL_INPUT_BYTES, total_input_bytes);
 
   IOSTATS_RESET(bytes_written);
   IOSTATS_RESET(bytes_read);
@@ -242,6 +234,16 @@ void CompactionJob::ReportStartedCompaction(Compaction* compaction) {
 
   job_stats_->is_manual_compaction = compaction->is_manual_compaction();
   job_stats_->is_full_compaction = compaction->is_full_compaction();
+  // populate compaction stats num_input_files and total_num_of_bytes
+  size_t num_input_files = 0;
+  for (int input_level = 0;
+       input_level < static_cast<int>(compaction->num_input_levels());
+       ++input_level) {
+    const LevelFilesBrief* flevel = compaction->input_levels(input_level);
+    num_input_files += flevel->num_files;
+  }
+  job_stats_->CompactionJobStats::num_input_files = num_input_files;
+  job_stats_->total_input_bytes = total_input_bytes;
 }
 
 void CompactionJob::Prepare(
@@ -837,8 +839,7 @@ Status CompactionJob::Run() {
   }
 
   ReleaseSubcompactionResources();
-  TEST_SYNC_POINT("CompactionJob::ReleaseSubcompactionResources:0");
-  TEST_SYNC_POINT("CompactionJob::ReleaseSubcompactionResources:1");
+  TEST_SYNC_POINT("CompactionJob::ReleaseSubcompactionResources");
 
   for (const auto& state : compact_->sub_compact_states) {
     for (const auto& output : state.GetOutputs()) {
@@ -1183,7 +1184,7 @@ void CompactionJob::ProcessKeyValueCompaction(SubcompactionState* sub_compact) {
   // creation across both CompactionJob and CompactionServiceCompactionJob
   sub_compact->AssignRangeDelAggregator(
       std::make_unique<CompactionRangeDelAggregator>(
-          &cfd->internal_comparator(), existing_snapshots_,
+          &cfd->internal_comparator(), job_context_->snapshot_seqs,
           &full_history_ts_low_, &trim_ts_));
 
   // TODO: since we already use C++17, should use
@@ -1324,8 +1325,8 @@ void CompactionJob::ProcessKeyValueCompaction(SubcompactionState* sub_compact) {
       env_, cfd->user_comparator(), cfd->ioptions().merge_operator.get(),
       compaction_filter, db_options_.info_log.get(),
       false /* internal key corruption is expected */,
-      existing_snapshots_.empty() ? 0 : existing_snapshots_.back(),
-      snapshot_checker_, compact_->compaction->level(), db_options_.stats);
+      job_context_->GetLatestSnapshotSequence(), job_context_->snapshot_checker,
+      compact_->compaction->level(), db_options_.stats);
 
   const auto& mutable_cf_options =
       sub_compact->compaction->mutable_cf_options();
@@ -1361,9 +1362,10 @@ void CompactionJob::ProcessKeyValueCompaction(SubcompactionState* sub_compact) {
 
   auto c_iter = std::make_unique<CompactionIterator>(
       input, cfd->user_comparator(), &merge, versions_->LastSequence(),
-      &existing_snapshots_, earliest_snapshot_,
-      earliest_write_conflict_snapshot_, job_snapshot_seq, snapshot_checker_,
-      env_, ShouldReportDetailedTime(env_, stats_),
+      &(job_context_->snapshot_seqs), earliest_snapshot_,
+      job_context_->earliest_write_conflict_snapshot, job_snapshot_seq,
+      job_context_->snapshot_checker, env_,
+      ShouldReportDetailedTime(env_, stats_),
       /*expect_valid_internal_key=*/true, sub_compact->RangeDelAgg(),
       blob_file_builder.get(), db_options_.allow_data_in_errors,
       db_options_.enforce_single_del_contracts, manual_compaction_canceled_,
@@ -1652,10 +1654,6 @@ Status CompactionJob::FinishCompactionOutputFile(
   Status s = input_status;
 
   // Add range tombstones
-  auto earliest_snapshot = kMaxSequenceNumber;
-  if (existing_snapshots_.size() > 0) {
-    earliest_snapshot = existing_snapshots_[0];
-  }
   if (s.ok()) {
     // Inclusive lower bound, exclusive upper bound
     std::pair<SequenceNumber, SequenceNumber> keep_seqno_range{
@@ -1681,7 +1679,7 @@ Status CompactionJob::FinishCompactionOutputFile(
       s = outputs.AddRangeDels(*sub_compact->RangeDelAgg(), comp_start_user_key,
                                comp_end_user_key, range_del_out_stats,
                                bottommost_level_, cfd->internal_comparator(),
-                               earliest_snapshot, keep_seqno_range,
+                               earliest_snapshot_, keep_seqno_range,
                                next_table_min_key, full_history_ts_low_);
     }
     RecordDroppedKeys(range_del_out_stats, &sub_compact->compaction_job_stats);
@@ -1738,14 +1736,11 @@ Status CompactionJob::FinishCompactionOutputFile(
   if (s.ok()) {
     tp = outputs.GetTableProperties();
   }
-
   if (s.ok() && current_entries == 0 && tp.num_range_deletions == 0) {
     // If there is nothing to output, no necessary to generate a sst file.
     // This happens when the output level is bottom level, at the same time
     // the sub_compact output nothing.
-    std::string fname =
-        TableFileName(sub_compact->compaction->immutable_options().cf_paths,
-                      meta->fd.GetNumber(), meta->fd.GetPathId());
+    std::string fname = GetTableFileName(meta->fd.GetNumber());
 
     // TODO(AR) it is not clear if there are any larger implications if
     // DeleteFile fails here
@@ -1944,6 +1939,10 @@ Status CompactionJob::OpenCompactionOutputFile(SubcompactionState* sub_compact,
 
   // no need to lock because VersionSet::next_file_number_ is atomic
   uint64_t file_number = versions_->NewFileNumber();
+#ifndef NDEBUG
+  TEST_SYNC_POINT_CALLBACK(
+      "CompactionJob::OpenCompactionOutputFile::NewFileNumber", &file_number);
+#endif
   std::string fname = GetTableFileName(file_number);
   // Fire events.
   ColumnFamilyData* cfd = sub_compact->compaction->column_family_data();
@@ -2313,9 +2312,10 @@ void CompactionJob::LogCompaction() {
     }
     stream << "score" << compaction->score() << "input_data_size"
            << compaction->CalculateTotalInputSize() << "oldest_snapshot_seqno"
-           << (existing_snapshots_.empty()
+           << (job_context_->snapshot_seqs.empty()
                    ? int64_t{-1}  // Use -1 for "none"
-                   : static_cast<int64_t>(existing_snapshots_[0]));
+                   : static_cast<int64_t>(
+                         job_context_->GetEarliestSnapshotSequence()));
     if (compaction->SupportsPerKeyPlacement()) {
       stream << "proximal_after_seqno" << proximal_after_seqno_;
       stream << "preserve_seqno_after" << preserve_seqno_after_;

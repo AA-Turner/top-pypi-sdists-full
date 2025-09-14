@@ -1,27 +1,27 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 
+import math
 import os
 import traceback
-import math
 
-from . import util, step_detect
-from .util import is_na, mean_na, geom_mean_na
+from . import step_detect, util
+from .util import geom_mean_na, is_na, mean_na
 
 # This is the maximum number of points to include in summary graphs.
 # It is based on the number of pixels in the summary graph display on
 # a recent Retina MacBook Pro (3840 pixels across the screen, divided
 # by 5 summaries across, divided by 2 for good measure and to account
 # for width of the line).
-RESAMPLED_POINTS = (3840 / 5 / 2)
+RESAMPLED_POINTS = 3840 / 5 / 2
 
 
 class GraphSet:
-    """Manage multiple `Graph`"""
+    """Manage multiple :py:class:`Graph` objects"""
 
     def __init__(self):
         self._graphs = {}
         self._groups = {}
-        super(GraphSet, self).__init__()
+        super().__init__()
 
     def get_graph(self, benchmark_name, params):
         graph = Graph(benchmark_name, params)
@@ -81,6 +81,7 @@ class Graph:
     Unlike "results", which contain the timings for a single commit,
     these contain the timings for a single benchmark.
     """
+
     def __init__(self, benchmark_name, params):
         """
         Initially the graph contains no data.  It must be added using
@@ -178,8 +179,7 @@ class Graph:
         def mean_axis0(v):
             if not v:
                 return [None] * self.n_series
-            return [mean_na(x[j] for x in v)
-                    for j in range(self.n_series)]
+            return [mean_na(x[j] for x in v) for j in range(self.n_series)]
 
         # Average data over commit log
         val = []
@@ -203,7 +203,7 @@ class Graph:
             if any(not is_na(v) for v in val[j][1]):
                 break
 
-        val = val[i:j + 1]
+        val = val[i : j + 1]
 
         # Single-element series
         if self.scalar_series:
@@ -326,15 +326,19 @@ def make_summary_graph(graphs):
 
 def _compute_summary_data_series(*ys):
     """
-    Given multiple input series::
+    Given a multiple input series:
 
-        y0, y1, ...
+    .. code-block::
 
-    calculate summary data series::
+           y0, y1, ...
 
-        val = [geom_mean([y0[0], y1[0], ...]),
-               geom_mean([y0[1], y1[1], ...]),
-               ...]
+    calculate summary data series:
+
+    .. code-block::
+
+           val = [geom_mean([y0[0], y1[0], ...]),
+                  geom_mean([y0[1], y1[1], ...]),
+                 ...]
 
     Missing data in each y-series is filled for each series
     separately, before averaging. Data points that are missing from
@@ -380,8 +384,7 @@ def _fill_missing_data(y, max_gap_fraction=0.1):
             if 0 < gap_size <= max_gap_size and not is_na(prev):
                 # Interpolate gap
                 for k in range(1, gap_size + 1):
-                    filled[prev_idx + k] = (
-                        v * k + (gap_size + 1 - k) * prev) / (gap_size + 1)
+                    filled[prev_idx + k] = (v * k + (gap_size + 1 - k) * prev) / (gap_size + 1)
 
             prev = v
             prev_idx = i

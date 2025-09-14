@@ -1,9 +1,11 @@
+#![allow(clippy::multiple_inherent_impl)]
+
 use oxigraph::model::vocab::{rdf, xsd};
 use oxigraph::model::*;
+use pyo3::IntoPyObjectExt;
 use pyo3::exceptions::{PyIndexError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyInt, PyTuple};
-use pyo3::IntoPyObjectExt;
 use std::vec::IntoIter;
 
 /// An RDF `node identified by an IRI <https://www.w3.org/TR/rdf11-concepts/#dfn-iri>`_.
@@ -35,12 +37,6 @@ impl From<PyNamedNode> for NamedNode {
 }
 
 impl From<PyNamedNode> for NamedOrBlankNode {
-    fn from(node: PyNamedNode) -> Self {
-        node.inner.into()
-    }
-}
-
-impl From<PyNamedNode> for Subject {
     fn from(node: PyNamedNode) -> Self {
         node.inner.into()
     }
@@ -99,7 +95,7 @@ impl PyNamedNode {
 
     /// :type memo: typing.Any
     /// :rtype: NamedNode
-    #[allow(unused_variables)]
+    #[expect(unused_variables)]
     fn __deepcopy__<'a>(slf: PyRef<'a, Self>, memo: &'_ Bound<'_, PyAny>) -> PyRef<'a, Self> {
         slf
     }
@@ -139,12 +135,6 @@ impl From<PyBlankNode> for BlankNode {
 }
 
 impl From<PyBlankNode> for NamedOrBlankNode {
-    fn from(node: PyBlankNode) -> Self {
-        node.inner.into()
-    }
-}
-
-impl From<PyBlankNode> for Subject {
     fn from(node: PyBlankNode) -> Self {
         node.inner.into()
     }
@@ -207,7 +197,7 @@ impl PyBlankNode {
 
     /// :type memo: typing.Any
     /// :rtype: BlankNode
-    #[allow(unused_variables)]
+    #[expect(unused_variables)]
     fn __deepcopy__<'a>(slf: PyRef<'a, Self>, memo: &'_ Bound<'_, PyAny>) -> PyRef<'a, Self> {
         slf
     }
@@ -226,6 +216,8 @@ impl PyBlankNode {
 /// :type datatype: NamedNode or None, optional
 /// :param language: the literal `language tag <https://www.w3.org/TR/rdf11-concepts/#dfn-language-tag>`_.
 /// :type language: str or None, optional
+/// :param direction: the literal `base direction <https://www.w3.org/TR/rdf12-concepts/#dfn-base-direction>`_.
+/// :type direction: BaseDirection or None, optional
 /// :raises ValueError: if the language tag is not valid according to `RFC 5646 <https://tools.ietf.org/rfc/rfc5646>`_ (`BCP 47 <https://tools.ietf.org/rfc/bcp/bcp47>`_).
 ///
 /// The :py:class:`str` function provides a serialization compatible with NTriples, Turtle, and SPARQL:
@@ -262,26 +254,9 @@ impl From<PyLiteral> for Term {
     }
 }
 
-#[pymethods]
 impl PyLiteral {
-    #[new]
-    #[pyo3(signature = (value, *, datatype = None, language = None))]
-    fn new(
-        value: &Bound<'_, PyAny>,
-        datatype: Option<PyNamedNode>,
-        language: Option<String>,
-    ) -> PyResult<Self> {
-        Ok(if let Some(language) = language {
-            if let Some(datatype) = datatype {
-                if datatype.value() != rdf::LANG_STRING.as_str() {
-                    return Err(PyValueError::new_err(
-                        "The literals with a language tag must use the rdf:langString datatype",
-                    ));
-                }
-            }
-            Literal::new_language_tagged_literal(value.extract::<String>()?, language)
-                .map_err(|e| PyValueError::new_err(e.to_string()))?
-        } else if let Some(datatype) = datatype {
+    fn from_value(value: &Bound<'_, PyAny>, datatype: Option<PyNamedNode>) -> PyResult<Self> {
+        Ok(if let Some(datatype) = datatype {
             Literal::new_typed_literal(value.extract::<String>()?, datatype)
         } else if let Ok(value) = value.extract::<String>() {
             value.into()
@@ -297,6 +272,82 @@ impl PyLiteral {
             ));
         }
         .into())
+    }
+}
+
+#[pymethods]
+impl PyLiteral {
+    #[cfg(feature = "rdf-12")]
+    #[new]
+    #[pyo3(signature = (value, *, datatype = None, language = None, direction = None))]
+    fn new(
+        value: &Bound<'_, PyAny>,
+        datatype: Option<PyNamedNode>,
+        language: Option<String>,
+        direction: Option<PyBaseDirection>,
+    ) -> PyResult<Self> {
+        if let Some(language) = language {
+            if let Some(direction) = direction {
+                if let Some(datatype) = datatype {
+                    if datatype.value() != rdf::DIR_LANG_STRING.as_str() {
+                        return Err(PyValueError::new_err(
+                            "The literals with a language tag and a base direction must use the rdf:dirLangString datatype",
+                        ));
+                    }
+                }
+                return Ok(Literal::new_directional_language_tagged_literal(
+                    value.extract::<String>()?,
+                    language,
+                    direction,
+                )
+                .map_err(|e| PyValueError::new_err(e.to_string()))?
+                .into());
+            }
+            if let Some(datatype) = datatype {
+                if datatype.value() != rdf::LANG_STRING.as_str() {
+                    return Err(PyValueError::new_err(
+                        "The literals with a language tag must use the rdf:langString datatype",
+                    ));
+                }
+            }
+            return Ok(
+                Literal::new_language_tagged_literal(value.extract::<String>()?, language)
+                    .map_err(|e| PyValueError::new_err(e.to_string()))?
+                    .into(),
+            );
+        }
+        if direction.is_some() {
+            return Err(PyValueError::new_err(
+                "The direction parameter can be set only when the language parameter is set",
+            ));
+        }
+        Self::from_value(value, datatype)
+    }
+
+    #[cfg(not(feature = "rdf-12"))]
+    #[new]
+    #[pyo3(signature = (value, *, datatype = None, language = None))]
+    fn new(
+        value: &Bound<'_, PyAny>,
+        datatype: Option<PyNamedNode>,
+        language: Option<String>,
+    ) -> PyResult<Self> {
+        if let Some(language) = language {
+            if let Some(datatype) = datatype {
+                if datatype.value() != rdf::LANG_STRING.as_str() {
+                    return Err(PyValueError::new_err(
+                        "The literals with a language tag must use the rdf:langString datatype",
+                    ));
+                }
+            }
+            Ok(
+                Literal::new_language_tagged_literal(value.extract::<String>()?, language)
+                    .map_err(|e| PyValueError::new_err(e.to_string()))?
+                    .into(),
+            )
+        } else {
+            Self::from_value(value, datatype)
+        }
     }
 
     /// :return: the literal value or `lexical form <https://www.w3.org/TR/rdf11-concepts/#dfn-lexical-form>`_.
@@ -318,6 +369,18 @@ impl PyLiteral {
     #[getter]
     fn language(&self) -> Option<&str> {
         self.inner.language()
+    }
+
+    /// :return: the literal `base direction <https://www.w3.org/TR/rdf12-concepts/#dfn-base-direction>`_.
+    /// :rtype: BaseDirection or None
+    ///
+    /// >>> Literal('example', language='en', direction=BaseDirection.LTR).direction
+    /// <LtrBaseDirection>
+    /// >>> Literal('example', language='en').direction
+    #[cfg(feature = "rdf-12")]
+    #[getter]
+    fn direction(&self) -> Option<PyBaseDirection> {
+        Some(self.inner.direction()?.into())
     }
 
     /// :return: the literal `datatype IRI <https://www.w3.org/TR/rdf11-concepts/#dfn-datatype-iri>`_.
@@ -350,10 +413,17 @@ impl PyLiteral {
         py: Python<'py>,
     ) -> PyResult<((&'a str,), Bound<'py, PyDict>)> {
         let kwargs = PyDict::new(py);
-        if let Some(language) = self.language() {
+        if let Some(language) = self.inner.language() {
             kwargs.set_item("language", language)?;
-        } else {
-            kwargs.set_item("datatype", self.datatype())?;
+            #[cfg(feature = "rdf-12")]
+            if let Some(direction) = self.inner.direction() {
+                kwargs.set_item("direction", PyBaseDirection::from(direction))?;
+            }
+        } else if self.inner.datatype() != xsd::STRING {
+            kwargs.set_item(
+                "datatype",
+                PyNamedNode::from(self.inner.datatype().into_owned()),
+            )?;
         }
         Ok(((self.value(),), kwargs))
     }
@@ -365,7 +435,115 @@ impl PyLiteral {
 
     /// :type memo: typing.Any
     /// :rtype: Literal
-    #[allow(unused_variables)]
+    #[expect(unused_variables)]
+    fn __deepcopy__<'a>(slf: PyRef<'a, Self>, memo: &'_ Bound<'_, PyAny>) -> PyRef<'a, Self> {
+        slf
+    }
+
+    #[classattr]
+    fn __match_args__() -> (&'static str,) {
+        ("value",)
+    }
+}
+
+/// A `directional language-tagged string <https://www.w3.org/TR/rdf12-concepts/#dfn-dir-lang-string>`_ `base-direction <https://www.w3.org/TR/rdf12-concepts/#dfn-base-direction>`_
+///
+/// :param value: the direction as a string (`ltr` or `rtl`).
+/// :type value: str
+///
+/// >>> str(BaseDirection.LTR)
+/// 'ltr'
+/// >>> str(BaseDirection("ltr"))
+/// 'ltr'
+#[cfg(feature = "rdf-12")]
+#[pyclass(frozen, name = "BaseDirection", module = "pyoxigraph", eq, hash)]
+#[derive(Eq, PartialEq, Debug, Clone, Hash)]
+pub struct PyBaseDirection {
+    inner: BaseDirection,
+}
+
+#[cfg(feature = "rdf-12")]
+impl From<BaseDirection> for PyBaseDirection {
+    fn from(inner: BaseDirection) -> Self {
+        Self { inner }
+    }
+}
+
+#[cfg(feature = "rdf-12")]
+impl From<PyBaseDirection> for BaseDirection {
+    fn from(direction: PyBaseDirection) -> Self {
+        direction.inner
+    }
+}
+
+#[cfg(feature = "rdf-12")]
+#[pymethods]
+impl PyBaseDirection {
+    /// Left to right
+    #[classattr]
+    const LTR: Self = Self {
+        inner: BaseDirection::Ltr,
+    };
+
+    /// Right to left
+    #[classattr]
+    const RTL: Self = Self {
+        inner: BaseDirection::Rtl,
+    };
+
+    #[new]
+    #[pyo3(signature = (value, *))]
+    fn new(value: &str) -> PyResult<Self> {
+        match value {
+            "ltr" => Ok(Self {
+                inner: BaseDirection::Ltr,
+            }),
+            "rtl" => Ok(Self {
+                inner: BaseDirection::Rtl,
+            }),
+            _ => Err(PyValueError::new_err(
+                "The only allowed base direction values are 'ltr' and 'rtl'",
+            )),
+        }
+    }
+
+    /// :return: the base direction as a string
+    /// :rtype: str
+    ///
+    /// >>> BaseDirection("ltr").value
+    /// 'ltr'
+    #[getter]
+    fn value(&self) -> &'static str {
+        match self.inner {
+            BaseDirection::Ltr => "ltr",
+            BaseDirection::Rtl => "rtl",
+        }
+    }
+
+    fn __str__(&self) -> &'static str {
+        self.value()
+    }
+
+    fn __repr__(&self) -> &'static str {
+        match self.inner {
+            BaseDirection::Ltr => "<LtrBaseDirection>",
+            BaseDirection::Rtl => "<RtlBaseDirection>",
+        }
+    }
+
+    /// :rtype: typing.Any
+    fn __getnewargs__(&self) -> (&str,) {
+        (self.value(),)
+    }
+
+    /// :rtype: BaseDirection
+    fn __copy__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
+        slf
+    }
+
+    /// :type memo: typing.Any
+    /// :rtype: BaseDirection
+    #[expect(unused_variables)]
     fn __deepcopy__<'a>(slf: PyRef<'a, Self>, memo: &'_ Bound<'_, PyAny>) -> PyRef<'a, Self> {
         slf
     }
@@ -414,7 +592,7 @@ impl PyDefaultGraph {
 
     /// :type memo: typing.Any
     /// :rtype: DefaultGraph
-    #[allow(unused_variables)]
+    #[expect(unused_variables)]
     fn __deepcopy__<'a>(slf: PyRef<'a, Self>, memo: &'_ Bound<'_, PyAny>) -> PyRef<'a, Self> {
         slf
     }
@@ -445,37 +623,11 @@ impl From<NamedOrBlankNode> for PyNamedOrBlankNode {
 }
 
 #[derive(FromPyObject, IntoPyObject)]
-pub enum PySubject {
-    NamedNode(PyNamedNode),
-    BlankNode(PyBlankNode),
-    Triple(PyTriple),
-}
-
-impl From<PySubject> for Subject {
-    fn from(node: PySubject) -> Self {
-        match node {
-            PySubject::NamedNode(node) => node.into(),
-            PySubject::BlankNode(node) => node.into(),
-            PySubject::Triple(triple) => triple.into(),
-        }
-    }
-}
-
-impl From<Subject> for PySubject {
-    fn from(node: Subject) -> Self {
-        match node {
-            Subject::NamedNode(node) => Self::NamedNode(node.into()),
-            Subject::BlankNode(node) => Self::BlankNode(node.into()),
-            Subject::Triple(triple) => Self::Triple(triple.as_ref().clone().into()),
-        }
-    }
-}
-
-#[derive(FromPyObject, IntoPyObject)]
 pub enum PyTerm {
     NamedNode(PyNamedNode),
     BlankNode(PyBlankNode),
     Literal(PyLiteral),
+    #[cfg(feature = "rdf-12")]
     Triple(PyTriple),
 }
 
@@ -485,6 +637,7 @@ impl From<PyTerm> for Term {
             PyTerm::NamedNode(node) => node.into(),
             PyTerm::BlankNode(node) => node.into(),
             PyTerm::Literal(literal) => literal.into(),
+            #[cfg(feature = "rdf-12")]
             PyTerm::Triple(triple) => triple.into(),
         }
     }
@@ -496,6 +649,7 @@ impl From<Term> for PyTerm {
             Term::NamedNode(node) => Self::NamedNode(node.into()),
             Term::BlankNode(node) => Self::BlankNode(node.into()),
             Term::Literal(literal) => Self::Literal(literal.into()),
+            #[cfg(feature = "rdf-12")]
             Term::Triple(triple) => Self::Triple(triple.as_ref().clone().into()),
         }
     }
@@ -542,12 +696,7 @@ impl<'a> From<&'a PyTriple> for TripleRef<'a> {
     }
 }
 
-impl From<PyTriple> for Subject {
-    fn from(triple: PyTriple) -> Self {
-        triple.inner.into()
-    }
-}
-
+#[cfg(feature = "rdf-12")]
 impl From<PyTriple> for Term {
     fn from(triple: PyTriple) -> Self {
         triple.inner.into()
@@ -557,7 +706,7 @@ impl From<PyTriple> for Term {
 #[pymethods]
 impl PyTriple {
     #[new]
-    fn new(subject: PySubject, predicate: PyNamedNode, object: PyTerm) -> Self {
+    fn new(subject: PyNamedOrBlankNode, predicate: PyNamedNode, object: PyTerm) -> Self {
         Triple::new(subject, predicate, object).into()
     }
 
@@ -567,7 +716,7 @@ impl PyTriple {
     /// >>> Triple(NamedNode('http://example.com'), NamedNode('http://example.com/p'), Literal('1')).subject
     /// <NamedNode value=http://example.com>
     #[getter]
-    fn subject(&self) -> PySubject {
+    fn subject(&self) -> PyNamedOrBlankNode {
         self.inner.subject.clone().into()
     }
 
@@ -626,7 +775,7 @@ impl PyTriple {
     }
 
     /// :rtype: typing.Any
-    fn __getnewargs__(&self) -> (PySubject, PyNamedNode, PyTerm) {
+    fn __getnewargs__(&self) -> (PyNamedOrBlankNode, PyNamedNode, PyTerm) {
         (self.subject(), self.predicate(), self.object())
     }
 
@@ -637,7 +786,7 @@ impl PyTriple {
 
     /// :type memo: typing.Any
     /// :rtype: Triple
-    #[allow(unused_variables)]
+    #[expect(unused_variables)]
     fn __deepcopy__<'a>(slf: PyRef<'a, Self>, memo: &'_ Bound<'_, PyAny>) -> PyRef<'a, Self> {
         slf
     }
@@ -727,7 +876,7 @@ impl PyQuad {
     #[new]
     #[pyo3(signature = (subject, predicate, object, graph_name = None))]
     fn new(
-        subject: PySubject,
+        subject: PyNamedOrBlankNode,
         predicate: PyNamedNode,
         object: PyTerm,
         graph_name: Option<PyGraphName>,
@@ -747,7 +896,7 @@ impl PyQuad {
     /// >>> Quad(NamedNode('http://example.com'), NamedNode('http://example.com/p'), Literal('1'), NamedNode('http://example.com/g')).subject
     /// <NamedNode value=http://example.com>
     #[getter]
-    fn subject(&self) -> PySubject {
+    fn subject(&self) -> PyNamedOrBlankNode {
         self.inner.subject.clone().into()
     }
 
@@ -815,7 +964,7 @@ impl PyQuad {
 
     fn __getitem__<'a>(&self, input: usize, py: Python<'a>) -> PyResult<Bound<'a, PyAny>> {
         match input {
-            0 => PySubject::from(self.inner.subject.clone()).into_bound_py_any(py),
+            0 => PyNamedOrBlankNode::from(self.inner.subject.clone()).into_bound_py_any(py),
             1 => PyNamedNode::from(self.inner.predicate.clone()).into_bound_py_any(py),
             2 => PyTerm::from(self.inner.object.clone()).into_bound_py_any(py),
             3 => PyGraphName::from(self.inner.graph_name.clone()).into_bound_py_any(py),
@@ -840,7 +989,7 @@ impl PyQuad {
     }
 
     /// :rtype: typing.Any
-    fn __getnewargs__(&self) -> (PySubject, PyNamedNode, PyTerm, PyGraphName) {
+    fn __getnewargs__(&self) -> (PyNamedOrBlankNode, PyNamedNode, PyTerm, PyGraphName) {
         (
             self.subject(),
             self.predicate(),
@@ -856,7 +1005,7 @@ impl PyQuad {
 
     /// :type memo: typing.Any
     /// :rtype: Quad
-    #[allow(unused_variables)]
+    #[expect(unused_variables)]
     fn __deepcopy__<'a>(slf: PyRef<'a, Self>, memo: &'_ Bound<'_, PyAny>) -> PyRef<'a, Self> {
         slf
     }
@@ -940,7 +1089,7 @@ impl PyVariable {
 
     /// :type memo: typing.Any
     /// :rtype: Variable
-    #[allow(unused_variables)]
+    #[expect(unused_variables)]
     fn __deepcopy__<'a>(slf: PyRef<'a, Self>, memo: &'_ Bound<'_, PyAny>) -> PyRef<'a, Self> {
         slf
     }
@@ -976,27 +1125,11 @@ impl<'a> From<&'a PyNamedOrBlankNodeRef<'a>> for NamedOrBlankNodeRef<'a> {
 }
 
 #[derive(FromPyObject)]
-pub enum PySubjectRef<'a> {
-    NamedNode(PyRef<'a, PyNamedNode>),
-    BlankNode(PyRef<'a, PyBlankNode>),
-    Triple(PyRef<'a, PyTriple>),
-}
-
-impl<'a> From<&'a PySubjectRef<'a>> for SubjectRef<'a> {
-    fn from(value: &'a PySubjectRef<'a>) -> Self {
-        match value {
-            PySubjectRef::NamedNode(value) => value.inner.as_ref().into(),
-            PySubjectRef::BlankNode(value) => value.inner.as_ref().into(),
-            PySubjectRef::Triple(value) => (&value.inner).into(),
-        }
-    }
-}
-
-#[derive(FromPyObject)]
 pub enum PyTermRef<'a> {
     NamedNode(PyRef<'a, PyNamedNode>),
     BlankNode(PyRef<'a, PyBlankNode>),
     Literal(PyRef<'a, PyLiteral>),
+    #[cfg(feature = "rdf-12")]
     Triple(PyRef<'a, PyTriple>),
 }
 
@@ -1006,6 +1139,7 @@ impl<'a> From<&'a PyTermRef<'a>> for TermRef<'a> {
             PyTermRef::NamedNode(value) => value.inner.as_ref().into(),
             PyTermRef::BlankNode(value) => value.inner.as_ref().into(),
             PyTermRef::Literal(value) => value.inner.as_ref().into(),
+            #[cfg(feature = "rdf-12")]
             PyTermRef::Triple(value) => (&value.inner).into(),
         }
     }
@@ -1046,6 +1180,14 @@ fn literal_repr(literal: LiteralRef<'_>, buffer: &mut String) {
     if let Some(language) = literal.language() {
         buffer.push_str(" language=");
         buffer.push_str(language);
+        #[cfg(feature = "rdf-12")]
+        if let Some(direction) = literal.direction() {
+            buffer.push_str(" direction=");
+            buffer.push_str(match direction {
+                BaseDirection::Ltr => "ltr",
+                BaseDirection::Rtl => "rtl",
+            });
+        }
     } else {
         buffer.push_str(" datatype=");
         named_node_repr(literal.datatype(), buffer);
@@ -1058,6 +1200,7 @@ pub fn term_repr(term: TermRef<'_>, buffer: &mut String) {
         TermRef::NamedNode(node) => named_node_repr(node, buffer),
         TermRef::BlankNode(node) => blank_node_repr(node, buffer),
         TermRef::Literal(literal) => literal_repr(literal, buffer),
+        #[cfg(feature = "rdf-12")]
         TermRef::Triple(triple) => triple_repr(triple.as_ref(), buffer),
     }
 }

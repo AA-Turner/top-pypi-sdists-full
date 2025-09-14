@@ -46,6 +46,7 @@
 #include "rocksdb/table.h"
 #include "rocksdb/table_properties.h"
 #include "rocksdb/trace_record.h"
+#include "rocksdb/user_defined_index.h"
 #include "table/block_based/binary_search_index_reader.h"
 #include "table/block_based/block.h"
 #include "table/block_based/block_based_table_factory.h"
@@ -58,6 +59,7 @@
 #include "table/block_based/hash_index_reader.h"
 #include "table/block_based/partitioned_filter_block.h"
 #include "table/block_based/partitioned_index_reader.h"
+#include "table/block_based/user_defined_index_wrapper.h"
 #include "table/block_fetcher.h"
 #include "table/format.h"
 #include "table/get_context.h"
@@ -104,7 +106,11 @@ CacheAllocationPtr CopyBufferToHeap(MemoryAllocator* allocator, Slice& buf) {
       bool use_block_cache_for_lookup) const;                                  \
   template Status BlockBasedTable::LookupAndPinBlocksInCache<T>(               \
       const ReadOptions& ro, const BlockHandle& handle,                        \
-      CachableEntry<T>* out_parsed_block) const;
+      CachableEntry<T>* out_parsed_block) const;                               \
+  template Status BlockBasedTable::CreateAndPinBlockInCache<T>(                \
+      const ReadOptions& ro, const BlockHandle& handle,                        \
+      BlockContents* block_contents, CachableEntry<T>* out_parsed_block)       \
+      const;
 
 INSTANTIATE_BLOCKLIKE_TEMPLATES(ParsedFullFilterBlock);
 INSTANTIATE_BLOCKLIKE_TEMPLATES(DecompressorDict);
@@ -113,6 +119,7 @@ INSTANTIATE_BLOCKLIKE_TEMPLATES(Block_kIndex);
 INSTANTIATE_BLOCKLIKE_TEMPLATES(Block_kFilterPartitionIndex);
 INSTANTIATE_BLOCKLIKE_TEMPLATES(Block_kRangeDeletion);
 INSTANTIATE_BLOCKLIKE_TEMPLATES(Block_kMetaIndex);
+INSTANTIATE_BLOCKLIKE_TEMPLATES(Block_kUserDefinedIndex);
 
 }  // namespace ROCKSDB_NAMESPACE
 
@@ -562,6 +569,112 @@ Status GetGlobalSequenceNumber(const TableProperties& table_properties,
 
   return Status::OK();
 }
+
+Status GetDecompressor(const std::string& compression_name,
+                       UnownedPtr<CompressionManager> compression_manager,
+                       uint32_t table_format_version,
+                       std::shared_ptr<Decompressor>* out_decompressor) {
+  if (compression_name.empty()) {
+    // Very old file (before RocksDB 4.9.0) that might contain compressed
+    // blocks. Get a general decompressor for the format version.
+    auto mgr_to_use = GetBuiltinCompressionManager(
+        GetCompressFormatForVersion(table_format_version));
+    *out_decompressor = mgr_to_use->GetDecompressor();
+    return Status::OK();
+  }
+  if (FormatVersionUsesCompressionManagerName(table_format_version)) {
+    constexpr char kFieldSep = ';';
+    size_t separator_pos = compression_name.find_first_of(kFieldSep);
+    if (separator_pos == std::string::npos) {
+      return Status::Corruption(
+          "Missing separator in compression_name property");
+    }
+    // Built with explicit CompressionManager and schema support for
+    // identifying its compatibility name, which is the first field here.
+    Slice compatibility_name(compression_name.data(), separator_pos);
+    std::shared_ptr<CompressionManager> mgr_to_use;
+    if (compression_manager) {
+      // First attempt to go through the compression manager configured for
+      // writing new files, for efficiency (usually correct) and not forcing
+      // use of ObjectLibrary registration (dependency injection).
+      mgr_to_use = compression_manager->FindCompatibleCompressionManager(
+          compatibility_name);
+    }
+    if (mgr_to_use == nullptr) {
+      ConfigOptions strict;
+      strict.ignore_unknown_options = false;
+      strict.ignore_unsupported_options = false;
+      Status s = CompressionManager::CreateFromString(
+          strict, compatibility_name.ToString(), &mgr_to_use);
+      // Even though we might be able to recover from "not found" if only
+      // built-in compression types are used (would be checked below), it
+      // would provide misleading or unreliable success to allow that to
+      // succeed.
+      if (!s.ok()) {
+        return s;
+      }
+      assert(mgr_to_use || compatibility_name == kNullptrString ||
+             compatibility_name.empty());
+    }
+
+    // Second field is set of compression types actually used in the file
+    size_t start_pos = separator_pos + 1;
+    separator_pos = compression_name.find_first_of(kFieldSep, start_pos);
+    if (UNLIKELY(separator_pos == std::string::npos)) {
+      return Status::Corruption("Missing second field from compression_name");
+    }
+    if (UNLIKELY((separator_pos - start_pos) & 1)) {
+      return Status::Corruption(
+          "Second field of compression_name has odd size");
+    }
+    size_t count = (separator_pos - start_pos) / 2;
+    auto ctypes = std::make_unique<CompressionType[]>(count);
+    const char* ptr = compression_name.data() + start_pos;
+    for (size_t i = 0; i < count; ++i) {
+      uint64_t val = 0;
+      bool success = ParseBaseChars<16>(&ptr, 2, &val);
+      if (UNLIKELY(!success || val == kNoCompression ||
+                   val >= kDisableCompressionOption)) {
+        return Status::Corruption(
+            "Error parsing second field of compression_name");
+      }
+      ctypes[i] = static_cast<CompressionType>(val);
+    }
+    if (mgr_to_use) {
+      *out_decompressor = mgr_to_use->GetDecompressorForTypes(
+          ctypes.get(), ctypes.get() + count);
+      assert(*out_decompressor || count == 0);
+    } else {
+      // Compression/decompression disabled
+      *out_decompressor = nullptr;
+      assert(count == 0);
+    }
+    // Can ignore possible additional future fields
+  } else {
+    // No explicit CompressionManager, e.g. legacy file support where
+    // decompressing with built-in CompressionManager works.
+    CompressionType saved_comp_type =
+        CompressionTypeFromString(compression_name);
+    if (saved_comp_type == kDisableCompressionOption) {
+      // Unrecognized. For RocksDB versions able to read format_version=7,
+      // this is considered an error so that we can continue to evolve the
+      // schema of the compression_name property and report good error
+      // messages.
+      return Status::Corruption("Unrecognized compression_name: " +
+                                compression_name);
+    } else if (saved_comp_type != kNoCompression) {
+      // Use built-in compression manager
+      auto mgr_to_use = GetBuiltinCompressionManager(
+          GetCompressFormatForVersion(table_format_version));
+      *out_decompressor =
+          mgr_to_use->GetDecompressorOptimizeFor(saved_comp_type);
+    } else {
+      // No compression -> decompressor not needed
+      *out_decompressor = nullptr;
+    }
+  }
+  return Status::OK();
+}
 }  // namespace
 
 void BlockBasedTable::SetupBaseCacheKey(const TableProperties* properties,
@@ -629,6 +742,7 @@ Status BlockBasedTable::Open(
     std::unique_ptr<TableReader>* table_reader, uint64_t tail_size,
     std::shared_ptr<CacheReservationManager> table_reader_cache_res_mgr,
     const std::shared_ptr<const SliceTransform>& prefix_extractor,
+    UnownedPtr<CompressionManager> compression_manager,
     const bool prefetch_index_and_filter_in_cache, const bool skip_filters,
     const int level, const bool immortal_table,
     const SequenceNumber largest_seqno, const bool force_direct_prefetch,
@@ -696,7 +810,8 @@ Status BlockBasedTable::Open(
     }
     return s;
   }
-  if (!IsSupportedFormatVersion(footer.format_version())) {
+  if (!IsSupportedFormatVersion(footer.format_version()) &&
+      !TEST_AllowUnsupportedFormatVersion()) {
     return Status::Corruption(
         "Unknown Footer version. Maybe this file was created with newer "
         "version of RocksDB?");
@@ -708,6 +823,13 @@ Status BlockBasedTable::Open(
       file_size, level, immortal_table, user_defined_timestamps_persisted);
   rep->file = std::move(file);
   rep->footer = footer;
+
+  // Some ancient versions (~2.5 - 2.7, format_version=1) could compress the
+  // metaindex block, so we need to allow for that
+  if (footer.format_version() < 2) {
+    auto mgr = GetBuiltinCompressionManager(/*compression_format_version=*/1);
+    rep->decompressor = mgr->GetDecompressor();
+  }
 
   // For fully portable/stable cache keys, we need to read the properties
   // block before setting up cache keys. TODO: consider setting up a bootstrap
@@ -739,14 +861,13 @@ Status BlockBasedTable::Open(
     return s;
   }
 
-  CompressionType saved_comp_type = CompressionTypeFromString(
+  // Read compression metadata and configure decompressor
+  s = GetDecompressor(
       rep->table_properties ? rep->table_properties->compression_name
-                            : std::string{});
-  if (saved_comp_type != kNoCompression) {
-    // TODO: custom CompressionManager
-    auto mgr = GetBuiltinCompressionManager(
-        GetCompressFormatForVersion(footer.format_version()));
-    rep->decompressor = mgr->GetDecompressorOptimizeFor(saved_comp_type);
+                            : std::string{},
+      compression_manager, footer.format_version(), &rep->decompressor);
+  if (!s.ok()) {
+    return s;
   }
 
   // Populate BlockCreateContext
@@ -1204,6 +1325,34 @@ Status BlockBasedTable::PrefetchIndexAndFilterBlocks(
   if (!s.ok()) {
     return s;
   }
+  if (table_options.user_defined_index_factory != nullptr) {
+    std::string udi_name(table_options.user_defined_index_factory->Name());
+    BlockHandle udi_block_handle;
+
+    // Should we use FindOptionalMetaBlock here?
+    s = FindMetaBlock(meta_iter, kUserDefinedIndexPrefix + udi_name,
+                      &udi_block_handle);
+    if (!s.ok()) {
+      return s;
+    }
+    // Read the block, and allocate on heap or pin in cache. The UDI block is
+    // not compressed. RetrieveBlock will verify the checksum.
+    s = RetrieveBlock(prefetch_buffer, ro, udi_block_handle,
+                      rep_->decompressor.get(), &rep_->udi_block,
+                      /*get_context=*/nullptr, lookup_context,
+                      /*for_compaction=*/false, use_cache, /*async_read=*/false,
+                      /*use_block_cache_for_lookup=*/false);
+    if (!s.ok()) {
+      return s;
+    }
+    assert(!rep_->udi_block.IsEmpty());
+
+    std::unique_ptr<UserDefinedIndexReader> udi_reader =
+        table_options.user_defined_index_factory->NewReader(
+            rep_->udi_block.GetValue()->data);
+    index_reader = std::make_unique<UserDefinedIndexReaderWrapper>(
+        udi_name, std::move(index_reader), std::move(udi_reader));
+  }
 
   rep_->index_reader = std::move(index_reader);
 
@@ -1590,6 +1739,17 @@ Status BlockBasedTable::LookupAndPinBlocksInCache(
   return s;
 }
 
+template <typename TBlocklike>
+Status BlockBasedTable::CreateAndPinBlockInCache(
+    const ReadOptions& ro, const BlockHandle& handle, BlockContents* contents,
+    CachableEntry<TBlocklike>* out_parsed_block) const {
+  return MaybeReadBlockAndLoadToCache(
+      nullptr, ro, handle, rep_->decompressor.get(),
+      /*for_compaction=*/false, out_parsed_block, nullptr, nullptr, contents,
+      /*async_read=*/false,
+      /*use_block_cache_for_lookup=*/true);
+}
+
 // If contents is nullptr, this function looks up the block caches for the
 // data block referenced by handle, and read the block from disk if necessary.
 // If contents is non-null, it skips the cache lookup and disk read, since
@@ -1651,8 +1811,7 @@ BlockBasedTable::MaybeReadBlockAndLoadToCache(
         ro.fill_cache) {
       Statistics* statistics = rep_->ioptions.stats;
       const bool maybe_compressed =
-          TBlocklike::kBlockType != BlockType::kFilter &&
-          TBlocklike::kBlockType != BlockType::kCompressionDictionary &&
+          BlockTypeMaybeCompressed(TBlocklike::kBlockType) &&
           rep_->decompressor;
       // This flag, if true, tells BlockFetcher to return the uncompressed
       // block when ReadBlockContents() is called.
@@ -1796,6 +1955,7 @@ BlockBasedTable::SaveLookupContextOrTraceRecord(
       trace_block_type = TraceType::kBlockTraceRangeDeletionBlock;
       break;
     case BlockType::kIndex:
+    case BlockType::kUserDefinedIndex:
       trace_block_type = TraceType::kBlockTraceIndexBlock;
       break;
     default:
@@ -1888,9 +2048,7 @@ WithBlocklikeCheck<Status, TBlocklike> BlockBasedTable::RetrieveBlock(
   }
 
   const bool maybe_compressed =
-      TBlocklike::kBlockType != BlockType::kFilter &&
-      TBlocklike::kBlockType != BlockType::kCompressionDictionary &&
-      rep_->decompressor;
+      BlockTypeMaybeCompressed(TBlocklike::kBlockType) && rep_->decompressor;
   std::unique_ptr<TBlocklike> block;
 
   {
@@ -2631,6 +2789,10 @@ BlockType BlockBasedTable::GetBlockTypeForMetaBlockByName(
 
   if (meta_block_name == kIndexBlockName) {
     return BlockType::kIndex;
+  }
+
+  if (meta_block_name.starts_with(kUserDefinedIndexPrefix)) {
+    return BlockType::kUserDefinedIndex;
   }
 
   if (meta_block_name.starts_with(kObsoleteFilterBlockPrefix)) {

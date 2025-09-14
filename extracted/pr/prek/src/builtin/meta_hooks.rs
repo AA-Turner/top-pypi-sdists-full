@@ -1,10 +1,9 @@
 use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use anyhow::Result;
 use fancy_regex::Regex;
 use itertools::Itertools;
-use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 use crate::cli::run::{CollectOptions, FileFilter, collect_files};
 use crate::config::{self, HookOptions, Language};
@@ -12,38 +11,48 @@ use crate::hook::Hook;
 use crate::store::STORE;
 use crate::workspace::Project;
 
+// For builtin hooks (meta hooks and builtin pre-commit-hooks), they are not run
+// in the project root like other hooks. Instead, they run in the workspace root.
+// But the input filenames are all relative to the project root. So when accessing these files,
+// we need to adjust the paths by prepending the project relative path.
+// When matching files (files or exclude), we need to match against the filenames
+// relative to the project root.
+
 /// Ensures that the configured hooks apply to at least one file in the repository.
-pub(crate) async fn check_hooks_apply(
-    _hook: &Hook,
-    filenames: &[&String],
-) -> Result<(i32, Vec<u8>)> {
+pub(crate) async fn check_hooks_apply(hook: &Hook, filenames: &[&Path]) -> Result<(i32, Vec<u8>)> {
     let store = STORE.as_ref()?;
 
-    let input = collect_files(CollectOptions::default().with_all_files(true)).await?;
+    let relative_path = hook.project().relative_path();
+    // Collect all files in the project
+    let input = collect_files(hook.work_dir(), CollectOptions::all_files()).await?;
+    // Prepend the project relative path to each input file
+    let input: Vec<_> = input.into_iter().map(|f| relative_path.join(f)).collect();
 
     let mut code = 0;
     let mut output = Vec::new();
 
     for filename in filenames {
-        let mut project = Project::from_config_file(PathBuf::from(filename))?;
-        let hooks = project.init_hooks(store, None).await?;
+        let path = relative_path.join(filename);
+        let mut project = Project::from_config_file(path.into(), None)?;
+        project.with_relative_path(relative_path.to_path_buf());
 
-        let filter = FileFilter::new(
-            &input,
-            project.config().files.as_ref(),
-            project.config().exclude.as_ref(),
-        );
+        let project_hooks = project.init_hooks(store, None).await?;
+        let filter = FileFilter::for_project(input.iter(), &project);
 
-        for hook in hooks {
-            if hook.always_run || matches!(hook.language, Language::Fail) {
+        for project_hook in project_hooks {
+            if project_hook.always_run || matches!(project_hook.language, Language::Fail) {
                 continue;
             }
 
-            let filenames = filter.for_hook(&hook);
+            let filenames = filter.for_hook(&project_hook);
 
             if filenames.is_empty() {
                 code = 1;
-                writeln!(&mut output, "{} does not apply to this repository", hook.id)?;
+                writeln!(
+                    &mut output,
+                    "{} does not apply to this repository",
+                    project_hook.id
+                )?;
             }
         }
     }
@@ -52,8 +61,8 @@ pub(crate) async fn check_hooks_apply(
 }
 
 // Returns true if the exclude pattern matches any files matching the include pattern.
-fn excludes_any<T: AsRef<str> + Sync>(
-    files: &[T],
+fn excludes_any(
+    files: &[impl AsRef<Path>],
     include: Option<&Regex>,
     exclude: Option<&Regex>,
 ) -> bool {
@@ -61,8 +70,11 @@ fn excludes_any<T: AsRef<str> + Sync>(
         return true;
     }
 
-    files.into_par_iter().any(|f| {
-        let f = f.as_ref();
+    files.iter().any(|f| {
+        let Some(f) = f.as_ref().to_str() else {
+            return false; // Skip files that cannot be converted to a string
+        };
+
         if let Some(re) = &include {
             if !re.is_match(f).unwrap_or(false) {
                 return false;
@@ -79,17 +91,22 @@ fn excludes_any<T: AsRef<str> + Sync>(
 
 /// Ensures that exclude directives apply to any file in the repository.
 pub(crate) async fn check_useless_excludes(
-    _hook: &Hook,
-    filenames: &[&String],
+    hook: &Hook,
+    filenames: &[&Path],
 ) -> Result<(i32, Vec<u8>)> {
-    let input = collect_files(CollectOptions::default().with_all_files(true)).await?;
+    let relative_path = hook.project().relative_path();
+    let input = collect_files(hook.work_dir(), CollectOptions::all_files()).await?;
+    let input: Vec<_> = input.into_iter().map(|f| relative_path.join(f)).collect();
 
     let mut code = 0;
     let mut output = Vec::new();
 
     for filename in filenames {
-        let config = config::read_config(Path::new(filename))?;
+        let path = relative_path.join(filename);
+        let mut project = Project::from_config_file(path.into(), None)?;
+        project.with_relative_path(relative_path.to_path_buf());
 
+        let config = project.config();
         if !excludes_any(&input, None, config.exclude.as_deref()) {
             code = 1;
             writeln!(
@@ -99,7 +116,7 @@ pub(crate) async fn check_useless_excludes(
             )?;
         }
 
-        let filter = FileFilter::new(&input, config.files.as_ref(), config.exclude.as_ref());
+        let filter = FileFilter::for_project(input.iter(), &project);
 
         for repo in &config.repos {
             let hooks_iter: Box<dyn Iterator<Item = (&String, &HookOptions)>> = match repo {
@@ -135,8 +152,15 @@ pub(crate) async fn check_useless_excludes(
 }
 
 /// Prints all arguments passed to the hook. Useful for debugging.
-pub fn identity(_hook: &Hook, filenames: &[&String]) -> (i32, Vec<u8>) {
-    (0, filenames.iter().join("\n").into_bytes())
+pub fn identity(_hook: &Hook, filenames: &[&Path]) -> (i32, Vec<u8>) {
+    (
+        0,
+        filenames
+            .iter()
+            .map(|f| f.to_string_lossy())
+            .join("\n")
+            .into_bytes(),
+    )
 }
 
 #[cfg(test)]
@@ -145,7 +169,11 @@ mod tests {
 
     #[test]
     fn test_excludes_any() {
-        let files = vec!["file1.txt", "file2.txt", "file3.txt"];
+        let files = vec![
+            Path::new("file1.txt"),
+            Path::new("file2.txt"),
+            Path::new("file3.txt"),
+        ];
         assert!(excludes_any(
             &files,
             Regex::new(r"file.*").ok().as_ref(),
@@ -158,7 +186,7 @@ mod tests {
         ));
         assert!(excludes_any(&files, None, None));
 
-        let files = vec!["html/file1.html", "html/file2.html"];
+        let files = vec![Path::new("html/file1.html"), Path::new("html/file2.html")];
         assert!(excludes_any(
             &files,
             None,

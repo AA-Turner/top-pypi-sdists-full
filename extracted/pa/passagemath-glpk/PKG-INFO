@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: passagemath-glpk
-Version: 10.6.20
+Version: 10.6.21
 Summary: passagemath: Linear and mixed integer linear optimization backend using GLPK
 Author-email: The Sage Developers <sage-support@googlegroups.com>
 Maintainer: Matthias Köppe, passagemath contributors
@@ -29,7 +29,7 @@ Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Scientific/Engineering :: Mathematics
 Requires-Python: <3.14,>=3.10
 Description-Content-Type: text/x-rst
-Requires-Dist: passagemath-objects~=10.6.20.0
+Requires-Dist: passagemath-objects~=10.6.21.0
 Requires-Dist: memory_allocator
 Requires-Dist: cysignals<1.12.4; sys_platform == "win32"
 Requires-Dist: cysignals!=1.12.0,>=1.11.2

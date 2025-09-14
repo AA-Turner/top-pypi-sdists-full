@@ -8,6 +8,7 @@ from uuid import uuid1
 import base64,calendar
 from colored import Fore,Style,Back
 from radboy.FB.FormBuilder import *
+from radboy.DB.db import *
 @dataclass
 class MSG:
     DTOE:datetime=datetime.now()
@@ -44,7 +45,7 @@ def WriteLetter():
     ct=len(fd)
     mtext=[]
     for num,i in enumerate(fd):
-        if fd[i] is not None:
+        if fd[i] not in ['',' ',None]:
             if (num%2)!=0:
                 color_1=Fore.pale_violet_red_1
                 color_2=Fore.light_steel_blue

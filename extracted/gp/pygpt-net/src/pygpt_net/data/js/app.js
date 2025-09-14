@@ -599,9 +599,19 @@
 
       // Custom markup rules for simple tags in text.
       this.CUSTOM_MARKUP_RULES = Utils.g('CUSTOM_MARKUP_RULES', [
-        { name: 'cmd',   open: '[!cmd]',   close: '[/!cmd]',   tag: 'div',     className: 'cmd', innerMode: 'text' },
-        { name: 'think', open: '[!think]', close: '[/!think]', tag: 'think', className: '',    innerMode: 'text' }
-      ]);
+          { name: 'cmd',        open: '[!cmd]',     close: '[/!cmd]',     tag: 'div',   className: 'cmd', innerMode: 'text' },
+          { name: 'think_md',   open: '[!think]',   close: '[/!think]',   tag: 'think', className: '',    innerMode: 'text' },
+          { name: 'think_html', open: '<think>',    close: '</think>',    tag: 'think', className: '',    innerMode: 'text', stream: true },
+          { name: 'tool', open: '<tool>',    close: '</tool>',    tag: 'div', className: 'cmd',    innerMode: 'text', stream: true },
+
+          // Streams+final: convert [!exec]... into fenced python code BEFORE markdown-it
+          { name: 'exec_md',    open: '[!exec]',    close: '[/!exec]',    innerMode: 'text', stream: true,
+            openReplace: '```python\n', closeReplace: '\n```', phase: 'source' },
+
+          // Streams+final: convert <execute>...</execute> into fenced python code BEFORE markdown-it
+          { name: 'exec_html',  open: '<execute>',  close: '</execute>',  innerMode: 'text', stream: true,
+            openReplace: '```python\n', closeReplace: '\n```', phase: 'source' }
+        ]);
     }
   }
 
@@ -911,6 +921,20 @@
       const hint = (cfg && cfg.RAF && cfg.RAF.FLUSH_BUDGET_MS) ? cfg.RAF.FLUSH_BUDGET_MS : 7;
       this.SCAN_STEP_BUDGET_MS = Math.max(3, Math.min(12, hint));
     }
+    _decodeEntitiesDeep(text, maxPasses = 2) {
+        if (!text || text.indexOf('&') === -1) return text || '';
+        const ta = Highlighter._decTA || (Highlighter._decTA = document.createElement('textarea'));
+        const decodeOnce = (s) => { ta.innerHTML = s; return ta.value; };
+        let prev = String(text);
+        let cur = decodeOnce(prev);
+        let passes = 1;
+        while (passes < maxPasses && cur !== prev) {
+          prev = cur;
+          cur = decodeOnce(prev);
+          passes++;
+        }
+        return cur;
+      }
     // Global switch to skip all highlighting.
     isDisabled() { return !!this.cfg.HL.DISABLE_ALL; }
     // Configure hljs once (safe if hljs not present).
@@ -966,43 +990,44 @@
       }
     }
     // Highlight a single code block with safety checks and scroll preservation.
-    safeHighlight(codeEl, activeCode) {
-      if (this.isDisabled()) return;
-      if (!window.hljs || !codeEl || !codeEl.isConnected) return;
-      if (!codeEl.closest('.msg-box.msg-bot')) return;
-      if (codeEl.getAttribute('data-highlighted') === 'yes') return;
-      if (activeCode && codeEl === activeCode.codeEl) return;
+    _needsDeepDecode(text) {
+        if (!text) return false;
+        const s = String(text);
+        return (s.indexOf('&amp;') !== -1) || (s.indexOf('&#') !== -1);
+      }
 
-      // fast-skip final highlight for gigantic blocks using precomputed meta.
-      try {
-        const wrap = codeEl.closest('.code-wrapper');
-        const maxLines = this.cfg.PROFILE_CODE.finalHighlightMaxLines | 0;
-        const maxChars = this.cfg.PROFILE_CODE.finalHighlightMaxChars | 0;
+      safeHighlight(codeEl, activeCode) {
+        if (this.isDisabled()) return;
+        if (!window.hljs || !codeEl || !codeEl.isConnected) return;
+        if (!codeEl.closest('.msg-box.msg-bot')) return;
+        if (codeEl.getAttribute('data-highlighted') === 'yes') return;
+        if (activeCode && codeEl === activeCode.codeEl) return;
 
-        // Prefer wrapper meta if available to avoid .textContent on huge nodes.
-        let lines = NaN, chars = NaN;
-        if (wrap) {
-          const nlAttr = wrap.getAttribute('data-code-nl');
-          const lenAttr = wrap.getAttribute('data-code-len');
-          if (nlAttr) lines = parseInt(nlAttr, 10);
-          if (lenAttr) chars = parseInt(lenAttr, 10);
-        }
+        // fast-skip final highlight for gigantic blocks using precomputed meta.
+        try {
+          const wrap = codeEl.closest('.code-wrapper');
+          const maxLines = this.cfg.PROFILE_CODE.finalHighlightMaxLines | 0;
+          const maxChars = this.cfg.PROFILE_CODE.finalHighlightMaxChars | 0;
 
-        if ((Number.isFinite(lines) && maxLines > 0 && lines > maxLines) ||
-            (Number.isFinite(chars) && maxChars > 0 && chars > maxChars)) {
-          codeEl.classList.add('hljs');
-          codeEl.setAttribute('data-highlighted', 'yes');
-          codeEl.dataset.finalHlSkip = '1';
-          try { this.codeScroll.attachHandlers(codeEl); } catch (_) {}
-          this.codeScroll.scheduleScroll(codeEl, false, false);
-          return;
-        }
+          let lines = NaN, chars = NaN;
+          if (wrap) {
+            const nlAttr = wrap.getAttribute('data-code-nl');
+            const lenAttr = wrap.getAttribute('data-code-len');
+            if (nlAttr) lines = parseInt(nlAttr, 10);
+            if (lenAttr) chars = parseInt(lenAttr, 10);
+          }
 
-        // Fallback to reading actual text only if wrapper meta is missing.
-        if (!Number.isFinite(lines) || !Number.isFinite(chars)) {
-          const txt0 = codeEl.textContent || '';
-          const ln0 = Utils.countNewlines(txt0);
-          if ((maxLines > 0 && ln0 > maxLines) || (maxChars > 0 && txt0.length > maxChars)) {
+          if ((Number.isFinite(lines) && maxLines > 0 && lines > maxLines) ||
+              (Number.isFinite(chars) && maxChars > 0 && chars > maxChars)) {
+            // NEW: normalize entities for readability even if we skip final highlight
+            try {
+              const raw = codeEl.textContent || '';
+              if (this._needsDeepDecode(raw)) {
+                const dec = this._decodeEntitiesDeep(raw);
+                if (dec !== raw) codeEl.textContent = dec;
+              }
+            } catch (_) {}
+
             codeEl.classList.add('hljs');
             codeEl.setAttribute('data-highlighted', 'yes');
             codeEl.dataset.finalHlSkip = '1';
@@ -1010,32 +1035,59 @@
             this.codeScroll.scheduleScroll(codeEl, false, false);
             return;
           }
-        }
-      } catch (_) { /* safe fallback */ }
 
-      const wasNearBottom = this.codeScroll.isNearBottomEl(codeEl, 16);
-      const st = this.codeScroll.state(codeEl);
-      const shouldAutoScrollAfter = (st.autoFollow === true) || wasNearBottom;
+          // Fallback to reading actual text only if wrapper meta is missing.
+          if (!Number.isFinite(lines) || !Number.isFinite(chars)) {
+            const txt0 = codeEl.textContent || '';
+            const ln0 = Utils.countNewlines(txt0);
+            if ((maxLines > 0 && ln0 > maxLines) || (maxChars > 0 && txt0.length > maxChars)) {
+              // NEW: normalize entities here as well
+              try {
+                if (this._needsDeepDecode(txt0)) {
+                  const dec = this._decodeEntitiesDeep(txt0);
+                  if (dec !== txt0) codeEl.textContent = dec;
+                }
+              } catch (_) {}
 
-      try {
-        try { codeEl.classList.remove('hljs'); codeEl.removeAttribute('data-highlighted'); } catch (_) {}
-        const txt = codeEl.textContent || '';
-        codeEl.textContent = txt; // ensure no stale spans remain
-        hljs.highlightElement(codeEl);
-        codeEl.setAttribute('data-highlighted', 'yes');
-      } catch (_) {
-        if (!codeEl.classList.contains('hljs')) codeEl.classList.add('hljs');
-      } finally {
-        try { this.codeScroll.attachHandlers(codeEl); } catch (_) {}
-        const needInitForce = (codeEl.dataset && (codeEl.dataset.csInitBtm === '1' || codeEl.dataset.justFinalized === '1'));
-        const mustScroll = shouldAutoScrollAfter || needInitForce;
-        if (mustScroll) this.codeScroll.scheduleScroll(codeEl, false, !!needInitForce);
-        if (codeEl.dataset) {
-          if (codeEl.dataset.csInitBtm === '1') codeEl.dataset.csInitBtm = '0';
-          if (codeEl.dataset.justFinalized === '1') codeEl.dataset.justFinalized = '0';
+              codeEl.classList.add('hljs');
+              codeEl.setAttribute('data-highlighted', 'yes');
+              codeEl.dataset.finalHlSkip = '1';
+              try { this.codeScroll.attachHandlers(codeEl); } catch (_) {}
+              this.codeScroll.scheduleScroll(codeEl, false, false);
+              return;
+            }
+          }
+        } catch (_) { /* safe fallback */ }
+
+        const wasNearBottom = this.codeScroll.isNearBottomEl(codeEl, 16);
+        const st = this.codeScroll.state(codeEl);
+        const shouldAutoScrollAfter = (st.autoFollow === true) || wasNearBottom;
+
+        try {
+          try { codeEl.classList.remove('hljs'); codeEl.removeAttribute('data-highlighted'); } catch (_) {}
+
+          // NEW: deep-decode text before highlighting (fixes &amp;#x27; → ' etc.)
+          let txt = codeEl.textContent || '';
+          if (this._needsDeepDecode(txt)) {
+            try { txt = this._decodeEntitiesDeep(txt); } catch (_) {}
+          }
+          codeEl.textContent = txt; // ensure no stale spans remain and normalized text provided
+
+          hljs.highlightElement(codeEl);
+          codeEl.setAttribute('data-highlighted', 'yes');
+        } catch (_) {
+          if (!codeEl.classList.contains('hljs')) codeEl.classList.add('hljs');
+        } finally {
+          try { this.codeScroll.attachHandlers(codeEl); } catch (_) {}
+          const needInitForce = (codeEl.dataset && (codeEl.dataset.csInitBtm === '1' || codeEl.dataset.justFinalized === '1'));
+          const mustScroll = shouldAutoScrollAfter || needInitForce;
+          if (mustScroll) this.codeScroll.scheduleScroll(codeEl, false, !!needInitForce);
+          if (codeEl.dataset) {
+            if (codeEl.dataset.csInitBtm === '1') codeEl.dataset.csInitBtm = '0';
+            if (codeEl.dataset.justFinalized === '1') codeEl.dataset.justFinalized = '0';
+          }
         }
       }
-    }
 
     // Start a budgeted global scan – split across frames to avoid long blocking.
     _startGlobalScan(activeCode) {
@@ -1155,912 +1207,1299 @@
     }
   }
 
-  // ==========================================================================
-  // 4) Custom Markup Processor
-  // ==========================================================================
+     // ==========================================================================
+     // 4) Custom Markup Processor
+     // ==========================================================================
 
-  class CustomMarkup {
-    constructor(cfg, logger) {
-      this.cfg = cfg || { CUSTOM_MARKUP_RULES: [] };
-      this.logger = logger || new Logger(cfg);
-      this.__compiled = null;
-    }
-    _d(line, ctx) { try { this.logger.debug('CM', line, ctx); } catch (_) {} }
+     class CustomMarkup {
+       constructor(cfg, logger) {
+         this.cfg = cfg || { CUSTOM_MARKUP_RULES: [] };
+         this.logger = logger || new Logger(cfg);
+         this.__compiled = null;
+         this.__hasStreamRules = false; // Fast flag to skip stream work if not needed
+       }
+       _d(line, ctx) { try { this.logger.debug('CM', line, ctx); } catch (_) {} }
 
-    // Decode HTML entities once (safe)
-    // This addresses cases when linkify/full markdown path leaves literal "&quot;" etc. in text nodes.
-    // We decode only for rules that explicitly opt-in (see compile()) to avoid changing semantics globally.
-    decodeEntitiesOnce(s) {
-      if (!s || s.indexOf('&') === -1) return String(s || '');
-      // Using a shared <textarea> avoids DOM parsing side-effects and is fast enough for small JSON payloads.
-      const ta = CustomMarkup._decTA || (CustomMarkup._decTA = document.createElement('textarea'));
-      ta.innerHTML = s;
-      return ta.value;
-    }
+       // Decode HTML entities once (safe)
+       // This addresses cases when linkify/full markdown path leaves literal "&quot;" etc. in text nodes.
+       // We decode only for rules that explicitly opt-in (see compile()) to avoid changing semantics globally.
+       decodeEntitiesOnce(s) {
+         if (!s || s.indexOf('&') === -1) return String(s || '');
+         const ta = CustomMarkup._decTA || (CustomMarkup._decTA = document.createElement('textarea'));
+         ta.innerHTML = s;
+         return ta.value;
+       }
 
-    // Compile rules once; also precompile strict and whitespace-tolerant "full match" regexes.
-    compile(rules) {
-      const src = Array.isArray(rules) ? rules : (window.CUSTOM_MARKUP_RULES || this.cfg.CUSTOM_MARKUP_RULES || []);
-      const compiled = [];
-      for (const r of src) {
-        if (!r || typeof r.open !== 'string' || typeof r.close !== 'string') continue;
-        const tag = (r.tag || 'span').toLowerCase();
-        const className = (r.className || r.class || '').trim();
-        const innerMode = (r.innerMode === 'markdown-inline' || r.innerMode === 'text') ? r.innerMode : 'text';
+       // Small helper: escape text to safe HTML (shared Utils or fallback)
+       _escHtml(s) {
+         try { return Utils.escapeHtml(s); } catch (_) {
+           return String(s || '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+         }
+       }
 
-        // Opt-in decoding: default to true for "cmd" to fix JSON quotes (&quot;) in static full-render path,
-        // leave false for other tags unless explicitly requested by rule author.
-        const decodeEntities = (typeof r.decodeEntities === 'boolean')
-          ? r.decodeEntities
-          : ((r.name || '').toLowerCase() === 'cmd' || className === 'cmd');
+       // quick check if any rule's open token is present in text (used to skip expensive work early)
+       hasAnyOpenToken(text, rules) {
+         if (!text || !rules || !rules.length) return false;
+         for (let i = 0; i < rules.length; i++) {
+           const r = rules[i];
+           if (!r || !r.open) continue;
+           if (text.indexOf(r.open) !== -1) return true;
+         }
+         return false;
+       }
 
-        const re = new RegExp(Utils.reEscape(r.open) + '([\\s\\S]*?)' + Utils.reEscape(r.close), 'g');
-        const reFull = new RegExp('^' + Utils.reEscape(r.open) + '([\\s\\S]*?)' + Utils.reEscape(r.close) + '$');
-        const reFullTrim = new RegExp('^\\s*' + Utils.reEscape(r.open) + '([\\s\\S]*?)' + Utils.reEscape(r.close) + '\\s*$');
+       // Build inner HTML from text according to rule's mode (markdown-inline | text) with optional entity decode.
+       _materializeInnerHTML(rule, text, MD) {
+         let payload = String(text || '');
+         if (rule && rule.decodeEntities && payload && payload.indexOf('&') !== -1) {
+           try { payload = this.decodeEntitiesOnce(payload); } catch (_) { /* keep original */ }
+         }
+         if (rule && rule.innerMode === 'markdown-inline' && MD && typeof MD.renderInline === 'function') {
+           try { return MD.renderInline(payload); } catch (_) { return this._escHtml(payload); }
+         }
+         return this._escHtml(payload);
+       }
 
-        const item = {
-          name: r.name || tag,
-          tag,
-          className,
-          innerMode,
-          open: r.open,
-          close: r.close,
-          decodeEntities,  // per-rule decode switch
-          re, reFull, reFullTrim
-        };
-        compiled.push(item);
-        this._d('COMPILE_RULE', { name: item.name, tag: item.tag, innerMode: item.innerMode, open: item.open, close: item.close });
-      }
-      if (compiled.length === 0) {
-        const open = '[!cmd]', close = '[/!cmd]';
-        const item = {
-          name: 'cmd', tag: 'p', className: 'cmd', innerMode: 'text', open, close,
-          decodeEntities: true, // Fallback rule for cmd also opts-in to decoding
-          re: new RegExp(Utils.reEscape(open) + '([\\s\\S]*?)' + Utils.reEscape(close), 'g'),
-          reFull: new RegExp('^' + Utils.reEscape(open) + '([\\s\\S]*?)' + Utils.reEscape(close) + '$'),
-          reFullTrim: new RegExp('^\\s*' + Utils.reEscape(open) + '([\\s\\S]*?)' + Utils.reEscape(close) + '\\s*$')
-        };
-        compiled.push(item);
-        this._d('COMPILE_RULE_FALLBACK', { name: item.name });
-      }
-      return compiled;
-    }
-    // Ensure rules are compiled and cached.
-    ensureCompiled() {
-      if (!this.__compiled) {
-        this.__compiled = this.compile(window.CUSTOM_MARKUP_RULES || this.cfg.CUSTOM_MARKUP_RULES);
-        this._d('ENSURE_COMPILED', { count: this.__compiled.length });
-      }
-      return this.__compiled;
-    }
-    // Replace rules set (also exposes rules on window).
-    setRules(rules) {
-      this.__compiled = this.compile(rules);
-      window.CUSTOM_MARKUP_RULES = Array.isArray(rules) ? rules.slice() : (this.cfg.CUSTOM_MARKUP_RULES || []).slice();
-      this._d('SET_RULES', { count: this.__compiled.length });
-    }
-    // Return current rules as array.
-    getRules() {
-      const list = (window.CUSTOM_MARKUP_RULES ? window.CUSTOM_MARKUP_RULES.slice()
-                                               : (this.cfg.CUSTOM_MARKUP_RULES || []).slice());
-      this._d('GET_RULES', { count: list.length });
-      return list;
-    }
+       // Make a DOM Fragment from HTML string (robust across contexts).
+       _fragmentFromHTML(html, ctxNode) {
+         let frag = null;
+         try {
+           const range = document.createRange();
+           const ctx = (ctxNode && ctxNode.parentNode) ? ctxNode.parentNode : (document.body || document.documentElement);
+           range.selectNode(ctx);
+           frag = range.createContextualFragment(String(html || ''));
+           return frag;
+         } catch (_) {
+           const tmp = document.createElement('div');
+           tmp.innerHTML = String(html || '');
+           frag = document.createDocumentFragment();
+           while (tmp.firstChild) frag.appendChild(tmp.firstChild);
+           return frag;
+         }
+       }
 
-    // Context guards
-    isInsideForbiddenContext(node) {
-      const p = node.parentElement; if (!p) return true;
-      return !!p.closest('pre, code, kbd, samp, var, script, style, textarea, .math-pending, .hljs, .code-wrapper');
-    }
-    isInsideForbiddenElement(el) {
-      if (!el) return true;
-      return !!el.closest('pre, code, kbd, samp, var, script, style, textarea, .math-pending, .hljs, .code-wrapper');
-    }
+       // Replace one element in DOM with HTML string (keeps siblings intact).
+       _replaceElementWithHTML(el, html) {
+         if (!el || !el.parentNode) return;
+         const parent = el.parentNode;
+         const frag = this._fragmentFromHTML(html, el);
+         try {
+           // Insert new nodes before the old element, then remove the old element (widely supported).
+           parent.insertBefore(frag, el);
+           parent.removeChild(el);
+         } catch (_) {
+           // Conservative fallback: wrap in a span if direct fragment insertion failed for some reason.
+           const tmp = document.createElement('span');
+           tmp.innerHTML = String(html || '');
+           while (tmp.firstChild) parent.insertBefore(tmp.firstChild, el);
+           parent.removeChild(el);
+         }
+       }
 
-    // Global finder on a single text blob (original per-text-node logic).
-    findNextMatch(text, from, rules) {
-      let best = null;
-      for (const rule of rules) {
-        rule.re.lastIndex = from;
-        const m = rule.re.exec(text);
-        if (m) {
-          const start = m.index, end = rule.re.lastIndex;
-          if (!best || start < best.start) best = { rule, start, end, inner: m[1] || '' };
-        }
-      }
-      return best;
-    }
+       // Compile rules once; also precompile strict and whitespace-tolerant "full match" regexes.
+       compile(rules) {
+         const src = Array.isArray(rules) ? rules : (window.CUSTOM_MARKUP_RULES || this.cfg.CUSTOM_MARKUP_RULES || []);
+         const compiled = [];
+         let hasStream = false;
 
-    // Strict full match of a pure text node (legacy path).
-    findFullMatch(text, rules) {
-      for (const rule of rules) {
-        if (rule.reFull) {
-          const m = rule.reFull.exec(text);
-          if (m) return { rule, inner: m[1] || '' };
-        } else {
-          // Legacy safety net (should not normally execute).
-          rule.re.lastIndex = 0;
-          const m = rule.re.exec(text);
-          if (m && m.index === 0 && (rule.re.lastIndex === text.length)) {
-            const m2 = rule.re.exec(text);
-            if (!m2) return { rule, inner: m[1] || '' };
-          }
-        }
-      }
-      return null;
-    }
+         for (const r of src) {
+           if (!r || typeof r.open !== 'string' || typeof r.close !== 'string') continue;
 
-    // Set inner content according to the rule's mode, with optional entity decode.
-    setInnerByMode(el, mode, text, MD, decodeEntities = false) {
-      let payload = String(text || '');
-      // Decode entities only when asked by the rule (prevents global behavior change).
-      if (decodeEntities && payload && payload.indexOf('&') !== -1) {
-        try { payload = this.decodeEntitiesOnce(payload); } catch (_) { /* keep original on failure */ }
-      }
+           const tag = (r.tag || 'span').toLowerCase();
+           const className = (r.className || r.class || '').trim();
+           const innerMode = (r.innerMode === 'markdown-inline' || r.innerMode === 'text') ? r.innerMode : 'text';
 
-      if (mode === 'markdown-inline' && typeof window.markdownit !== 'undefined') {
-        try {
-          if (MD && typeof MD.renderInline === 'function') { el.innerHTML = MD.renderInline(payload); return; }
-          const tempMD = window.markdownit({ html: false, linkify: true, breaks: true, highlight: () => '' });
-          el.innerHTML = tempMD.renderInline(payload); return;
-        } catch (_) {}
-      }
-      el.textContent = payload;
-    }
+           const stream = !!(r.stream === true);
+           const openReplace = String((r.openReplace != null ? r.openReplace : (r.openReplace || '')) || '');
+           const closeReplace = String((r.closeReplace != null ? r.closeReplace : (r.closeReplace || '')) || '');
 
-    // Try to replace an entire <p> that is a full custom markup match.
-    _tryReplaceFullParagraph(el, rules, MD) {
-      if (!el || el.tagName !== 'P') return false;
-      if (this.isInsideForbiddenElement(el)) {
-        this._d('P_SKIP_FORBIDDEN', { tag: el.tagName });
-        return false;
-      }
-      const t = el.textContent || '';
-      if (t.indexOf('[!') === -1) return false;
+           // Back-compat: decode entities default true for cmd-like
+           const decodeEntities = (typeof r.decodeEntities === 'boolean')
+             ? r.decodeEntities
+             : ((r.name || '').toLowerCase() === 'cmd' || className === 'cmd');
 
-      for (const rule of rules) {
-        if (!rule) continue;
+           // Optional application phase (where replacement should happen)
+           // - 'source' => before markdown-it
+           // - 'html'   => after markdown-it (DOM fragment)
+           // - 'both'
+           let phaseRaw = (typeof r.phase === 'string') ? r.phase.toLowerCase() : '';
+           if (phaseRaw !== 'source' && phaseRaw !== 'html' && phaseRaw !== 'both') phaseRaw = '';
+           // Heuristic: if replacement contains fenced code backticks, default to 'source'
+           const looksLikeFence = (openReplace.indexOf('```') !== -1) || (closeReplace.indexOf('```') !== -1);
+           const phase = phaseRaw || (looksLikeFence ? 'source' : 'html');
 
-        // Tolerant full-paragraph detection using textContent survives linkify splits.
-        const m = rule.reFullTrim ? rule.reFullTrim.exec(t) : null;
-        if (!m) continue;
+           const re = new RegExp(Utils.reEscape(r.open) + '([\\s\\S]*?)' + Utils.reEscape(r.close), 'g');
+           const reFull = new RegExp('^' + Utils.reEscape(r.open) + '([\\s\\S]*?)' + Utils.reEscape(r.close) + '$');
+           const reFullTrim = new RegExp('^\\s*' + Utils.reEscape(r.open) + '([\\s\\S]*?)' + Utils.reEscape(r.close) + '\\s*$');
 
-        // IMPORTANT: create the replacement element using the rule's tag (was hard-coded to <p>).
-        // This makes [!cmd] ... [/!cmd] (configured with tag: 'div') work even when linkify
-        // inserted <a> tags inside the paragraph — detection is done on textContent, not DOM nodes.
-        const outTag = (rule.tag && typeof rule.tag === 'string') ? rule.tag.toLowerCase() : 'span';
-        const out = document.createElement(outTag === 'p' ? 'p' : outTag);
-        if (rule.className) out.className = rule.className;
-        out.setAttribute('data-cm', rule.name);
+           const item = {
+             name: r.name || tag,
+             tag, className, innerMode,
+             open: r.open, close: r.close,
+             decodeEntities,
+             re, reFull, reFullTrim,
+             stream,
+             openReplace, closeReplace,
+             phase,                 // NEW: where this rule should be applied
+             isSourceFence: looksLikeFence // NEW: hints StreamEngine to treat as custom fence
+           };
+           compiled.push(item);
+           if (stream) hasStream = true;
+           this._d('COMPILE_RULE', { name: item.name, phase: item.phase, stream: item.stream });
+         }
 
-        const innerText = m[1] || '';
-        // Use mode-driven inner content materialization (text or markdown-inline) with optional decoding.
-        this.setInnerByMode(out, rule.innerMode, innerText, MD, !!rule.decodeEntities);
+         if (compiled.length === 0) {
+           const open = '[!cmd]', close = '[/!cmd]';
+           const item = {
+             name: 'cmd', tag: 'p', className: 'cmd', innerMode: 'text', open, close,
+             decodeEntities: true,
+             re: new RegExp(Utils.reEscape(open) + '([\\s\\S]*?)' + Utils.reEscape(close), 'g'),
+             reFull: new RegExp('^' + Utils.reEscape(open) + '([\\s\\S]*?)' + Utils.reEscape(close) + '$'),
+             reFullTrim: new RegExp('^\\s*' + Utils.reEscape(open) + '([\\s\\S]*?)' + Utils.reEscape(close) + '\\s*$'),
+             stream: false,
+             openReplace: '', closeReplace: '',
+             phase: 'html', isSourceFence: false
+           };
+           compiled.push(item);
+           this._d('COMPILE_RULE_FALLBACK', { name: item.name });
+         }
 
-        // Replace the original <p> with the desired container (<div>, <think>, <p>, etc.).
-        try { el.replaceWith(out); } catch (_) {
-          const parent = el.parentNode; if (parent) parent.replaceChild(out, el);
-        }
+         this.__hasStreamRules = hasStream;
+         return compiled;
+       }
 
-        this._d('P_REPLACED', { rule: rule.name, asTag: outTag, preview: this.logger.pv(t, 160) });
-        return true;
-      }
-      this._d('P_NO_FULL_MATCH', { preview: this.logger.pv(t, 160) });
-      return false;
-    }
+       // pre-markdown source transformer – applies only rules for 'source'/'both' with replacements
+       // IMPORTANT CHANGE:
+       // - Skips replacements inside fenced code blocks (``` / ~~~).
+       // - Applies only when the rule opener is at top-level of the line (no list markers/blockquote).
+       transformSource(src, opts) {
+         let s = String(src || '');
+         this.ensureCompiled();
+         const rules = this.__compiled;
+         if (!rules || !rules.length) return s;
 
-    // Apply custom markup with two-phase strategy:
-    // 1) Full-paragraph tolerant pass (survives linkify splitting).
-    // 2) Legacy per-text-node pass for partial inline cases.
-    apply(root, MD) {
-      this.ensureCompiled();
-      const rules = this.__compiled;
-      if (!root || !rules || !rules.length) return;
+         // Pick only source-phase rules with explicit replacements
+         const candidates = [];
+         for (let i = 0; i < rules.length; i++) {
+           const r = rules[i];
+           if (!r) continue;
+           if ((r.phase === 'source' || r.phase === 'both') && (r.openReplace || r.closeReplace)) candidates.push(r);
+         }
+         if (!candidates.length) return s;
 
-      const scope = (root.nodeType === 1 || root.nodeType === 11) ? root : document;
-      try {
-        const paragraphs = (typeof scope.querySelectorAll === 'function') ? scope.querySelectorAll('p') : [];
-        this._d('P_TOLERANT_SCAN_START', { count: paragraphs.length });
+         // Compute fenced-code ranges once to exclude them from replacements (production-safe).
+         const fences = this._findFenceRanges(s);
+         if (!fences.length) {
+           // No code fences in source; apply top-level guarded replacements globally.
+           return this._applySourceReplacementsInChunk(s, s, 0, candidates);
+         }
 
-        if (paragraphs && paragraphs.length) {
-          for (let i = 0; i < paragraphs.length; i++) {
-            const p = paragraphs[i];
-            if (p && p.getAttribute && p.getAttribute('data-cm')) continue;
-            // Quick check: avoid work if no marker in entire <p>
-            const tc = p && (p.textContent || '');
-            if (!tc || tc.indexOf('[!') === -1) continue;
-            this._tryReplaceFullParagraph(p, rules, MD);
-          }
-        }
-      } catch (e) {
-        this._d('P_TOLERANT_SCAN_ERR', String(e));
-      }
+         // Apply replacements only in segments outside fenced code.
+         let out = '';
+         let last = 0;
+         for (let k = 0; k < fences.length; k++) {
+           const [a, b] = fences[k];
+           if (a > last) {
+             const chunk = s.slice(last, a);
+             out += this._applySourceReplacementsInChunk(s, chunk, last, candidates);
+           }
+           out += s.slice(a, b); // pass fenced code verbatim
+           last = b;
+         }
+         if (last < s.length) {
+           const tail = s.slice(last);
+           out += this._applySourceReplacementsInChunk(s, tail, last, candidates);
+         }
+         return out;
+       }
 
-      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
-        acceptNode: (node) => {
-          if (!node || !node.nodeValue || node.nodeValue.indexOf('[!') === -1) return NodeFilter.FILTER_SKIP;
-          if (this.isInsideForbiddenContext(node)) return NodeFilter.FILTER_REJECT;
-          return NodeFilter.FILTER_ACCEPT;
-        }
-      });
+       // expose custom fence specs (to StreamEngine)
+       getSourceFenceSpecs() {
+         this.ensureCompiled();
+         const rules = this.__compiled || [];
+         const out = [];
+         for (let i = 0; i < rules.length; i++) {
+           const r = rules[i];
+           if (!r || !r.isSourceFence) continue;
+           // Only expose when they actually look like fences in source phase
+           if (r.phase !== 'source' && r.phase !== 'both') continue;
+           out.push({ open: r.open, close: r.close });
+         }
+         return out;
+       }
 
-      let node;
-      while ((node = walker.nextNode())) {
-        const text = node.nodeValue;
-        if (!text || text.indexOf('[!') === -1) continue;
+       // Ensure rules are compiled and cached.
+       ensureCompiled() {
+         if (!this.__compiled) {
+           this.__compiled = this.compile(window.CUSTOM_MARKUP_RULES || this.cfg.CUSTOM_MARKUP_RULES);
+           this._d('ENSURE_COMPILED', { count: this.__compiled.length, hasStream: this.__hasStreamRules });
+         }
+         return this.__compiled;
+       }
 
-        const parent = node.parentElement;
+       // Replace rules set (also exposes rules on window).
+       setRules(rules) {
+         this.__compiled = this.compile(rules);
+         window.CUSTOM_MARKUP_RULES = Array.isArray(rules) ? rules.slice() : (this.cfg.CUSTOM_MARKUP_RULES || []).slice();
+         this._d('SET_RULES', { count: this.__compiled.length, hasStream: this.__hasStreamRules });
+       }
 
-        // Entire text node equals one full match and parent is <p>.
-        if (parent && parent.tagName === 'P' && parent.childNodes.length === 1) {
-          const fm = this.findFullMatch(text, rules);
-          if (fm && fm.rule.tag === 'p') {
-            const out = document.createElement('p');
-            if (fm.rule.className) out.className = fm.rule.className;
-            out.setAttribute('data-cm', fm.rule.name);
-            this.setInnerByMode(out, fm.rule.innerMode, fm.inner, MD, !!fm.rule.decodeEntities);
-            try { parent.replaceWith(out); } catch (_) {
-              const par = parent.parentNode; if (par) par.replaceChild(out, parent);
-            }
-            this._d('WALKER_FULL_REPLACE', { rule: fm.rule.name, preview: this.logger.pv(text, 160) });
-            continue;
-          }
-        }
+       // Return current rules as array.
+       getRules() {
+         const list = (window.CUSTOM_MARKUP_RULES ? window.CUSTOM_MARKUP_RULES.slice()
+                                                  : (this.cfg.CUSTOM_MARKUP_RULES || []).slice());
+         this._d('GET_RULES', { count: list.length });
+         return list;
+       }
 
-        // General inline replacement inside the text node (span-like).
-        let i = 0;
-        let didReplace = false;
-        const frag = document.createDocumentFragment();
+       // Fast switch: do we have any rules that want streaming parsing?
+       hasStreamRules() {
+         this.ensureCompiled();
+         return !!this.__hasStreamRules;
+       }
 
-        while (i < text.length) {
-          const m = this.findNextMatch(text, i, rules);
-          if (!m) break;
+       // Context guards
+       isInsideForbiddenContext(node) {
+         const p = node.parentElement; if (!p) return true;
+         // IMPORTANT: exclude code/math/hljs/wrappers AND list contexts (ul/ol/li/dl/dt/dd)
+         return !!p.closest('pre, code, kbd, samp, var, script, style, textarea, .math-pending, .hljs, .code-wrapper, ul, ol, li, dl, dt, dd');
+       }
+       isInsideForbiddenElement(el) {
+         if (!el) return true;
+         // IMPORTANT: exclude code/math/hljs/wrappers AND list contexts (ul/ol/li/dl/dt/dd)
+         return !!el.closest('pre, code, kbd, samp, var, script, style, textarea, .math-pending, .hljs, .code-wrapper, ul, ol, li, dl, dt, dd');
+       }
 
-          if (m.start > i) {
-            frag.appendChild(document.createTextNode(text.slice(i, m.start)));
-          }
+       // Global finder on a single text blob (original per-text-node logic).
+       findNextMatch(text, from, rules) {
+         let best = null;
+         for (const rule of rules) {
+           rule.re.lastIndex = from;
+           const m = rule.re.exec(text);
+           if (m) {
+             const start = m.index, end = rule.re.lastIndex;
+             if (!best || start < best.start) best = { rule, start, end, inner: m[1] || '' };
+           }
+         }
+         return best;
+       }
 
-          const tag = (m.rule.tag === 'p') ? 'span' : m.rule.tag;
-          const el = document.createElement(tag);
-          if (m.rule.className) el.className = m.rule.className;
-          el.setAttribute('data-cm', m.rule.name);
-          this.setInnerByMode(el, m.rule.innerMode, m.inner, MD, !!m.rule.decodeEntities);
+       // Strict full match of a pure text node (legacy path).
+       findFullMatch(text, rules) {
+         for (const rule of rules) {
+           if (rule.reFull) {
+             const m = rule.reFull.exec(text);
+             if (m) return { rule, inner: m[1] || '' };
+           } else {
+             rule.re.lastIndex = 0;
+             const m = rule.re.exec(text);
+             if (m && m.index === 0 && (rule.re.lastIndex === text.length)) {
+               const m2 = rule.re.exec(text);
+               if (!m2) return { rule, inner: m[1] || '' };
+             }
+           }
+         }
+         return null;
+       }
 
-          frag.appendChild(el);
-          this._d('WALKER_INLINE_MATCH', { rule: m.rule.name, start: m.start, end: m.end });
-          i = m.end;
-          didReplace = true;
-        }
+       // Set inner content according to the rule's mode, with optional entity decode (element mode).
+       setInnerByMode(el, mode, text, MD, decodeEntities = false) {
+         let payload = String(text || '');
+         if (decodeEntities && payload && payload.indexOf('&') !== -1) {
+           try { payload = this.decodeEntitiesOnce(payload); } catch (_) {}
+         }
 
-        if (!didReplace) continue;
+         if (mode === 'markdown-inline' && typeof window.markdownit !== 'undefined') {
+           try {
+             if (MD && typeof MD.renderInline === 'function') { el.innerHTML = MD.renderInline(payload); return; }
+             const tempMD = window.markdownit({ html: false, linkify: true, breaks: true, highlight: () => '' });
+             el.innerHTML = tempMD.renderInline(payload); return;
+           } catch (_) {}
+         }
+         el.textContent = payload;
+       }
 
-        if (i < text.length) {
-          frag.appendChild(document.createTextNode(text.slice(i)));
-        }
+       // Try to replace an entire <p> that is a full custom markup match.
+       _tryReplaceFullParagraph(el, rules, MD) {
+         if (!el || el.tagName !== 'P') return false;
+         if (this.isInsideForbiddenElement(el)) {
+           this._d('P_SKIP_FORBIDDEN', { tag: el.tagName });
+           return false;
+         }
+         const t = el.textContent || '';
+         if (!this.hasAnyOpenToken(t, rules)) return false;
 
-        const parentNode = node.parentNode;
-        if (parentNode) {
-          parentNode.replaceChild(frag, node);
-          this._d('WALKER_INLINE_DONE', { preview: this.logger.pv(text, 120) });
-        }
-      }
-    }
-  }
+         for (const rule of rules) {
+           if (!rule) continue;
+           const m = rule.reFullTrim ? rule.reFullTrim.exec(t) : null;
+           if (!m) continue;
+
+           const innerText = m[1] || '';
+
+           if (rule.phase !== 'html' && rule.phase !== 'both') continue; // element materialization is html-phase only
+
+           if (rule.openReplace || rule.closeReplace) {
+             const innerHTML = this._materializeInnerHTML(rule, innerText, MD);
+             const html = String(rule.openReplace || '') + innerHTML + String(rule.closeReplace || '');
+             this._replaceElementWithHTML(el, html);
+             this._d('P_REPLACED_AS_HTML', { rule: rule.name });
+             return true;
+           }
+
+           const outTag = (rule.tag && typeof rule.tag === 'string') ? rule.tag.toLowerCase() : 'span';
+           const out = document.createElement(outTag === 'p' ? 'p' : outTag);
+           if (rule.className) out.className = rule.className;
+           out.setAttribute('data-cm', rule.name);
+           this.setInnerByMode(out, rule.innerMode, innerText, MD, !!rule.decodeEntities);
+
+           try { el.replaceWith(out); } catch (_) {
+             const par = el.parentNode; if (par) par.replaceChild(out, el);
+           }
+           this._d('P_REPLACED', { rule: rule.name, asTag: outTag });
+           return true;
+         }
+         this._d('P_NO_FULL_MATCH', { preview: this.logger.pv(t, 160) });
+         return false;
+       }
+
+       // Core implementation shared by static and streaming passes.
+       applyRules(root, MD, rules) {
+         if (!root || !rules || !rules.length) return;
+
+         const scope = (root.nodeType === 1 || root.nodeType === 11) ? root : document;
+
+         // Phase 1: tolerant <p> replacements
+         try {
+           const paragraphs = (typeof scope.querySelectorAll === 'function') ? scope.querySelectorAll('p') : [];
+           this._d('P_TOLERANT_SCAN_START', { count: paragraphs.length });
+
+           if (paragraphs && paragraphs.length) {
+             for (let i = 0; i < paragraphs.length; i++) {
+               const p = paragraphs[i];
+               if (p && p.getAttribute && p.getAttribute('data-cm')) continue;
+               const tc = p && (p.textContent || '');
+               if (!tc || !this.hasAnyOpenToken(tc, rules)) continue;
+               // Skip paragraphs inside forbidden contexts (includes lists now)
+               if (this.isInsideForbiddenElement(p)) continue;
+               this._tryReplaceFullParagraph(p, rules, MD);
+             }
+           }
+         } catch (e) {
+           this._d('P_TOLERANT_SCAN_ERR', String(e));
+         }
+
+         // Phase 2: legacy per-text-node pass for partial inline cases.
+         const self = this;
+         const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+           acceptNode: (node) => {
+             const val = node && node.nodeValue ? node.nodeValue : '';
+             if (!val || !self.hasAnyOpenToken(val, rules)) return NodeFilter.FILTER_SKIP;
+             if (self.isInsideForbiddenContext(node)) return NodeFilter.FILTER_REJECT;
+             return NodeFilter.FILTER_ACCEPT;
+           }
+         });
+
+         let node;
+         while ((node = walker.nextNode())) {
+           const text = node.nodeValue;
+           if (!text || !this.hasAnyOpenToken(text, rules)) continue; // quick skip
+           const parent = node.parentElement;
+
+           // Entire text node equals one full match and parent is <p>.
+           if (parent && parent.tagName === 'P' && parent.childNodes.length === 1) {
+             const fm = this.findFullMatch(text, rules);
+             if (fm) {
+               // If explicit HTML replacements are provided, swap <p> for exact HTML (only for html/both phase).
+               if ((fm.rule.phase === 'html' || fm.rule.phase === 'both') && (fm.rule.openReplace || fm.rule.closeReplace)) {
+                 const innerHTML = this._materializeInnerHTML(fm.rule, fm.inner, MD);
+                 const html = String(fm.rule.openReplace || '') + innerHTML + String(fm.rule.closeReplace || '');
+                 this._replaceElementWithHTML(parent, html);
+                 this._d('WALKER_FULL_REPLACE_HTML', { rule: fm.rule.name, preview: this.logger.pv(text, 160) });
+                 continue;
+               }
+
+               // Backward-compatible: only replace as <p> when rule tag is 'p'
+               if (fm.rule.tag === 'p') {
+                 const out = document.createElement('p');
+                 if (fm.rule.className) out.className = fm.rule.className;
+                 out.setAttribute('data-cm', fm.rule.name);
+                 this.setInnerByMode(out, fm.rule.innerMode, fm.inner, MD, !!fm.rule.decodeEntities);
+                 try { parent.replaceWith(out); } catch (_) {
+                   const par = parent.parentNode; if (par) par.replaceChild(out, parent);
+                 }
+                 this._d('WALKER_FULL_REPLACE', { rule: fm.rule.name, preview: this.logger.pv(text, 160) });
+                 continue;
+               }
+             }
+           }
+
+           // General inline replacement inside the text node (span-like or HTML-replace).
+           let i = 0;
+           let didReplace = false;
+           const frag = document.createDocumentFragment();
+
+           while (i < text.length) {
+             const m = this.findNextMatch(text, i, rules);
+             if (!m) break;
+
+             if (m.start > i) {
+               frag.appendChild(document.createTextNode(text.slice(i, m.start)));
+             }
+
+             // If HTML replacements are provided, build exact HTML around processed inner – only for html/both phase.
+             if ((m.rule.openReplace || m.rule.closeReplace) && (m.rule.phase === 'html' || m.rule.phase === 'both')) {
+               const innerHTML = this._materializeInnerHTML(m.rule, m.inner, MD);
+               const html = String(m.rule.openReplace || '') + innerHTML + String(m.rule.closeReplace || '');
+               const part = this._fragmentFromHTML(html, node);
+               frag.appendChild(part);
+               this._d('WALKER_INLINE_MATCH_HTML', { rule: m.rule.name, start: m.start, end: m.end });
+               i = m.end; didReplace = true; continue;
+             }
+
+             // If rule is not html-phase, do NOT inject open/close replacements here (source-only rules are handled pre-md).
+             if (m.rule.openReplace || m.rule.closeReplace) {
+               // Source-only replacement met in DOM pass – keep original text verbatim for this match.
+               frag.appendChild(document.createTextNode(text.slice(m.start, m.end)));
+               this._d('WALKER_INLINE_SKIP_SOURCE_PHASE_HTML', { rule: m.rule.name, start: m.start, end: m.end });
+               i = m.end; didReplace = true; continue;
+             }
+
+             // Element-based inline replacement (original behavior).
+             const tag = (m.rule.tag === 'p') ? 'span' : m.rule.tag;
+             const el = document.createElement(tag);
+             if (m.rule.className) el.className = m.rule.className;
+             el.setAttribute('data-cm', m.rule.name);
+             this.setInnerByMode(el, m.rule.innerMode, m.inner, MD, !!m.rule.decodeEntities);
+             frag.appendChild(el);
+             this._d('WALKER_INLINE_MATCH', { rule: m.rule.name, start: m.start, end: m.end });
+
+             i = m.end;
+             didReplace = true;
+           }
+
+           if (!didReplace) continue;
+
+           if (i < text.length) {
+             frag.appendChild(document.createTextNode(text.slice(i)));
+           }
+
+           const parentNode = node.parentNode;
+           if (parentNode) {
+             parentNode.replaceChild(frag, node);
+             this._d('WALKER_INLINE_DONE', { preview: this.logger.pv(text, 120) });
+           }
+         }
+       }
+
+       // Public API: apply custom markup for full (static) paths – unchanged behavior.
+       apply(root, MD) {
+         this.ensureCompiled();
+         this.applyRules(root, MD, this.__compiled);
+       }
+
+       // Public API: apply only stream-enabled rules (used in snapshots).
+       applyStream(root, MD) {
+         this.ensureCompiled();
+         if (!this.__hasStreamRules) return;
+         const rules = this.__compiled.filter(r => !!r.stream);
+         if (!rules.length) return;
+         this.applyRules(root, MD, rules);
+       }
+
+       // -----------------------------
+       // INTERNAL HELPERS (NEW)
+       // -----------------------------
+
+       // Scan source and return ranges [start, end) of fenced code blocks (``` or ~~~).
+       // Matches Markdown fences at line-start with up to 3 spaces/tabs indentation.
+       _findFenceRanges(s) {
+         const ranges = [];
+         const n = s.length;
+         let i = 0;
+         let inFence = false;
+         let fenceMark = '';
+         let fenceLen = 0;
+         let startLineStart = 0;
+
+         while (i < n) {
+           const lineStart = i;
+           // Find line end and newline length
+           let j = lineStart;
+           while (j < n && s.charCodeAt(j) !== 10 && s.charCodeAt(j) !== 13) j++;
+           const lineEnd = j;
+           let nl = 0;
+           if (j < n) {
+             if (s.charCodeAt(j) === 13 && j + 1 < n && s.charCodeAt(j + 1) === 10) nl = 2;
+             else nl = 1;
+           }
+
+           // Compute indentation up to 3 "spaces" (tabs count as 1 here – safe heuristic)
+           let k = lineStart;
+           let indent = 0;
+           while (k < lineEnd) {
+             const c = s.charCodeAt(k);
+             if (c === 32 /* space */) { indent++; if (indent > 3) break; k++; }
+             else if (c === 9 /* tab */) { indent++; if (indent > 3) break; k++; }
+             else break;
+           }
+
+           if (!inFence) {
+             if (indent <= 3 && k < lineEnd) {
+               const ch = s.charCodeAt(k);
+               if (ch === 0x60 /* ` */ || ch === 0x7E /* ~ */) {
+                 const mark = String.fromCharCode(ch);
+                 let m = k;
+                 while (m < lineEnd && s.charCodeAt(m) === ch) m++;
+                 const run = m - k;
+                 if (run >= 3) {
+                   inFence = true;
+                   fenceMark = mark;
+                   fenceLen = run;
+                   startLineStart = lineStart;
+                 }
+               }
+             }
+           } else {
+             if (indent <= 3 && k < lineEnd && s.charCodeAt(k) === fenceMark.charCodeAt(0)) {
+               let m = k;
+               while (m < lineEnd && s.charCodeAt(m) === fenceMark.charCodeAt(0)) m++;
+               const run = m - k;
+               if (run >= fenceLen) {
+                 // Only whitespace is allowed after closing fence on the same line
+                 let onlyWS = true;
+                 for (let t = m; t < lineEnd; t++) {
+                   const cc = s.charCodeAt(t);
+                   if (cc !== 32 && cc !== 9) { onlyWS = false; break; }
+                 }
+                 if (onlyWS) {
+                   const endIdx = lineEnd + nl; // include trailing newline if present
+                   ranges.push([startLineStart, endIdx]);
+                   inFence = false; fenceMark = ''; fenceLen = 0; startLineStart = 0;
+                 }
+               }
+             }
+           }
+           i = lineEnd + nl;
+         }
+
+         // If EOF while still in fence, mark until end of string.
+         if (inFence) ranges.push([startLineStart, n]);
+         return ranges;
+       }
+
+       // Check if match starts at "top-level" of a line:
+       // - up to 3 leading spaces/tabs allowed
+       // - not a list item marker ("- ", "+ ", "* ", "1. ", "1) ") and not a blockquote ("> ")
+       // - nothing else precedes the token on the same line
+       _isTopLevelLineInSource(s, absIdx) {
+         let ls = absIdx;
+         while (ls > 0) {
+           const ch = s.charCodeAt(ls - 1);
+           if (ch === 10 /* \n */ || ch === 13 /* \r */) break;
+           ls--;
+         }
+         const prefix = s.slice(ls, absIdx);
+
+         // Strip up to 3 leading "spaces" (tabs treated as 1 – acceptable heuristic)
+         let i = 0, indent = 0;
+         while (i < prefix.length) {
+           const c = prefix.charCodeAt(i);
+           if (c === 32) { indent++; if (indent > 3) break; i++; }
+           else if (c === 9) { indent++; if (indent > 3) break; i++; }
+           else break;
+         }
+         if (indent > 3) return false;
+         const rest = prefix.slice(i);
+
+         // Reject lists/blockquote
+         if (/^>\s?/.test(rest)) return false;
+         if (/^[-+*]\s/.test(rest)) return false;
+         if (/^\d+[.)]\s/.test(rest)) return false;
+
+         // If any other non-whitespace text precedes the token on this line – not top-level
+         if (rest.trim().length > 0) return false;
+
+         return true;
+       }
+
+       // Apply source-phase replacements to one outside-of-fence chunk with top-level guard.
+       _applySourceReplacementsInChunk(full, chunk, baseOffset, rules) {
+         let t = chunk;
+         for (let i = 0; i < rules.length; i++) {
+           const r = rules[i];
+           if (!r || !(r.openReplace || r.closeReplace)) continue;
+           try {
+             r.re.lastIndex = 0;
+             t = t.replace(r.re, (match, inner, offset /*, ...rest*/) => {
+               const abs = baseOffset + (offset | 0);
+               // Only apply when opener is at top-level on that line (not in lists/blockquote)
+               if (!this._isTopLevelLineInSource(full, abs)) return match;
+               const open = r.openReplace || '';
+               const close = r.closeReplace || '';
+               return open + (inner || '') + close;
+             });
+           } catch (_) { /* keep chunk as is on any error */ }
+         }
+         return t;
+       }
+     }
 
   // ==========================================================================
   // 5) Markdown runtime (markdown-it + code wrapper + math placeholders)
   // ==========================================================================
 
   class MarkdownRenderer {
-    constructor(cfg, customMarkup, logger, asyncer, raf) {
-      this.cfg = cfg; this.customMarkup = customMarkup; this.MD = null;
-      this.logger = logger || new Logger(cfg);
-      // Cooperative async utilities available in renderer for heavy decode/render paths
-      this.asyncer = asyncer || new AsyncRunner(cfg, raf);
-      this.raf = raf || null;
+      constructor(cfg, customMarkup, logger, asyncer, raf) {
+        this.cfg = cfg; this.customMarkup = customMarkup; this.MD = null;
+        this.logger = logger || new Logger(cfg);
+        // Cooperative async utilities available in renderer for heavy decode/render paths
+        this.asyncer = asyncer || new AsyncRunner(cfg, raf);
+        this.raf = raf || null;
 
-      // Fast-path streaming renderer without linkify to reduce regex work on hot path.
-      this.MD_STREAM = null;
+        // Fast-path streaming renderer without linkify to reduce regex work on hot path.
+        this.MD_STREAM = null;
 
-      this.hooks = {
-        observeNewCode: () => {},
-        observeMsgBoxes: () => {},
-        scheduleMathRender: () => {},
-        codeScrollInit: () => {}
-      };
-    }
-    // Initialize markdown-it instances and plugins.
-    init() {
-      if (!window.markdownit) { this.logger.log('[MD] markdown-it not found – rendering skipped.'); return; }
-      // Full renderer (used for non-hot paths, final results)
-      this.MD = window.markdownit({ html: false, linkify: true, breaks: true, highlight: () => '' });
-      // Streaming renderer (no linkify) – hot path
-      this.MD_STREAM = window.markdownit({ html: false, linkify: false, breaks: true, highlight: () => '' });
-
-      // SAFETY: disable CommonMark "indented code blocks" unless explicitly enabled.
-      if (!this.cfg.MD || this.cfg.MD.ALLOW_INDENTED_CODE !== true) {
-        try { this.MD.block.ruler.disable('code'); } catch (_) {}
-        try { this.MD_STREAM.block.ruler.disable('code'); } catch (_) {}
+        this.hooks = {
+          observeNewCode: () => {},
+          observeMsgBoxes: () => {},
+          scheduleMathRender: () => {},
+          codeScrollInit: () => {}
+        };
       }
+      // Initialize markdown-it instances and plugins.
+      init() {
+        if (!window.markdownit) { this.logger.log('[MD] markdown-it not found – rendering skipped.'); return; }
+        // Full renderer (used for non-hot paths, final results)
+        this.MD = window.markdownit({ html: false, linkify: true, breaks: true, highlight: () => '' });
+        // Streaming renderer (no linkify) – hot path
+        this.MD_STREAM = window.markdownit({ html: false, linkify: false, breaks: true, highlight: () => '' });
 
-      const escapeHtml = Utils.escapeHtml;
-
-      // Dollar and bracket math placeholder plugins: generate lightweight placeholders to be picked up by KaTeX later.
-      const mathDollarPlaceholderPlugin = (md) => {
-        function notEscaped(src, pos) { let back = 0; while (pos - back - 1 >= 0 && src.charCodeAt(pos - back - 1) === 0x5C) back++; return (back % 2) === 0; }
-        function math_block_dollar(state, startLine, endLine, silent) {
-          const pos = state.bMarks[startLine] + state.tShift[startLine];
-          const max = state.eMarks[startLine];
-          if (pos + 1 >= max) return false;
-          if (state.src.charCodeAt(pos) !== 0x24 || state.src.charCodeAt(pos + 1) !== 0x24) return false;
-          let nextLine = startLine + 1, found = false;
-          for (; nextLine < endLine; nextLine++) {
-            let p = state.bMarks[nextLine] + state.tShift[nextLine];
-            const pe = state.eMarks[nextLine];
-            if (p + 1 < pe && state.src.charCodeAt(p) === 0x24 && state.src.charCodeAt(p + 1) === 0x24) { found = true; break; }
-          }
-          if (!found) return false;
-          if (silent) return true;
-
-          const contentStart = state.bMarks[startLine] + state.tShift[startLine] + 2;
-          const contentEndLine = nextLine - 1;
-          let content = '';
-          if (contentEndLine >= startLine + 1) {
-            const startIdx = state.bMarks[startLine + 1];
-            const endIdx = state.eMarks[contentEndLine];
-            content = state.src.slice(startIdx, endIdx);
-          } else content = '';
-
-          const token = state.push('math_block_dollar', '', 0);
-          token.block = true; token.content = content; state.line = nextLine + 1; return true;
+        // SAFETY: disable CommonMark "indented code blocks" unless explicitly enabled.
+        if (!this.cfg.MD || this.cfg.MD.ALLOW_INDENTED_CODE !== true) {
+          try { this.MD.block.ruler.disable('code'); } catch (_) {}
+          try { this.MD_STREAM.block.ruler.disable('code'); } catch (_) {}
         }
-        function math_inline_dollar(state, silent) {
-          const pos = state.pos, src = state.src, max = state.posMax;
-          if (pos >= max) return false;
-          if (src.charCodeAt(pos) !== 0x24) return false;
-          if (pos + 1 < max && src.charCodeAt(pos + 1) === 0x24) return false;
-          const after = pos + 1 < max ? src.charCodeAt(pos + 1) : 0;
-          if (after === 0x20 || after === 0x0A || after === 0x0D) return false;
-          let i = pos + 1;
-          while (i < max) {
-            const ch = src.charCodeAt(i);
-            if (ch === 0x24 && notEscaped(src, i)) {
-              const before = i - 1 >= 0 ? src.charCodeAt(i - 1) : 0;
-              if (before === 0x20 || before === 0x0A || before === 0x0D) { i++; continue; }
-              break;
+
+        const escapeHtml = Utils.escapeHtml;
+
+        // Dollar and bracket math placeholder plugins: generate lightweight placeholders to be picked up by KaTeX later.
+        const mathDollarPlaceholderPlugin = (md) => {
+          function notEscaped(src, pos) { let back = 0; while (pos - back - 1 >= 0 && src.charCodeAt(pos - back - 1) === 0x5C) back++; return (back % 2) === 0; }
+          function math_block_dollar(state, startLine, endLine, silent) {
+            const pos = state.bMarks[startLine] + state.tShift[startLine];
+            const max = state.eMarks[startLine];
+            if (pos + 1 >= max) return false;
+            if (state.src.charCodeAt(pos) !== 0x24 || state.src.charCodeAt(pos + 1) !== 0x24) return false;
+            let nextLine = startLine + 1, found = false;
+            for (; nextLine < endLine; nextLine++) {
+              let p = state.bMarks[nextLine] + state.tShift[nextLine];
+              const pe = state.eMarks[nextLine];
+              if (p + 1 < pe && state.src.charCodeAt(p) === 0x24 && state.src.charCodeAt(p + 1) === 0x24) { found = true; break; }
             }
-            i++;
+            if (!found) return false;
+            if (silent) return true;
+
+            const contentStart = state.bMarks[startLine] + state.tShift[startLine] + 2;
+            const contentEndLine = nextLine - 1;
+            let content = '';
+            if (contentEndLine >= startLine + 1) {
+              const startIdx = state.bMarks[startLine + 1];
+              const endIdx = state.eMarks[contentEndLine];
+              content = state.src.slice(startIdx, endIdx);
+            } else content = '';
+
+            const token = state.push('math_block_dollar', '', 0);
+            token.block = true; token.content = content; state.line = nextLine + 1; return true;
           }
-          if (i >= max || src.charCodeAt(i) !== 0x24) return false;
+          function math_inline_dollar(state, silent) {
+            const pos = state.pos, src = state.src, max = state.posMax;
+            if (pos >= max) return false;
+            if (src.charCodeAt(pos) !== 0x24) return false;
+            if (pos + 1 < max && src.charCodeAt(pos + 1) === 0x24) return false;
+            const after = pos + 1 < max ? src.charCodeAt(pos + 1) : 0;
+            if (after === 0x20 || after === 0x0A || after === 0x0D) return false;
+            let i = pos + 1;
+            while (i < max) {
+              const ch = src.charCodeAt(i);
+              if (ch === 0x24 && notEscaped(src, i)) {
+                const before = i - 1 >= 0 ? src.charCodeAt(i - 1) : 0;
+                if (before === 0x20 || before === 0x0A || before === 0x0D) { i++; continue; }
+                break;
+              }
+              i++;
+            }
+            if (i >= max || src.charCodeAt(i) !== 0x24) return false;
 
-          if (!silent) {
-            const token = state.push('math_inline_dollar', '', 0);
-            token.block = false; token.content = src.slice(pos + 1, i);
+            if (!silent) {
+              const token = state.push('math_inline_dollar', '', 0);
+              token.block = false; token.content = src.slice(pos + 1, i);
+            }
+            state.pos = i + 1; return true;
           }
-          state.pos = i + 1; return true;
-        }
 
-        md.block.ruler.before('fence', 'math_block_dollar', math_block_dollar, { alt: ['paragraph', 'reference', 'blockquote', 'list'] });
-        md.inline.ruler.before('escape', 'math_inline_dollar', math_inline_dollar);
+          md.block.ruler.before('fence', 'math_block_dollar', math_block_dollar, { alt: ['paragraph', 'reference', 'blockquote', 'list'] });
+          md.inline.ruler.before('escape', 'math_inline_dollar', math_inline_dollar);
 
-        md.renderer.rules.math_inline_dollar = (tokens, idx) => {
-          const tex = tokens[idx].content || '';
-          return `<span class="math-pending" data-display="0"><span class="math-fallback">$${escapeHtml(tex)}$</span><script type="math/tex">${escapeHtml(tex)}</script></span>`;
-        };
-        md.renderer.rules.math_block_dollar = (tokens, idx) => {
-          const tex = tokens[idx].content || '';
-          return `<div class="math-pending" data-display="1"><div class="math-fallback">$$${escapeHtml(tex)}$$</div><script type="math/tex; mode=display">${escapeHtml(tex)}</script></div>`;
-        };
-      };
-
-      const mathBracketsPlaceholderPlugin = (md) => {
-        function math_brackets(state, silent) {
-          const src = state.src, pos = state.pos, max = state.posMax;
-          if (pos + 1 >= max || src.charCodeAt(pos) !== 0x5C) return false;
-          const next = src.charCodeAt(pos + 1);
-          if (next !== 0x28 && next !== 0x5B) return false;
-          const isInline = (next === 0x28); const close = isInline ? '\\)' : '\\]';
-          const start = pos + 2; const end = src.indexOf(close, start);
-          if (end < 0) return false;
-          const content = src.slice(start, end);
-          if (!silent) {
-            const t = state.push(isInline ? 'math_inline_bracket' : 'math_block_bracket', '', 0);
-            t.content = content; t.block = !isInline;
-          }
-          state.pos = end + 2; return true;
-        }
-        md.inline.ruler.before('escape', 'math_brackets', math_brackets);
-        md.renderer.rules.math_inline_bracket = (tokens, idx) => {
-          const tex = tokens[idx].content || '';
-          return `<span class="math-pending" data-display="0"><span class="math-fallback">\\(${escapeHtml(tex)}\\)</span><script type="math/tex">${escapeHtml(tex)}</script></span>`;
-        };
-        md.renderer.rules.math_block_bracket = (tokens, idx) => {
-          const tex = tokens[idx].content || '';
-          return `<div class="math-pending" data-display="1"><div class="math-fallback">\\[${escapeHtml(tex)}\\]</div><script type="math/tex; mode=display">${escapeHtml(tex)}</script></div>`;
-        };
-      };
-
-      this.MD.use(mathDollarPlaceholderPlugin);
-      this.MD.use(mathBracketsPlaceholderPlugin);
-      this.MD_STREAM.use(mathDollarPlaceholderPlugin);
-      this.MD_STREAM.use(mathBracketsPlaceholderPlugin);
-
-      const cfg = this.cfg; const logger = this.logger;
-      (function codeWrapperPlugin(md, logger) {
-        let CODE_IDX = 1;
-        const log = (line, ctx) => logger.debug('MD_LANG', line, ctx);
-
-        const DEDUP = (window.MD_LANG_LOG_DEDUP !== false);
-        const seenFP = new Set();
-        const makeFP = (info, raw) => {
-          const head = (raw || '').slice(0, 96);
-          return String(info || '') + '|' + String((raw || '').length) + '|' + head;
+          md.renderer.rules.math_inline_dollar = (tokens, idx) => {
+            const tex = tokens[idx].content || '';
+            return `<span class="math-pending" data-display="0"><span class="math-fallback">$${escapeHtml(tex)}$</span><script type="math/tex">${escapeHtml(tex)}</script></span>`;
+          };
+          md.renderer.rules.math_block_dollar = (tokens, idx) => {
+            const tex = tokens[idx].content || '';
+            return `<div class="math-pending" data-display="1"><div class="math-fallback">$$${escapeHtml(tex)}$$</div><script type="math/tex; mode=display">${escapeHtml(tex)}</script></div>`;
+          };
         };
 
-        const ALIAS = {
-          txt: 'plaintext', text: 'plaintext', plaintext: 'plaintext',
-          sh: 'bash', shell: 'bash', zsh: 'bash', 'shell-session': 'bash',
-          py: 'python', python3: 'python', py3: 'python',
-          js: 'javascript', node: 'javascript', nodejs: 'javascript',
-          ts: 'typescript', 'ts-node': 'typescript',
-          yml: 'yaml', kt: 'kotlin', rs: 'rust',
-          csharp: 'csharp', 'c#': 'csharp', 'c++': 'cpp',
-          ps: 'powershell', ps1: 'powershell', pwsh: 'powershell', powershell7: 'powershell',
-          docker: 'dockerfile'
-        };
-        function normLang(s) { if (!s) return ''; const v = String(s).trim().toLowerCase(); return ALIAS[v] || v; }
-        function isSupportedByHLJS(lang) { try { return !!(window.hljs && hljs.getLanguage && hljs.getLanguage(lang)); } catch (_) { return false; } }
-        function classForHighlight(lang) { if (!lang) return 'plaintext'; return isSupportedByHLJS(lang) ? lang : 'plaintext'; }
-        function stripBOM(s) { return (s && s.charCodeAt(0) === 0xFEFF) ? s.slice(1) : s; }
-
-        function detectFromFirstLine(raw, rid) {
-          if (!raw) return { lang: '', content: raw, isOutput: false };
-          const lines = raw.split(/\r?\n/);
-          if (!lines.length) return { lang: '', content: raw, isOutput: false };
-          let i = 0; while (i < lines.length && !lines[i].trim()) i++;
-          if (i >= lines.length) { log(`#${rid} first-line: only whitespace`); return { lang: '', content: raw, isOutput: false }; }
-          let first = stripBOM(lines[i]).trim();
-          first = first.replace(/^\s*lang(?:uage)?\s*[:=]\s*/i, '').trim();
-          let token = first.split(/\s+/)[0].replace(/:$/, '');
-          if (!/^[A-Za-z][\w#+\-\.]{0,30}$/.test(token)) { log(`#${rid} first-line: no token match`, { first }); return { lang: '', content: raw, isOutput: false }; }
-          let cand = normLang(token);
-          if (cand === 'output') {
-            const content = lines.slice(i + 1).join('\n');
-            log(`#${rid} first-line: output header`);
-            return { lang: 'python', headerLabel: 'output', content, isOutput: true };
+        const mathBracketsPlaceholderPlugin = (md) => {
+          function math_brackets(state, silent) {
+            const src = state.src, pos = state.pos, max = state.posMax;
+            if (pos + 1 >= max || src.charCodeAt(pos) !== 0x5C) return false;
+            const next = src.charCodeAt(pos + 1);
+            if (next !== 0x28 && next !== 0x5B) return false;
+            const isInline = (next === 0x28); const close = isInline ? '\\)' : '\\]';
+            const start = pos + 2; const end = src.indexOf(close, start);
+            if (end < 0) return false;
+            const content = src.slice(start, end);
+            if (!silent) {
+              const t = state.push(isInline ? 'math_inline_bracket' : 'math_block_bracket', '', 0);
+              t.content = content; t.block = !isInline;
+            }
+            state.pos = end + 2; return true;
           }
-          const rest = lines.slice(i + 1).join('\n');
-          if (!rest.trim()) { log(`#${rid} first-line: directive but no content after, ignore`, { cand }); return { lang: '', content: raw, isOutput: false }; }
-          log(`#${rid} first-line: directive accepted`, { cand, restLen: rest.length, hljs: isSupportedByHLJS(cand) });
-          return { lang: cand, headerLabel: cand, content: rest, isOutput: false };
-        }
-
-        md.renderer.rules.fence = (tokens, idx) => renderFence(tokens[idx]);
-        md.renderer.rules.code_block = (tokens, idx) => renderFence({ info: '', content: tokens[idx].content || '' });
-
-        function resolveLanguageAndContent(info, raw, rid) {
-          const infoLangRaw = (info || '').trim().split(/\s+/)[0] || '';
-          let cand = normLang(infoLangRaw);
-          if (cand === 'output') {
-            log(`#${rid} info: output header`);
-            return { lang: 'python', headerLabel: 'output', content: raw, isOutput: true };
-          }
-          if (cand) {
-            log(`#${rid} info: token`, { infoLangRaw, cand, hljs: isSupportedByHLJS(cand) });
-            return { lang: cand, headerLabel: cand, content: raw, isOutput: false };
-          }
-          const det = detectFromFirstLine(raw, rid);
-          if (det && (det.lang || det.isOutput)) return det;
-          log(`#${rid} resolve: fallback`);
-          return { lang: '', headerLabel: 'code', content: raw, isOutput: false };
-        }
-
-        function renderFence(token) {
-          const raw = token.content || '';
-          const rid = String(CODE_IDX + '');
-          const fp = makeFP(token.info || '', raw);
-          const canLog = !DEDUP || !seenFP.has(fp);
-          if (canLog) log(`FENCE_ENTER #${rid}`, { info: (token.info || ''), rawHead: logger.pv(raw) });
-
-          const res = resolveLanguageAndContent(token.info || '', raw, rid);
-          const isOutput = !!res.isOutput;
-          const headerLabel = isOutput ? 'output' : (res.headerLabel || (res.lang || 'code'));
-          const langClass = isOutput ? 'python' : classForHighlight(res.lang);
-
-          if (canLog) {
-            log(`FENCE_RESOLVE #${rid}`, { headerLabel, langToken: (res.lang || ''), langClass, hljsSupported: isSupportedByHLJS(res.lang || ''), contentLen: (res.content || '').length });
-            if (DEDUP) seenFP.add(fp);
-          }
-
-          // precompute code meta to avoid expensive .textContent on next phases
-          const content = res.content || '';
-          const len = content.length;
-          const head = content.slice(0, 64);
-          const tail = content.slice(-64);
-          const headEsc = Utils.escapeHtml(head);
-          const tailEsc = Utils.escapeHtml(tail);
-          // Note: for full renderer we will also persist data-code-nl (see below).
-
-          const inner = Utils.escapeHtml(content);
-          const idxLocal = CODE_IDX++;
-
-          let actions = '';
-          if (langClass === 'html') {
-            actions += `<a href="empty:${idxLocal}" class="code-header-action code-header-preview"><img src="${cfg.ICONS.CODE_PREVIEW}" class="action-img" data-id="${idxLocal}"><span>${Utils.escapeHtml(cfg.LOCALE.PREVIEW)}</span></a>`;
-          } else if (langClass === 'python' && headerLabel !== 'output') {
-            actions += `<a href="empty:${idxLocal}" class="code-header-action code-header-run"><img src="${cfg.ICONS.CODE_RUN}" class="action-img" data-id="${idxLocal}"><span>${Utils.escapeHtml(cfg.LOCALE.RUN)}</span></a>`;
-          }
-          actions += `<a href="empty:${idxLocal}" class="code-header-action code-header-collapse"><img src="${cfg.ICONS.CODE_MENU}" class="action-img" data-id="${idxLocal}"><span>${Utils.escapeHtml(cfg.LOCALE.COLLAPSE)}</span></a>`;
-          actions += `<a href="empty:${idxLocal}" class="code-header-action code-header-copy"><img src="${cfg.ICONS.CODE_COPY}" class="action-img" data-id="${idxLocal}"><span>${Utils.escapeHtml(cfg.LOCALE.COPY)}</span></a>`;
-
-          // attach precomputed meta (len/head/tail) on wrapper for downstream optimizations
-          return (
-            `<div class="code-wrapper highlight" data-index="${idxLocal}"` +
-            ` data-code-lang="${Utils.escapeHtml(res.lang || '')}"` +
-            ` data-code-len="${String(len)}" data-code-head="${headEsc}" data-code-tail="${tailEsc}"` + // meta (no nl here – only in full renderer)
-            ` data-locale-collapse="${Utils.escapeHtml(cfg.LOCALE.COLLAPSE)}" data-locale-expand="${Utils.escapeHtml(cfg.LOCALE.EXPAND)}"` +
-            ` data-locale-copy="${Utils.escapeHtml(cfg.LOCALE.COPY)}" data-locale-copied="${Utils.escapeHtml(cfg.LOCALE.COPIED)}" data-style="${Utils.escapeHtml(cfg.CODE_STYLE)}">` +
-              `<p class="code-header-wrapper"><span><span class="code-header-lang">${Utils.escapeHtml(headerLabel)}   </span>${actions}</span></p>` +
-              `<pre><code class="language-${Utils.escapeHtml(langClass)} hljs">${inner}</code></pre>` +
-            `</div>`
-          );
-        }
-      })(this.MD_STREAM, this.logger);
-
-      // Apply wrapper plugin to full renderer with extra meta (includes number of lines).
-      (function codeWrapperPlugin(md, logger) {
-        // identical core logic – augmented with data-code-nl for full renderer
-        let CODE_IDX = 1;
-        const log = (line, ctx) => logger.debug('MD_LANG', line, ctx);
-
-        const DEDUP = (window.MD_LANG_LOG_DEDUP !== false);
-        const seenFP = new Set();
-        const makeFP = (info, raw) => {
-          const head = (raw || '').slice(0, 96);
-          return String(info || '') + '|' + String((raw || '').length) + '|' + head;
+          md.inline.ruler.before('escape', 'math_brackets', math_brackets);
+          md.renderer.rules.math_inline_bracket = (tokens, idx) => {
+            const tex = tokens[idx].content || '';
+            return `<span class="math-pending" data-display="0"><span class="math-fallback">\\(${escapeHtml(tex)}\\)</span><script type="math/tex">${escapeHtml(tex)}</script></span>`;
+          };
+          md.renderer.rules.math_block_bracket = (tokens, idx) => {
+            const tex = tokens[idx].content || '';
+            return `<div class="math-pending" data-display="1"><div class="math-fallback">\\[${escapeHtml(tex)}\\]</div><script type="math/tex; mode=display">${escapeHtml(tex)}</script></div>`;
+          };
         };
 
-        const ALIAS = {
-          txt: 'plaintext', text: 'plaintext', plaintext: 'plaintext',
-          sh: 'bash', shell: 'bash', zsh: 'bash', 'shell-session': 'bash',
-          py: 'python', python3: 'python', py3: 'python',
-          js: 'javascript', node: 'javascript', nodejs: 'javascript',
-          ts: 'typescript', 'ts-node': 'typescript',
-          yml: 'yaml', kt: 'kotlin', rs: 'rust',
-          csharp: 'csharp', 'c#': 'csharp', 'c++': 'cpp',
-          ps: 'powershell', ps1: 'powershell', pwsh: 'powershell', powershell7: 'powershell',
-          docker: 'dockerfile'
-        };
-        function normLang(s) { if (!s) return ''; const v = String(s).trim().toLowerCase(); return ALIAS[v] || v; }
-        function isSupportedByHLJS(lang) { try { return !!(window.hljs && hljs.getLanguage && hljs.getLanguage(lang)); } catch (_) { return false; } }
-        function classForHighlight(lang) { if (!lang) return 'plaintext'; return isSupportedByHLJS(lang) ? lang : 'plaintext'; }
-        function stripBOM(s) { return (s && s.charCodeAt(0) === 0xFEFF) ? s.slice(1) : s; }
+        this.MD.use(mathDollarPlaceholderPlugin);
+        this.MD.use(mathBracketsPlaceholderPlugin);
+        this.MD_STREAM.use(mathDollarPlaceholderPlugin);
+        this.MD_STREAM.use(mathBracketsPlaceholderPlugin);
 
-        function detectFromFirstLine(raw, rid) {
-          if (!raw) return { lang: '', content: raw, isOutput: false };
-          const lines = raw.split(/\r?\n/);
-          if (!lines.length) return { lang: '', content: raw, isOutput: false };
-          let i = 0; while (i < lines.length && !lines[i].trim()) i++;
-          if (i >= lines.length) { log(`#${rid} first-line: only whitespace`); return { lang: '', content: raw, isOutput: false }; }
-          let first = stripBOM(lines[i]).trim();
-          first = first.replace(/^\s*lang(?:uage)?\s*[:=]\s*/i, '').trim();
-          let token = first.split(/\s+/)[0].replace(/:$/, '');
-          if (!/^[A-Za-z][\w#+\-\.]{0,30}$/.test(token)) { log(`#${rid} first-line: no token match`, { first }); return { lang: '', content: raw, isOutput: false }; }
-          let cand = normLang(token);
-          if (cand === 'output') {
-            const content = lines.slice(i + 1).join('\n');
-            log(`#${rid} first-line: output header`);
-            return { lang: 'python', headerLabel: 'output', content, isOutput: true };
-          }
-          const rest = lines.slice(i + 1).join('\n');
-          if (!rest.trim()) { log(`#${rid} first-line: directive but no content after, ignore`, { cand }); return { lang: '', content: raw, isOutput: false }; }
-          log(`#${rid} first-line: directive accepted`, { cand, restLen: rest.length, hljs: isSupportedByHLJS(cand) });
-          return { lang: cand, headerLabel: cand, content: rest, isOutput: false };
-        }
+        const cfg = this.cfg; const logger = this.logger;
 
-        md.renderer.rules.fence = (tokens, idx) => renderFence(tokens[idx]);
-        md.renderer.rules.code_block = (tokens, idx) => renderFence({ info: '', content: tokens[idx].content || '' });
+        // STREAMING wrapper plugin (modified header label guard)
+        (function codeWrapperPlugin(md, logger) {
+          let CODE_IDX = 1;
+          const log = (line, ctx) => logger.debug('MD_LANG', line, ctx);
 
-        function resolveLanguageAndContent(info, raw, rid) {
-          const infoLangRaw = (info || '').trim().split(/\s+/)[0] || '';
-          let cand = normLang(infoLangRaw);
-          if (cand === 'output') {
-            log(`#${rid} info: output header`);
-            return { lang: 'python', headerLabel: 'output', content: raw, isOutput: true };
-          }
-          if (cand) {
-            log(`#${rid} info: token`, { infoLangRaw, cand, hljs: isSupportedByHLJS(cand) });
-            return { lang: cand, headerLabel: cand, content: raw, isOutput: false };
-          }
-          const det = detectFromFirstLine(raw, rid);
-          if (det && (det.lang || det.isOutput)) return det;
-          log(`#${rid} resolve: fallback`);
-          return { lang: '', headerLabel: 'code', content: raw, isOutput: false };
-        }
+          const DEDUP = (window.MD_LANG_LOG_DEDUP !== false);
+          const seenFP = new Set();
+          const makeFP = (info, raw) => {
+            const head = (raw || '').slice(0, 96);
+            return String(info || '') + '|' + String((raw || '').length) + '|' + head;
+          };
 
-        function renderFence(token) {
-          const raw = token.content || '';
-          const rid = String(CODE_IDX + '');
-          const fp = makeFP(token.info || '', raw);
-          const canLog = !DEDUP || !seenFP.has(fp);
-          if (canLog) log(`FENCE_ENTER #${rid}`, { info: (token.info || ''), rawHead: logger.pv(raw) });
+          const ALIAS = {
+            txt: 'plaintext', text: 'plaintext', plaintext: 'plaintext',
+            sh: 'bash', shell: 'bash', zsh: 'bash', 'shell-session': 'bash',
+            py: 'python', python3: 'python', py3: 'python',
+            js: 'javascript', node: 'javascript', nodejs: 'javascript',
+            ts: 'typescript', 'ts-node': 'typescript',
+            yml: 'yaml', kt: 'kotlin', rs: 'rust',
+            csharp: 'csharp', 'c#': 'csharp', 'c++': 'cpp',
+            ps: 'powershell', ps1: 'powershell', pwsh: 'powershell', powershell7: 'powershell',
+            docker: 'dockerfile'
+          };
+          function normLang(s) { if (!s) return ''; const v = String(s).trim().toLowerCase(); return ALIAS[v] || v; }
+          function isSupportedByHLJS(lang) { try { return !!(window.hljs && hljs.getLanguage && hljs.getLanguage(lang)); } catch (_) { return false; } }
+          function classForHighlight(lang) { if (!lang) return 'plaintext'; return isSupportedByHLJS(lang) ? lang : 'plaintext'; }
+          function stripBOM(s) { return (s && s.charCodeAt(0) === 0xFEFF) ? s.slice(1) : s; }
 
-          const res = resolveLanguageAndContent(token.info || '', raw, rid);
-          const isOutput = !!res.isOutput;
-          const headerLabel = isOutput ? 'output' : (res.headerLabel || (res.lang || 'code'));
-          const langClass = isOutput ? 'python' : classForHighlight(res.lang);
-
-          if (canLog) {
-            log(`FENCE_RESOLVE #${rid}`, { headerLabel, langToken: (res.lang || ''), langClass, hljsSupported: isSupportedByHLJS(res.lang || ''), contentLen: (res.content || '').length });
-            if (DEDUP) seenFP.add(fp);
+          function detectFromFirstLine(raw, rid) {
+            if (!raw) return { lang: '', content: raw, isOutput: false };
+            const lines = raw.split(/\r?\n/);
+            if (!lines.length) return { lang: '', content: raw, isOutput: false };
+            let i = 0; while (i < lines.length && !lines[i].trim()) i++;
+            if (i >= lines.length) { log(`#${rid} first-line: only whitespace`); return { lang: '', content: raw, isOutput: false }; }
+            let first = stripBOM(lines[i]).trim();
+            first = first.replace(/^\s*lang(?:uage)?\s*[:=]\s*/i, '').trim();
+            let token = first.split(/\s+/)[0].replace(/:$/, '');
+            if (!/^[A-Za-z][\w#+\-\.]{0,30}$/.test(token)) { log(`#${rid} first-line: no token match`, { first }); return { lang: '', content: raw, isOutput: false }; }
+            let cand = normLang(token);
+            if (cand === 'output') {
+              const content = lines.slice(i + 1).join('\n');
+              log(`#${rid} first-line: output header`);
+              return { lang: 'python', headerLabel: 'output', content, isOutput: true };
+            }
+            const rest = lines.slice(i + 1).join('\n');
+            if (!rest.trim()) { log(`#${rid} first-line: directive but no content after, ignore`, { cand }); return { lang: '', content: raw, isOutput: false }; }
+            log(`#${rid} first-line: directive accepted`, { cand, restLen: rest.length, hljs: isSupportedByHLJS(cand) });
+            return { lang: cand, headerLabel: cand, content: rest, isOutput: false };
           }
 
-          // precompute code meta
-          const content = res.content || '';
-          const len = content.length;
-          const head = content.slice(0, 64);
-          const tail = content.slice(-64);
-          const headEsc = Utils.escapeHtml(head);
-          const tailEsc = Utils.escapeHtml(tail);
-          const nl = Utils.countNewlines(content);
+          md.renderer.rules.fence = (tokens, idx) => renderFence(tokens[idx]);
+          md.renderer.rules.code_block = (tokens, idx) => renderFence({ info: '', content: tokens[idx].content || '' });
 
-          const inner = Utils.escapeHtml(content);
-          const idxLocal = CODE_IDX++;
-
-          let actions = '';
-          if (langClass === 'html') {
-            actions += `<a href="empty:${idxLocal}" class="code-header-action code-header-preview"><img src="${cfg.ICONS.CODE_PREVIEW}" class="action-img" data-id="${idxLocal}"><span>${Utils.escapeHtml(cfg.LOCALE.PREVIEW)}</span></a>`;
-          } else if (langClass === 'python' && headerLabel !== 'output') {
-            actions += `<a href="empty:${idxLocal}" class="code-header-action code-header-run"><img src="${cfg.ICONS.CODE_RUN}" class="action-img" data-id="${idxLocal}"><span>${Utils.escapeHtml(cfg.LOCALE.RUN)}</span></a>`;
+          function resolveLanguageAndContent(info, raw, rid) {
+            const infoLangRaw = (info || '').trim().split(/\s+/)[0] || '';
+            let cand = normLang(infoLangRaw);
+            if (cand === 'output') {
+              log(`#${rid} info: output header`);
+              return { lang: 'python', headerLabel: 'output', content: raw, isOutput: true };
+            }
+            if (cand) {
+              log(`#${rid} info: token`, { infoLangRaw, cand, hljs: isSupportedByHLJS(cand) });
+              return { lang: cand, headerLabel: cand, content: raw, isOutput: false };
+            }
+            const det = detectFromFirstLine(raw, rid);
+            if (det && (det.lang || det.isOutput)) return det;
+            log(`#${rid} resolve: fallback`);
+            return { lang: '', headerLabel: 'code', content: raw, isOutput: false };
           }
-          actions += `<a href="empty:${idxLocal}" class="code-header-action code-header-collapse"><img src="${cfg.ICONS.CODE_MENU}" class="action-img" data-id="${idxLocal}"><span>${Utils.escapeHtml(cfg.LOCALE.COLLAPSE)}</span></a>`;
-          actions += `<a href="empty:${idxLocal}" class="code-header-action code-header-copy"><img src="${cfg.ICONS.CODE_COPY}" class="action-img" data-id="${idxLocal}"><span>${Utils.escapeHtml(cfg.LOCALE.COPY)}</span></a>`;
 
-          return (
-            `<div class="code-wrapper highlight" data-index="${idxLocal}"` +
-            ` data-code-lang="${Utils.escapeHtml(res.lang || '')}"` +
-            ` data-code-len="${String(len)}" data-code-head="${headEsc}" data-code-tail="${tailEsc}" data-code-nl="${String(nl)}"` + // include nl for full renderer
-            ` data-locale-collapse="${Utils.escapeHtml(cfg.LOCALE.COLLAPSE)}" data-locale-expand="${Utils.escapeHtml(cfg.LOCALE.EXPAND)}"` +
-            ` data-locale-copy="${Utils.escapeHtml(cfg.LOCALE.COPY)}" data-locale-copied="${Utils.escapeHtml(cfg.LOCALE.COPIED)}" data-style="${Utils.escapeHtml(cfg.CODE_STYLE)}">` +
-              `<p class="code-header-wrapper"><span><span class="code-header-lang">${Utils.escapeHtml(headerLabel)}   </span>${actions}</span></p>` +
-              `<pre><code class="language-${Utils.escapeHtml(langClass)} hljs">${inner}</code></pre>` +
-            `</div>`
-          );
-        }
-      })(this.MD, this.logger);
-    }
-    // Replace "sandbox:" links with file:// in markdown source (host policy).
-    preprocessMD(s) { return (s || '').replace(/\]\(sandbox:/g, '](file://'); }
-    // Decode base64 UTF-8 to string (shared TextDecoder).
-    b64ToUtf8(b64) {
-      const bin = atob(b64);
-      const bytes = new Uint8Array(bin.length);
-      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-      return Utils.utf8Decode(bytes);
-    }
+          function renderFence(token) {
+            const raw = token.content || '';
+            const rid = String(CODE_IDX + '');
+            const fp = makeFP(token.info || '', raw);
+            const canLog = !DEDUP || !seenFP.has(fp);
+            if (canLog) log(`FENCE_ENTER #${rid}`, { info: (token.info || ''), rawHead: logger.pv(raw) });
 
-    // Apply custom markup for bot messages only (method name kept for API).
-    applyCustomMarkupForBots(root) {
-      const MD = this.MD;
-      try {
-        const scope = root || document;
-        const targets = [];
+            const res = resolveLanguageAndContent(token.info || '', raw, rid);
+            const isOutput = !!res.isOutput;
 
-        // If scope itself is a bot message box
-        if (scope && scope.nodeType === 1 && scope.classList && scope.classList.contains('msg-box') &&
-            scope.classList.contains('msg-bot')) {
-          targets.push(scope);
-        }
+            // Choose class and a safe header label (avoid 'on', 'ml', 's' etc.)
+            const rawToken = (res.lang || '').trim();
+            const langClass = isOutput ? 'python' : classForHighlight(rawToken);
 
-        // Collect bot message boxes within the scope
-        if (scope && typeof scope.querySelectorAll === 'function') {
-          const list = scope.querySelectorAll('.msg-box.msg-bot');
-          for (let i = 0; i < list.length; i++) targets.push(list[i]);
-        }
+            // Guard against tiny unsupported tokens – show temporary 'code' instead of partial suffix.
+            let headerLabel = isOutput ? 'output' : (res.headerLabel || (rawToken || 'code'));
+            if (!isOutput) {
+              if (rawToken && !isSupportedByHLJS(rawToken) && rawToken.length < 3) {
+                headerLabel = 'code';
+              }
+            }
 
-        // If scope is inside a bot message, include the closest ancestor as well
-        if (scope && scope.nodeType === 1 && typeof scope.closest === 'function') {
-          const closestMsg = scope.closest('.msg-box.msg-bot');
-          if (closestMsg) targets.push(closestMsg);
-        }
+            if (canLog) {
+              log(`FENCE_RESOLVE #${rid}`, { headerLabel, langToken: (res.lang || ''), langClass, hljsSupported: isSupportedByHLJS(res.lang || ''), contentLen: (res.content || '').length });
+              if (DEDUP) seenFP.add(fp);
+            }
 
-        // Deduplicate and apply rules only to bot messages
-        const seen = new Set();
-        for (const el of targets) {
-          if (!el || !el.isConnected || seen.has(el)) continue;
-          seen.add(el);
-          this.customMarkup.apply(el, MD);
-        }
-      } catch (_) {
-        // Keep render path resilient
+            // precompute code meta to avoid expensive .textContent on next phases
+            const content = res.content || '';
+            const len = content.length;
+            const head = content.slice(0, 64);
+            const tail = content.slice(-64);
+            const headEsc = Utils.escapeHtml(head);
+            const tailEsc = Utils.escapeHtml(tail);
+            // Note: for full renderer we will also persist data-code-nl (see below).
+
+            const inner = Utils.escapeHtml(content);
+            const idxLocal = CODE_IDX++;
+
+            let actions = '';
+            if (langClass === 'html') {
+              actions += `<a href="empty:${idxLocal}" class="code-header-action code-header-preview"><img src="${cfg.ICONS.CODE_PREVIEW}" class="action-img" data-id="${idxLocal}"><span>${Utils.escapeHtml(cfg.LOCALE.PREVIEW)}</span></a>`;
+            } else if (langClass === 'python' && headerLabel !== 'output') {
+              actions += `<a href="empty:${idxLocal}" class="code-header-action code-header-run"><img src="${cfg.ICONS.CODE_RUN}" class="action-img" data-id="${idxLocal}"><span>${Utils.escapeHtml(cfg.LOCALE.RUN)}</span></a>`;
+            }
+            actions += `<a href="empty:${idxLocal}" class="code-header-action code-header-collapse"><img src="${cfg.ICONS.CODE_MENU}" class="action-img" data-id="${idxLocal}"><span>${Utils.escapeHtml(cfg.LOCALE.COLLAPSE)}</span></a>`;
+            actions += `<a href="empty:${idxLocal}" class="code-header-action code-header-copy"><img src="${cfg.ICONS.CODE_COPY}" class="action-img" data-id="${idxLocal}"><span>${Utils.escapeHtml(cfg.LOCALE.COPY)}</span></a>`;
+
+            // attach precomputed meta (len/head/tail) on wrapper for downstream optimizations
+            return (
+              `<div class="code-wrapper highlight" data-index="${idxLocal}"` +
+              ` data-code-lang="${Utils.escapeHtml(res.lang || '')}"` +
+              ` data-code-len="${String(len)}" data-code-head="${headEsc}" data-code-tail="${tailEsc}"` + // meta (no nl here – only in full renderer)
+              ` data-locale-collapse="${Utils.escapeHtml(cfg.LOCALE.COLLAPSE)}" data-locale-expand="${Utils.escapeHtml(cfg.LOCALE.EXPAND)}"` +
+              ` data-locale-copy="${Utils.escapeHtml(cfg.LOCALE.COPY)}" data-locale-copied="${Utils.escapeHtml(cfg.LOCALE.COPIED)}" data-style="${Utils.escapeHtml(cfg.CODE_STYLE)}">` +
+                `<p class="code-header-wrapper"><span><span class="code-header-lang">${Utils.escapeHtml(headerLabel)}   </span>${actions}</span></p>` +
+                `<pre><code class="language-${Utils.escapeHtml(langClass)} hljs">${inner}</code></pre>` +
+              `</div>`
+            );
+          }
+        })(this.MD_STREAM, this.logger);
+
+        // FULL renderer wrapper plugin (modified header label guard)
+        (function codeWrapperPlugin(md, logger) {
+          // identical core logic – augmented with data-code-nl for full renderer
+          let CODE_IDX = 1;
+          const log = (line, ctx) => logger.debug('MD_LANG', line, ctx);
+
+          const DEDUP = (window.MD_LANG_LOG_DEDUP !== false);
+          const seenFP = new Set();
+          const makeFP = (info, raw) => {
+            const head = (raw || '').slice(0, 96);
+            return String(info || '') + '|' + String((raw || '').length) + '|' + head;
+          };
+
+          const ALIAS = {
+            txt: 'plaintext', text: 'plaintext', plaintext: 'plaintext',
+            sh: 'bash', shell: 'bash', zsh: 'bash', 'shell-session': 'bash',
+            py: 'python', python3: 'python', py3: 'python',
+            js: 'javascript', node: 'javascript', nodejs: 'javascript',
+            ts: 'typescript', 'ts-node': 'typescript',
+            yml: 'yaml', kt: 'kotlin', rs: 'rust',
+            csharp: 'csharp', 'c#': 'csharp', 'c++': 'cpp',
+            ps: 'powershell', ps1: 'powershell', pwsh: 'powershell', powershell7: 'powershell',
+            docker: 'dockerfile'
+          };
+          function normLang(s) { if (!s) return ''; const v = String(s).trim().toLowerCase(); return ALIAS[v] || v; }
+          function isSupportedByHLJS(lang) { try { return !!(window.hljs && hljs.getLanguage && hljs.getLanguage(lang)); } catch (_) { return false; } }
+          function classForHighlight(lang) { if (!lang) return 'plaintext'; return isSupportedByHLJS(lang) ? lang : 'plaintext'; }
+          function stripBOM(s) { return (s && s.charCodeAt(0) === 0xFEFF) ? s.slice(1) : s; }
+
+          function detectFromFirstLine(raw, rid) {
+            if (!raw) return { lang: '', content: raw, isOutput: false };
+            const lines = raw.split(/\r?\n/);
+            if (!lines.length) return { lang: '', content: raw, isOutput: false };
+            let i = 0; while (i < lines.length && !lines[i].trim()) i++;
+            if (i >= lines.length) { log(`#${rid} first-line: only whitespace`); return { lang: '', content: raw, isOutput: false }; }
+            let first = stripBOM(lines[i]).trim();
+            first = first.replace(/^\s*lang(?:uage)?\s*[:=]\s*/i, '').trim();
+            let token = first.split(/\s+/)[0].replace(/:$/, '');
+            if (!/^[A-Za-z][\w#+\-\.]{0,30}$/.test(token)) { log(`#${rid} first-line: no token match`, { first }); return { lang: '', content: raw, isOutput: false }; }
+            let cand = normLang(token);
+            if (cand === 'output') {
+              const content = lines.slice(i + 1).join('\n');
+              log(`#${rid} first-line: output header`);
+              return { lang: 'python', headerLabel: 'output', content, isOutput: true };
+            }
+            const rest = lines.slice(i + 1).join('\n');
+            if (!rest.trim()) { log(`#${rid} first-line: directive but no content after, ignore`, { cand }); return { lang: '', content: raw, isOutput: false }; }
+            log(`#${rid} first-line: directive accepted`, { cand, restLen: rest.length, hljs: isSupportedByHLJS(cand) });
+            return { lang: cand, headerLabel: cand, content: rest, isOutput: false };
+          }
+
+          md.renderer.rules.fence = (tokens, idx) => renderFence(tokens[idx]);
+          md.renderer.rules.code_block = (tokens, idx) => renderFence({ info: '', content: tokens[idx].content || '' });
+
+          function resolveLanguageAndContent(info, raw, rid) {
+            const infoLangRaw = (info || '').trim().split(/\s+/)[0] || '';
+            let cand = normLang(infoLangRaw);
+            if (cand === 'output') {
+              log(`#${rid} info: output header`);
+              return { lang: 'python', headerLabel: 'output', content: raw, isOutput: true };
+            }
+            if (cand) {
+              log(`#${rid} info: token`, { infoLangRaw, cand, hljs: isSupportedByHLJS(cand) });
+              return { lang: cand, headerLabel: cand, content: raw, isOutput: false };
+            }
+            const det = detectFromFirstLine(raw, rid);
+            if (det && (det.lang || det.isOutput)) return det;
+            log(`#${rid} resolve: fallback`);
+            return { lang: '', headerLabel: 'code', content: raw, isOutput: false };
+          }
+
+          function renderFence(token) {
+            const raw = token.content || '';
+            const rid = String(CODE_IDX + '');
+            const fp = makeFP(token.info || '', raw);
+            const canLog = !DEDUP || !seenFP.has(fp);
+            if (canLog) log(`FENCE_ENTER #${rid}`, { info: (token.info || ''), rawHead: logger.pv(raw) });
+
+            const res = resolveLanguageAndContent(token.info || '', raw, rid);
+            const isOutput = !!res.isOutput;
+
+            // Choose class and a safe header label (avoid 'on', 'ml', 's' etc.)
+            const rawToken = (res.lang || '').trim();
+            const langClass = isOutput ? 'python' : classForHighlight(rawToken);
+
+            // Guard against tiny unsupported tokens – show temporary 'code' instead of partial suffix.
+            let headerLabel = isOutput ? 'output' : (res.headerLabel || (rawToken || 'code'));
+            if (!isOutput) {
+              if (rawToken && !isSupportedByHLJS(rawToken) && rawToken.length < 3) {
+                headerLabel = 'code';
+              }
+            }
+
+            if (canLog) {
+              log(`FENCE_RESOLVE #${rid}`, { headerLabel, langToken: (res.lang || ''), langClass, hljsSupported: isSupportedByHLJS(res.lang || ''), contentLen: (res.content || '').length });
+              if (DEDUP) seenFP.add(fp);
+            }
+
+            // precompute code meta
+            const content = res.content || '';
+            const len = content.length;
+            const head = content.slice(0, 64);
+            const tail = content.slice(-64);
+            const headEsc = Utils.escapeHtml(head);
+            const tailEsc = Utils.escapeHtml(tail);
+            const nl = Utils.countNewlines(content);
+
+            const inner = Utils.escapeHtml(content);
+            const idxLocal = CODE_IDX++;
+
+            let actions = '';
+            if (langClass === 'html') {
+              actions += `<a href="empty:${idxLocal}" class="code-header-action code-header-preview"><img src="${cfg.ICONS.CODE_PREVIEW}" class="action-img" data-id="${idxLocal}"><span>${Utils.escapeHtml(cfg.LOCALE.PREVIEW)}</span></a>`;
+            } else if (langClass === 'python' && headerLabel !== 'output') {
+              actions += `<a href="empty:${idxLocal}" class="code-header-action code-header-run"><img src="${cfg.ICONS.CODE_RUN}" class="action-img" data-id="${idxLocal}"><span>${Utils.escapeHtml(cfg.LOCALE.RUN)}</span></a>`;
+            }
+            actions += `<a href="empty:${idxLocal}" class="code-header-action code-header-collapse"><img src="${cfg.ICONS.CODE_MENU}" class="action-img" data-id="${idxLocal}"><span>${Utils.escapeHtml(cfg.LOCALE.COLLAPSE)}</span></a>`;
+            actions += `<a href="empty:${idxLocal}" class="code-header-action code-header-copy"><img src="${cfg.ICONS.CODE_COPY}" class="action-img" data-id="${idxLocal}"><span>${Utils.escapeHtml(cfg.LOCALE.COPY)}</span></a>`;
+
+            return (
+              `<div class="code-wrapper highlight" data-index="${idxLocal}"` +
+              ` data-code-lang="${Utils.escapeHtml(res.lang || '')}"` +
+              ` data-code-len="${String(len)}" data-code-head="${headEsc}" data-code-tail="${tailEsc}" data-code-nl="${String(nl)}"` +
+              ` data-locale-collapse="${Utils.escapeHtml(cfg.LOCALE.COLLAPSE)}" data-locale-expand="${Utils.escapeHtml(cfg.LOCALE.EXPAND)}"` +
+              ` data-locale-copy="${Utils.escapeHtml(cfg.LOCALE.COPY)}" data-locale-copied="${Utils.escapeHtml(cfg.LOCALE.COPIED)}" data-style="${Utils.escapeHtml(cfg.CODE_STYLE)}">` +
+                `<p class="code-header-wrapper"><span><span class="code-header-lang">${Utils.escapeHtml(headerLabel)}   </span>${actions}</span></p>` +
+                `<pre><code class="language-${Utils.escapeHtml(langClass)} hljs">${inner}</code></pre>` +
+              `</div>`
+            );
+          }
+        })(this.MD, this.logger);
       }
-    }
+      // Replace "sandbox:" links with file:// in markdown source (host policy).
+      preprocessMD(s) { return (s || '').replace(/\]\(sandbox:/g, '](file://'); }
+      // Decode base64 UTF-8 to string (shared TextDecoder).
+      b64ToUtf8(b64) {
+        const bin = atob(b64);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        return Utils.utf8Decode(bytes);
+      }
 
-    // Helper: choose renderer (hot vs full) for snapshot use.
-    _md(streamingHint) {
-      return streamingHint ? (this.MD_STREAM || this.MD) : (this.MD || this.MD_STREAM);
-    }
-
-    // Async, batched processing of [data-md64] / [md-block-markdown] to keep UI responsive on heavy loads.
-    // Note: user messages are rendered as plain text (no markdown-it, no custom markup, no KaTeX).
-    async renderPendingMarkdown(root) {
-      const MD = this.MD; if (!MD) return;
-      const scope = root || document;
-
-      // Collect both legacy base64 holders and new native Markdown holders
-      const nodes = Array.from(scope.querySelectorAll('[data-md64], [md-block-markdown]'));
-      if (nodes.length === 0) {
-        // Nothing to materialize right now. Avoid arming rAF work unless there is
-        // actually something present that needs highlight/scroll/math.
+      // Apply custom markup for bot messages only (method name kept for API).
+      applyCustomMarkupForBots(root) {
+        const MD = this.MD;
         try {
-          const hasBots = !!(scope && scope.querySelector && scope.querySelector('.msg-box.msg-bot'));
-          const hasWrappers = !!(scope && scope.querySelector && scope.querySelector('.code-wrapper'));
-          const hasCodes = !!(scope && scope.querySelector && scope.querySelector('.msg-box.msg-bot pre code'));
-          const hasUnhighlighted = !!(scope && scope.querySelector && scope.querySelector('.msg-box.msg-bot pre code:not([data-highlighted="yes"])'));
-          const hasMath = !!(scope && scope.querySelector && scope.querySelector('script[type^="math/tex"]'));
+          const scope = root || document;
+          const targets = [];
 
-          // Apply Custom Markup only if bot messages are present.
-          if (hasBots) { this.applyCustomMarkupForBots(scope); }
-
-          // Restore collapsed state only if we can actually find wrappers.
-          if (hasWrappers) { this.restoreCollapsedCode(scope); }
-
-          // Initialize code scroll helpers for current root.
-          this.hooks.codeScrollInit(scope);
-
-          // Init code-scroll/highlight observers only when there are codes in DOM.
-          if (hasCodes) {
-            this.hooks.observeMsgBoxes(scope);
-            this.hooks.observeNewCode(scope, {
-              deferLastIfStreaming: true,
-              minLinesForLast: this.cfg.PROFILE_CODE.minLinesForHL,
-              minCharsForLast: this.cfg.PROFILE_CODE.minCharsForHL
-            });
-            if (hasUnhighlighted && typeof runtime !== 'undefined' && runtime.highlighter) {
-              runtime.highlighter.scanVisibleCodesInRoot(scope, runtime.stream.activeCode || null);
-            }
+          // If scope itself is a bot message box
+          if (scope && scope.nodeType === 1 && scope.classList && scope.classList.contains('msg-box') &&
+              scope.classList.contains('msg-bot')) {
+            targets.push(scope);
           }
 
-          // Schedule KaTeX render only if there are math scripts present.
-          if (hasMath) { this.hooks.scheduleMathRender(scope); }
-          this.hooks.codeScrollInit(scope);
+          // Collect bot message boxes within the scope
+          if (scope && typeof scope.querySelectorAll === 'function') {
+            const list = scope.querySelectorAll('.msg-box.msg-bot');
+            for (let i = 0; i < list.length; i++) targets.push(list[i]);
+          }
 
-        } catch (_) { /* swallow: keep idle path safe */ }
+          // If scope is inside a bot message, include the closest ancestor as well
+          if (scope && scope.nodeType === 1 && typeof scope.closest === 'function') {
+            const closestMsg = scope.closest('.msg-box.msg-bot');
+            if (closestMsg) targets.push(closestMsg);
+          }
 
-        return;
+          // Deduplicate and apply rules only to bot messages
+          const seen = new Set();
+          for (const el of targets) {
+            if (!el || !el.isConnected || seen.has(el)) continue;
+            seen.add(el);
+            this.customMarkup.apply(el, MD);
+          }
+        } catch (_) {
+          // Keep render path resilient
+        }
       }
 
-      // Track which bot message boxes actually changed to avoid a heavy global Custom Markup pass.
-      const touchedBoxes = new Set();
+      // Helper: choose renderer (hot vs full) for snapshot use.
+      _md(streamingHint) {
+        return streamingHint ? (this.MD_STREAM || this.MD) : (this.MD || this.MD_STREAM);
+      }
 
-      // Budgeted, cooperative loop: process nodes one-by-one with per-frame yield when needed.
-      const perSlice = (this.cfg.ASYNC && this.cfg.ASYNC.MD_NODES_PER_SLICE) || 12; // upper bound per frame
-      let sliceCount = 0;
-      let startedAt = Utils.now();
+      // Async, batched processing of [data-md64] / [md-block-markdown] to keep UI responsive on heavy loads.
+      // Note: user messages are rendered as plain text (no markdown-it, no custom markup, no KaTeX).
+      async renderPendingMarkdown(root) {
+        const MD = this.MD; if (!MD) return;
+        const scope = root || document;
 
-      for (let j = 0; j < nodes.length; j++) {
-        const el = nodes[j];
-        if (!el || !el.isConnected) continue;
-
-        let md = '';
-        const isNative = el.hasAttribute('md-block-markdown');
-        const msgBox = (el.closest && el.closest('.msg-box.msg-bot, .msg-box.msg-user')) || null;
-        const isUserMsg = !!(msgBox && msgBox.classList.contains('msg-user'));
-        const isBotMsg = !!(msgBox && msgBox.classList.contains('msg-bot'));
-
-        // Read source text (do not preprocess for user messages to keep it raw)
-        if (isNative) {
-          try { md = isUserMsg ? (el.textContent || '') : this.preprocessMD(el.textContent || ''); } catch (_) { md = ''; }
-          try { el.removeAttribute('md-block-markdown'); } catch (_) {}
-        } else {
-          const b64 = el.getAttribute('data-md64'); if (!b64) continue;
-          try { md = this.b64ToUtf8(b64); } catch (_) { md = ''; }
-          el.removeAttribute('data-md64');
-          if (!isUserMsg) { try { md = this.preprocessMD(md); } catch (_) {} }
-        }
-
-        if (isUserMsg) {
-          // User message: replace placeholder with raw plain text only.
-          const span = document.createElement('span');
-          span.textContent = md;
-          el.replaceWith(span);
-          // Intentionally do NOT add to touchedBoxes; no Custom Markup for user.
-        } else if (isBotMsg) {
-          // Bot message: full markdown-it render with Custom Markup.
-          let html = '';
-          try { html = MD.render(md); } catch (_) { html = Utils.escapeHtml(md); }
-
-          // build fragment directly (avoid intermediate container allocations).
-          let frag = null;
+        // Collect both legacy base64 holders and new native Markdown holders
+        const nodes = Array.from(scope.querySelectorAll('[data-md64], [md-block-markdown]'));
+        if (nodes.length === 0) {
+          // Nothing to materialize right now. Avoid arming rAF work unless there is
+          // actually something present that needs highlight/scroll/math.
           try {
-            const range = document.createRange();
-            const ctx = el.parentNode || document.body || document.documentElement;
-            range.selectNode(ctx);
-            frag = range.createContextualFragment(html);
-          } catch (_) {
-            const tmp = document.createElement('div');
-            tmp.innerHTML = html;
-            frag = document.createDocumentFragment();
-            while (tmp.firstChild) frag.appendChild(tmp.firstChild);
+            const hasBots = !!(scope && scope.querySelector && scope.querySelector('.msg-box.msg-bot'));
+            const hasWrappers = !!(scope && scope.querySelector && scope.querySelector('.code-wrapper'));
+            const hasCodes = !!(scope && scope.querySelector && scope.querySelector('.msg-box.msg-bot pre code'));
+            const hasUnhighlighted = !!(scope && scope.querySelector && scope.querySelector('.msg-box.msg-bot pre code:not([data-highlighted="yes"])'));
+            const hasMath = !!(scope && scope.querySelector && scope.querySelector('script[type^="math/tex"]'));
+
+            // Apply Custom Markup only if bot messages are present.
+            if (hasBots) { this.applyCustomMarkupForBots(scope); }
+
+            // Restore collapsed state only if we can actually find wrappers.
+            if (hasWrappers) { this.restoreCollapsedCode(scope); }
+
+            // Initialize code scroll helpers for current root.
+            this.hooks.codeScrollInit(scope);
+
+            // Init code-scroll/highlight observers only when there are codes in DOM.
+            if (hasCodes) {
+              this.hooks.observeMsgBoxes(scope);
+              this.hooks.observeNewCode(scope, {
+                deferLastIfStreaming: true,
+                minLinesForLast: this.cfg.PROFILE_CODE.minLinesForHL,
+                minCharsForLast: this.cfg.PROFILE_CODE.minCharsForHL
+              });
+              if (hasUnhighlighted && typeof runtime !== 'undefined' && runtime.highlighter) {
+                runtime.highlighter.scanVisibleCodesInRoot(scope, runtime.stream.activeCode || null);
+              }
+            }
+
+            // Schedule KaTeX render only if there are math scripts present.
+            if (hasMath) { this.hooks.scheduleMathRender(scope); }
+            this.hooks.codeScrollInit(scope);
+
+          } catch (_) { /* swallow: keep idle path safe */ }
+
+          return;
+        }
+
+        // Track which bot message boxes actually changed to avoid a heavy global Custom Markup pass.
+        const touchedBoxes = new Set();
+
+        // Budgeted, cooperative loop: process nodes one-by-one with per-frame yield when needed.
+        const perSlice = (this.cfg.ASYNC && this.cfg.ASYNC.MD_NODES_PER_SLICE) || 12; // upper bound per frame
+        let sliceCount = 0;
+        let startedAt = Utils.now();
+
+        for (let j = 0; j < nodes.length; j++) {
+          const el = nodes[j];
+          if (!el || !el.isConnected) continue;
+
+          let md = '';
+          const isNative = el.hasAttribute('md-block-markdown');
+          const msgBox = (el.closest && el.closest('.msg-box.msg-bot, .msg-box.msg-user')) || null;
+          const isUserMsg = !!(msgBox && msgBox.classList.contains('msg-user'));
+          const isBotMsg = !!(msgBox && msgBox.classList.contains('msg-bot'));
+
+          // Read source text (do not preprocess for user messages to keep it raw)
+          if (isNative) {
+            try { md = isUserMsg ? (el.textContent || '') : this.preprocessMD(el.textContent || ''); } catch (_) { md = ''; }
+            try { el.removeAttribute('md-block-markdown'); } catch (_) {}
+          } else {
+            const b64 = el.getAttribute('data-md64'); if (!b64) continue;
+            try { md = this.b64ToUtf8(b64); } catch (_) { md = ''; }
+            el.removeAttribute('data-md64');
+            if (!isUserMsg) { try { md = this.preprocessMD(md); } catch (_) {} }
           }
 
-          // Apply Custom Markup on a lightweight DocumentFragment
-          try { this.customMarkup.apply(frag, MD); } catch (_) {}
+          if (isUserMsg) {
+            // User message: replace placeholder with raw plain text only.
+            const span = document.createElement('span');
+            span.textContent = md;
+            el.replaceWith(span);
+            // Intentionally do NOT add to touchedBoxes; no Custom Markup for user.
+          } else if (isBotMsg) {
+            // Bot message: full markdown-it render with Custom Markup.
+            let html = '';
+              try {
+                let src = md;
+                // Pre-md transforms for source-phase rules
+                if (this.customMarkup && typeof this.customMarkup.transformSource === 'function') {
+                  src = this.customMarkup.transformSource(src, { streaming: false });
+                }
+                html = MD.render(src);
+              } catch (_) { html = Utils.escapeHtml(md); }
 
-          el.replaceWith(frag);
-          touchedBoxes.add(msgBox);
-        } else {
-          // Outside of any message box: materialize as plain text.
-          const span = document.createElement('span');
-          span.textContent = md;
-          el.replaceWith(span);
+            // build fragment directly (avoid intermediate container allocations).
+            let frag = null;
+            try {
+              const range = document.createRange();
+              const ctx = el.parentNode || document.body || document.documentElement;
+              range.selectNode(ctx);
+              frag = range.createContextualFragment(html);
+            } catch (_) {
+              const tmp = document.createElement('div');
+              tmp.innerHTML = html;
+              frag = document.createDocumentFragment();
+              while (tmp.firstChild) frag.appendChild(tmp.firstChild);
+            }
+
+            // Apply Custom Markup on a lightweight DocumentFragment
+            try { this.customMarkup.apply(frag, MD); } catch (_) {}
+
+            el.replaceWith(frag);
+            touchedBoxes.add(msgBox);
+          } else {
+            // Outside of any message box: materialize as plain text.
+            const span = document.createElement('span');
+            span.textContent = md;
+            el.replaceWith(span);
+          }
+
+          sliceCount++;
+          // Yield by time budget or by count to keep frame short and reactive.
+          if (sliceCount >= perSlice || this.asyncer.shouldYield(startedAt)) {
+            await this.asyncer.yield();
+            startedAt = Utils.now();
+            sliceCount = 0;
+          }
         }
 
-        sliceCount++;
-        // Yield by time budget or by count to keep frame short and reactive.
-        if (sliceCount >= perSlice || this.asyncer.shouldYield(startedAt)) {
-          await this.asyncer.yield();
-          startedAt = Utils.now();
-          sliceCount = 0;
+        // Apply Custom Markup only to actually modified BOT messages (keeps this pass light).
+        try {
+          touchedBoxes.forEach(box => { try { this.customMarkup.apply(box, MD); } catch (_) {} });
+        } catch (_) {}
+
+        // Same post-processing as before (idempotent with external calls).
+        this.restoreCollapsedCode(scope);
+        this.hooks.observeNewCode(scope, {
+          deferLastIfStreaming: true,
+          minLinesForLast: this.cfg.PROFILE_CODE.minLinesForHL,
+          minCharsForLast: this.cfg.PROFILE_CODE.minCharsForHL
+        });
+        this.hooks.observeMsgBoxes(scope);
+        this.hooks.scheduleMathRender(scope);
+        this.hooks.codeScrollInit(scope);
+
+        if (typeof runtime !== 'undefined' && runtime.highlighter) {
+         runtime.highlighter.scanVisibleCodesInRoot(scope, runtime.stream.activeCode || null);
         }
       }
 
-      // Apply Custom Markup only to actually modified BOT messages (keeps this pass light).
-      try {
-        touchedBoxes.forEach(box => { try { this.customMarkup.apply(box, MD); } catch (_) {} });
-      } catch (_) {}
+      // Render streaming snapshot.
+      renderStreamingSnapshot(src) {
+        const md = this._md(true);
+        if (!md) return '';
+        try {
+          let s = String(src || '');
+          // Pre-markdown custom transforms (e.g. [!exec]/<execute> => ```python fences)
+          if (this.customMarkup && typeof this.customMarkup.transformSource === 'function') {
+            s = this.customMarkup.transformSource(s, { streaming: true });
+          }
+          return md.render(s);
+        } catch (_) { return Utils.escapeHtml(src); }
+      }
 
-      // Same post-processing as before (idempotent with external calls).
-      this.restoreCollapsedCode(scope);
-      this.hooks.observeNewCode(scope, {
-        deferLastIfStreaming: true,
-        minLinesForLast: this.cfg.PROFILE_CODE.minLinesForHL,
-        minCharsForLast: this.cfg.PROFILE_CODE.minCharsForHL
-      });
-      this.hooks.observeMsgBoxes(scope);
-      this.hooks.scheduleMathRender(scope);
-      this.hooks.codeScrollInit(scope);
+      renderFinalSnapshot(src) {
+        const md = this._md(false);
+        if (!md) return '';
+        try {
+          let s = String(src || '');
+          if (this.customMarkup && typeof this.customMarkup.transformSource === 'function') {
+            s = this.customMarkup.transformSource(s, { streaming: false });
+          }
+          return md.render(s);
+        } catch (_) { return Utils.escapeHtml(src); }
+      }
 
-      if (typeof runtime !== 'undefined' && runtime.highlighter) {
-       runtime.highlighter.scanVisibleCodesInRoot(scope, runtime.stream.activeCode || null);
+      // Restore collapse/expand state of code blocks after DOM updates.
+      restoreCollapsedCode(root) {
+        const scope = root || document;
+        const wrappers = scope.querySelectorAll('.code-wrapper');
+        wrappers.forEach((wrapper) => {
+          const index = wrapper.getAttribute('data-index');
+          const localeCollapse = wrapper.getAttribute('data-locale-collapse');
+          const localeExpand = wrapper.getAttribute('data-locale-expand');
+          const source = wrapper.querySelector('code');
+          const isCollapsed = (window.__collapsed_idx || []).includes(index);
+          if (!source) return;
+          const btn = wrapper.querySelector('.code-header-collapse');
+          if (isCollapsed) {
+            source.style.display = 'none';
+            if (btn) { const span = btn.querySelector('span'); if (span) span.textContent = localeExpand; }
+          } else {
+            source.style.display = 'block';
+            if (btn) { const span = btn.querySelector('span'); if (span) span.textContent = localeCollapse; }
+          }
+        });
       }
     }
-
-    // Render streaming snapshot (reduced features).
-    renderStreamingSnapshot(src) {
-      const md = this._md(true);
-      if (!md) return '';
-      try { return md.render(src); } catch (_) { return Utils.escapeHtml(src); }
-    }
-    // Render final snapshot (full features).
-    renderFinalSnapshot(src) {
-      const md = this._md(false);
-      if (!md) return '';
-      try { return md.render(src); } catch (_) { return Utils.escapeHtml(src); }
-    }
-
-    // Restore collapse/expand state of code blocks after DOM updates.
-    restoreCollapsedCode(root) {
-      const scope = root || document;
-      const wrappers = scope.querySelectorAll('.code-wrapper');
-      wrappers.forEach((wrapper) => {
-        const index = wrapper.getAttribute('data-index');
-        const localeCollapse = wrapper.getAttribute('data-locale-collapse');
-        const localeExpand = wrapper.getAttribute('data-locale-expand');
-        const source = wrapper.querySelector('code');
-        const isCollapsed = (window.__collapsed_idx || []).includes(index);
-        if (!source) return;
-        const btn = wrapper.querySelector('.code-header-collapse');
-        if (isCollapsed) {
-          source.style.display = 'none';
-          if (btn) { const span = btn.querySelector('span'); if (span) span.textContent = localeExpand; }
-        } else {
-          source.style.display = 'block';
-          if (btn) { const span = btn.querySelector('span'); if (span) span.textContent = localeCollapse; }
-        }
-      });
-    }
-  }
   window.__collapsed_idx = window.__collapsed_idx || [];
 
   // ==========================================================================
@@ -2596,6 +3035,11 @@
           img.className = 'uc-toggle-icon';
           img.alt = labels.expand;
           img.src = icons.expand;
+
+          // Provide a sane default size even if CSS did not load yet (CSS will override when present).
+          img.width = 26;   // keep in sync with CSS fallback var(--uc-toggle-icon-size, 26px)
+          img.height = 26;  // ensures a consistent, non-tiny control from the first paint
+
           toggle.appendChild(img);
 
           // Attach local listeners (no global handler change; production-safe).
@@ -2863,14 +3307,32 @@
         } catch (_) {}
       }
 
-      // Append HTML into message input container.
-      appendToInput(content) {
-        // Synchronous DOM update – message input must reflect immediately.
-        const el = this.dom.get('_append_input_'); if (!el) return;
-        el.insertAdjacentHTML('beforeend', content);
-        // Apply collapse to any user messages in input area BEFORE the host schedules scroll.
-        try { this._userCollapse.apply(el); } catch (_) {}
-      }
+      // Append HTML/text into the message input container.
+        // If plain text is provided, wrap it into a minimal msg-user box to keep layout consistent.
+        appendToInput(content) {
+          const el = this.dom.get('_append_input_'); if (!el) return;
+
+          let html = String(content || '');
+          const trimmed = html.trim();
+
+          // If already a full msg-user wrapper, append as-is; otherwise wrap the plain text.
+          const isWrapped = (trimmed.startsWith('<div') && /class=["']msg-box msg-user["']/.test(trimmed));
+          if (!isWrapped) {
+            // Treat incoming payload as plain text (escape + convert newlines to <br>).
+            const safe = (typeof Utils !== 'undefined' && Utils.escapeHtml)
+              ? Utils.escapeHtml(html)
+              : String(html).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+            const body = safe.replace(/\r?\n/g, '<br>');
+            // Minimal, margin-less user message (no empty msg-extra to avoid extra spacing).
+            html = `<div class="msg-box msg-user"><div class="msg"><p style="margin:0">${body}</p></div></div>`;
+          }
+
+          // Synchronous DOM update.
+          el.insertAdjacentHTML('beforeend', html);
+
+          // Apply collapse to any user messages in input area (now or later).
+          try { this._userCollapse.apply(el); } catch (_) {}
+        }
 
       // Append nodes into messages list and perform post-processing (markdown, code, math).
       appendNode(content, scrollMgr) {
@@ -3050,6 +3512,333 @@
       }
     }
 
+   // ==========================================================================
+  // 9a) Template engine for JSON nodes
+  // ==========================================================================
+
+  class NodeTemplateEngine {
+    // JS-side templates for nodes rendered from JSON payload (RenderBlock).
+    constructor(cfg, logger) {
+      this.cfg = cfg || {};
+      this.logger = logger || { debug: () => {} };
+    }
+
+    _esc(s) { return (s == null) ? '' : String(s); }
+    _escapeHtml(s) { return (typeof Utils !== 'undefined') ? Utils.escapeHtml(s) : String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m])); }
+
+    // Render name header given role
+    _nameHeader(role, name, avatarUrl) {
+      if (!name && !avatarUrl) return '';
+      const cls = (role === 'user') ? 'name-user' : 'name-bot';
+      const img = avatarUrl ? `<img src="${this._esc(avatarUrl)}" class="avatar"> ` : '';
+      return `<div class="name-header ${cls}">${img}${this._esc(name || '')}</div>`;
+    }
+
+    // Render user message block
+    _renderUser(block) {
+      const id = block.id;
+      const inp = block.input || {};
+      const msgId = `msg-user-${id}`;
+
+      // NOTE: timestamps intentionally disabled on frontend
+      // let ts = '';
+      // if (inp.timestamp) { ... }
+
+      const personalize = !!(block && block.extra && block.extra.personalize === true);
+      const nameHeader = personalize ? this._nameHeader('user', inp.name || '', inp.avatar_img || null) : '';
+
+      const content = this._escapeHtml(inp.text || '').replace(/\r?\n/g, '<br>');
+      return `<div class="msg-box msg-user" id="${msgId}">${nameHeader}<div class="msg"><p style="margin:0">${content}</p></div></div>`;
+    }
+
+    // Render extra blocks (images/files/urls/docs/tool-extra)
+    _renderExtras(block) {
+      const parts = [];
+
+      // images
+      const images = block.images || {};
+      const keysI = Object.keys(images);
+      if (keysI.length) {
+        keysI.forEach((k) => {
+          const it = images[k];
+          if (!it) return;
+          const url = this._esc(it.url); const path = this._esc(it.path); const bn = this._esc(it.basename || '');
+          if (it.is_video) {
+            const src = (it.ext === '.webm' || !it.webm_path) ? path : this._esc(it.webm_path);
+            const ext = (src.endsWith('.webm') ? 'webm' : (path.split('.').pop() || 'mp4'));
+            parts.push(
+              `<div class="extra-src-video-box" title="${url}">` +
+                `<video class="video-player" controls>` +
+                  `<source src="${src}" type="video/${ext}">` +
+                `</video>` +
+                `<p><a href="bridge://play_video/${url}" class="title">${this._escapeHtml(bn)}</a></p>` +
+              `</div>`
+            );
+          } else {
+            parts.push(
+              `<div class="extra-src-img-box" title="${url}">` +
+                `<div class="img-outer"><div class="img-wrapper"><a href="${url}"><img src="${path}" class="image"></a></div>` +
+                `<a href="${url}" class="title">${this._escapeHtml(bn)}</a></div>` +
+              `</div><br/>`
+            );
+          }
+        });
+      }
+
+      // files
+      const files = block.files || {};
+      const kF = Object.keys(files);
+      if (kF.length) {
+        const rows = [];
+        kF.forEach((k) => {
+          const it = files[k]; if (!it) return;
+          const url = this._esc(it.url); const path = this._esc(it.path);
+          const icon = (typeof window !== 'undefined' && window.ICON_ATTACHMENTS) ? `<img src="${window.ICON_ATTACHMENTS}" class="extra-src-icon">` : '';
+          rows.push(`${icon} <b> [${k}] </b> <a href="${url}">${path}</a>`);
+        });
+        if (rows.length) parts.push(`<div>${rows.join("<br/><br/>")}</div>`);
+      }
+
+      // urls
+      const urls = block.urls || {};
+      const kU = Object.keys(urls);
+      if (kU.length) {
+        const rows = [];
+        kU.forEach((k) => {
+          const it = urls[k]; if (!it) return;
+          const url = this._esc(it.url);
+          const icon = (typeof window !== 'undefined' && window.ICON_URL) ? `<img src="${window.ICON_URL}" class="extra-src-icon">` : '';
+          rows.push(`${icon}<a href="${url}" title="${url}">${url}</a> <small> [${k}] </small>`);
+        });
+        if (rows.length) parts.push(`<div>${rows.join("<br/><br/>")}</div>`);
+      }
+
+      // docs (render on JS) or fallback to docs_html
+      const extra = block.extra || {};
+      const docsRaw = Array.isArray(extra.docs) ? extra.docs : null;
+
+      if (docsRaw && docsRaw.length) {
+        const icon = (typeof window !== 'undefined' && window.ICON_DB) ? `<img src="${window.ICON_DB}" class="extra-src-icon">` : '';
+        const prefix = (typeof window !== 'undefined' && window.LOCALE_DOC_PREFIX) ? String(window.LOCALE_DOC_PREFIX) : 'Doc:';
+        const limit = 3;
+
+        // normalize: [{uuid, meta}] OR [{ uuid: {...} }]
+        const normalized = [];
+        docsRaw.forEach((it) => {
+          if (!it || typeof it !== 'object') return;
+          if ('uuid' in it && 'meta' in it && typeof it.meta === 'object') {
+            normalized.push({ uuid: String(it.uuid), meta: it.meta || {} });
+          } else {
+            const keys = Object.keys(it);
+            if (keys.length === 1) {
+              const uuid = keys[0];
+              const meta = it[uuid];
+              if (meta && typeof meta === 'object') {
+                normalized.push({ uuid: String(uuid), meta });
+              }
+            }
+          }
+        });
+
+        const rows = [];
+        for (let i = 0; i < Math.min(limit, normalized.length); i++) {
+          const d = normalized[i];
+          const meta = d.meta || {};
+          const entries = Object.keys(meta).map(k => `<b>${this._escapeHtml(k)}:</b> ${this._escapeHtml(String(meta[k]))}`).join(', ');
+          rows.push(`<p><small>[${i + 1}] ${this._escapeHtml(d.uuid)}: ${entries}</small></p>`);
+        }
+        if (rows.length) {
+          parts.push(`<p>${icon}<small><b>${this._escapeHtml(prefix)}:</b></small></p>`);
+          parts.push(`<div class="cmd"><p>${rows.join('')}</p></div>`);
+        }
+      } else {
+        // backward compat
+        const docs_html = extra && extra.docs_html ? String(extra.docs_html) : '';
+        if (docs_html) parts.push(docs_html);
+      }
+
+      // plugin-driven tool extra HTML
+      const tool_extra_html = extra && extra.tool_extra_html ? String(extra.tool_extra_html) : '';
+      if (tool_extra_html) parts.push(`<div class="msg-extra">${tool_extra_html}</div>`);
+
+      return parts.join('');
+    }
+
+    // Render message-level actions
+    _renderActions(block) {
+      const extra = block.extra || {};
+      const actions = extra.actions || [];
+      if (!actions || !actions.length) return '';
+      const parts = actions.map((a) => {
+        const href = this._esc(a.href || '#');
+        const title = this._esc(a.title || '');
+        const icon = this._esc(a.icon || '');
+        const id = this._esc(a.id || block.id);
+        return `<a href="${href}" class="action-icon" data-id="${id}" role="button"><span class="cmd"><img src="${icon}" class="action-img" title="${title}" alt="${title}" data-id="${id}"></span></a>`;
+      });
+      return `<div class="action-icons" data-id="${this._esc(block.id)}">${parts.join('')}</div>`;
+    }
+
+    // Render tool output wrapper (always collapsed by default; wrapper visibility depends on flag)
+    // Inside class NodeTemplateEngine
+    _renderToolOutputWrapper(block) {
+      const extra = block.extra || {};
+
+      // IMPORTANT: keep initial tool output verbatim (HTML-ready).
+      // Do NOT HTML-escape here – the host already provides a safe/HTML-ready string.
+      // Escaping again would double-encode entities (e.g. " -> "), which
+      // caused visible """ in the UI instead of quotes.
+      const tool_output_html = (extra.tool_output != null) ? String(extra.tool_output) : '';
+
+      // Wrapper visibility: show/hide based on tool_output_visible...
+      const wrapperDisplay = (extra.tool_output_visible === true) ? '' : 'display:none';
+
+      const toggleTitle = (typeof trans !== 'undefined' && trans) ? trans('action.cmd.expand') : 'Expand';
+      const expIcon = (typeof window !== 'undefined' && window.ICON_EXPAND) ? window.ICON_EXPAND : '';
+
+      return (
+        `<div class='tool-output' style='${wrapperDisplay}'>` +
+          `<span class='toggle-cmd-output' onclick='toggleToolOutput(${this._esc(block.id)});' ` +
+          `title='${this._escapeHtml(toggleTitle)}' role='button'>` +
+            `<img src='${this._esc(expIcon)}' width='25' height='25' valign='middle'>` +
+          `</span>` +
+          // Content is initially collapsed. We intentionally do NOT escape here,
+          // to keep behavior consistent with ToolOutput.append/update (HTML-in).
+          `<div class='content' style='display:none' data-trusted='1'>${tool_output_html}</div>` +
+        `</div>`
+      );
+    }
+
+    // Render bot message block (md-block-markdown)
+   _renderBot(block) {
+      const id = block.id;
+      const out = block.output || {};
+      const msgId = `msg-bot-${id}`;
+
+      // NOTE: timestamps intentionally disabled on frontend
+      // let ts = '';
+      // if (out.timestamp) { ... }
+
+      const personalize = !!(block && block.extra && block.extra.personalize === true);
+      const nameHeader = personalize ? this._nameHeader('bot', out.name || '', out.avatar_img || null) : '';
+
+      const mdText = this._escapeHtml(out.text || '');
+      const toolWrap = this._renderToolOutputWrapper(block);
+      const extras = this._renderExtras(block);
+      const actions = (block.extra && block.extra.footer_icons) ? this._renderActions(block) : '';
+      const debug = (block.extra && block.extra.debug_html) ? String(block.extra.debug_html) : '';
+
+      return (
+        `<div class='msg-box msg-bot' id='${msgId}'>` +
+          `${nameHeader}` +
+          `<div class='msg'>` +
+            `<div class='md-block' md-block-markdown='1'>${mdText}</div>` +
+            `<div class='msg-tool-extra'></div>` +
+            `${toolWrap}` +
+            `<div class='msg-extra'>${extras}</div>` +
+            `${actions}${debug}` +
+          `</div>` +
+        `</div>`
+      );
+    }
+
+    // Render one RenderBlock into HTML (may produce 1 or 2 messages – input and/or output)
+    renderNode(block) {
+      const parts = [];
+      if (block && block.input && block.input.text) parts.push(this._renderUser(block));
+      if (block && block.output && block.output.text) parts.push(this._renderBot(block));
+      return parts.join('');
+    }
+
+    // Render array of blocks
+    renderNodes(blocks) {
+      if (!Array.isArray(blocks)) return '';
+      const out = [];
+      for (let i = 0; i < blocks.length; i++) {
+        const b = blocks[i] || null;
+        if (!b) continue;
+        out.push(this.renderNode(b));
+      }
+      return out.join('');
+    }
+  }
+
+  // ==========================================================================
+  // 9b) Data receiver for append/replace nodes
+  // ==========================================================================
+
+  class DataReceiver {
+    // Normalizes payload (HTML string or JSON) and delegates to NodesManager.
+    constructor(cfg, templates, nodes, scrollMgr) {
+      this.cfg = cfg || {};
+      this.templates = templates;
+      this.nodes = nodes;
+      this.scrollMgr = scrollMgr;
+    }
+
+    _tryParseJSON(s) {
+      if (typeof s !== 'string') return s;
+      const t = s.trim();
+      if (!t) return null;
+      // If it's like HTML, don't parse as JSON
+      if (t[0] === '<') return null;
+      try { return JSON.parse(t); } catch (_) { return null; }
+    }
+
+    _normalizeToBlocks(obj) {
+      if (!obj) return [];
+      if (Array.isArray(obj)) return obj;
+      if (obj.node) return [obj.node];
+      if (obj.nodes) return (Array.isArray(obj.nodes) ? obj.nodes : []);
+      // single node-like object
+      if (typeof obj === 'object' && (obj.input || obj.output || obj.id)) return [obj];
+      return [];
+    }
+
+    append(payload) {
+      // Legacy HTML string?
+      if (typeof payload === 'string' && payload.trim().startsWith('<')) {
+        this.nodes.appendNode(payload, this.scrollMgr);
+        return;
+      }
+      // Try JSON
+      const obj = this._tryParseJSON(payload);
+      if (!obj) {
+        // Not JSON – pass through
+        this.nodes.appendNode(String(payload), this.scrollMgr);
+        return;
+      }
+      const blocks = this._normalizeToBlocks(obj);
+      if (!blocks.length) {
+        this.nodes.appendNode('', this.scrollMgr);
+        return;
+      }
+      const html = this.templates.renderNodes(blocks);
+      this.nodes.appendNode(html, this.scrollMgr);
+    }
+
+    replace(payload) {
+      // Legacy HTML string?
+      if (typeof payload === 'string' && payload.trim().startsWith('<')) {
+        this.nodes.replaceNodes(payload, this.scrollMgr);
+        return;
+      }
+      // Try JSON
+      const obj = this._tryParseJSON(payload);
+      if (!obj) {
+        this.nodes.replaceNodes(String(payload), this.scrollMgr);
+        return;
+      }
+      const blocks = this._normalizeToBlocks(obj);
+      if (!blocks.length) {
+        this.nodes.replaceNodes('', this.scrollMgr);
+        return;
+      }
+      const html = this.templates.renderNodes(blocks);
+      this.nodes.replaceNodes(html, this.scrollMgr);
+    }
+  }
+
   // ==========================================================================
   // 10) UI manager
   // ==========================================================================
@@ -3081,7 +3870,10 @@
           '.msg-box.msg-user .msg > .uc-content.uc-collapsed { max-height: 1000px; overflow: hidden; }',
           '.msg-box.msg-user .msg > .uc-toggle { display: none; margin-top: 8px; text-align: center; cursor: pointer; user-select: none; }',
           '.msg-box.msg-user .msg > .uc-toggle.visible { display: block; }',
-          '.msg-box.msg-user .msg > .uc-toggle img { width: 20px; height: 20px; opacity: .8; }',
+
+          /* Increased toggle icon size to a comfortable/default size.
+             Overridable via CSS var --uc-toggle-icon-size to keep host-level control. */
+          '.msg-box.msg-user .msg > .uc-toggle img { width: var(--uc-toggle-icon-size, 26px); height: var(--uc-toggle-icon-size, 26px); opacity: .8; }',
           '.msg-box.msg-user .msg > .uc-toggle:hover img { opacity: 1; }'
         ].join('\n');
         document.head.appendChild(style);
@@ -3133,8 +3925,15 @@
       // Tracks whether renderSnapshot injected a one-off synthetic EOL for parsing an open fence
       // (used to strip it from the initial streaming tail to avoid "#\n foo" on first line).
       this._lastInjectedEOL = false;
+
+      this._customFenceSpecs = [];   // [{ open, close }, ...]
+      this._fenceCustom = null;      // currently active custom fence spec or null
     }
     _d(tag, data) { this.logger.debug('STREAM', tag, data); }
+
+    setCustomFenceSpecs(specs) {
+      this._customFenceSpecs = Array.isArray(specs) ? specs.slice() : [];
+    }
 
     // --- Rope buffer helpers (internal) ---
 
@@ -3180,6 +3979,7 @@
 
       // Clear any previous synthetic EOL marker.
       this._lastInjectedEOL = false;
+      this._fenceCustom = null;
 
       this._d('RESET', { });
     }
@@ -3289,11 +4089,13 @@
         if (!atLineStart) { i++; continue; }
         atLineStart = false;
 
+        // Skip list/blockquote/indent normalization (existing logic)
         let j = i;
         while (j < n) {
           let localSpaces = 0;
           while (j < n && (s[j] === ' ' || s[j] === '\t')) { localSpaces += (s[j] === '\t') ? 4 : 1; j++; if (localSpaces > 3) break; }
           if (j < n && s[j] === '>') { j++; if (j < n && s[j] === ' ') j++; continue; }
+
           let saved = j;
           if (j < n && (s[j] === '-' || s[j] === '*' || s[j] === '+')) {
             let jj = j + 1; if (jj < n && s[jj] === ' ') { j = jj + 1; } else { j = saved; }
@@ -3313,6 +4115,47 @@
         }
         if (indent > 3) { i = j; continue; }
 
+        // 1) Custom fences first (e.g. [!exec] ... [/!exec], <execute>...</execute>)
+        if (!this.fenceOpen && this._customFenceSpecs && this._customFenceSpecs.length) {
+          for (let ci = 0; ci < this._customFenceSpecs.length; ci++) {
+            const spec = this._customFenceSpecs[ci];
+            const open = spec && spec.open ? spec.open : '';
+            if (!open) continue;
+            const k = j + open.length;
+            if (k <= n && s.slice(j, k) === open) {
+              if (!inNewOrCrosses(j, k)) { /* seen fully in previous prefix */ }
+              else {
+                this.fenceOpen = true; this._fenceCustom = spec; opened = true; i = k;
+                this._d('FENCE_OPEN_DETECTED_CUSTOM', { open, idxStart: j, idxEnd: k, region: (j >= preLen) ? 'new' : 'cross' });
+                continue; // main while
+              }
+            }
+          }
+        } else if (this.fenceOpen && this._fenceCustom && this._fenceCustom.close) {
+          const close = this._fenceCustom.close;
+          const k = j + close.length;
+          if (k <= n && s.slice(j, k) === close) {
+            // Require only trailing whitespace on the line (consistent with ``` logic)
+            let eol = k; while (eol < n && s[eol] !== '\n' && s[eol] !== '\r') eol++;
+            const onlyWS = this.onlyTrailingWhitespace(s, k, eol);
+            if (onlyWS) {
+              if (!inNewOrCrosses(j, k)) { /* seen in previous prefix */ }
+              else {
+                this.fenceOpen = false; this._fenceCustom = null; closed = true;
+                const endInS = k;
+                const rel = endInS - preLen;
+                splitAt = Math.max(0, Math.min((chunk ? chunk.length : 0), rel));
+                i = k;
+                this._d('FENCE_CLOSE_DETECTED_CUSTOM', { close, idxStart: j, idxEnd: k, splitAt, region: (j >= preLen) ? 'new' : 'cross' });
+                continue; // main while
+              }
+            } else {
+              this._d('FENCE_CLOSE_REJECTED_CUSTOM_NON_WS_AFTER', { close, idxStart: j, idxEnd: k });
+            }
+          }
+        }
+
+        // 2) Standard markdown-it fences (``` or ~~~) – leave your original logic intact
         if (j < n && (s[j] === '`' || s[j] === '~')) {
           const mark = s[j]; let k = j; while (k < n && s[k] === mark) k++; const run = k - j;
 
@@ -3320,10 +4163,10 @@
             if (run >= 3) {
               if (!inNewOrCrosses(j, k)) { i = k; continue; }
               this.fenceOpen = true; this.fenceMark = mark; this.fenceLen = run; opened = true; i = k;
-              this._d('FENCE_OPEN_DETECTED', { mark, run, idxStart: j, idxEnd: k, bufTail: this.fenceTail, region: (j >= preLen) ? 'new' : 'cross' });
+              this._d('FENCE_OPEN_DETECTED', { mark, run, idxStart: j, idxEnd: k, region: (j >= preLen) ? 'new' : 'cross' });
               continue;
             }
-          } else {
+          } else if (!this._fenceCustom) {
             if (mark === this.fenceMark && run >= this.fenceLen) {
               if (!inNewOrCrosses(j, k)) { i = k; continue; }
               let eol = k; while (eol < n && s[eol] !== '\n' && s[eol] !== '\r') eol++;
@@ -3331,16 +4174,17 @@
                 this.fenceOpen = false; closed = true;
                 const endInS = k;
                 const rel = endInS - preLen;
-                const split = Math.max(0, Math.min((chunk ? chunk.length : 0), rel));
-                splitAt = split; i = k;
+                splitAt = Math.max(0, Math.min((chunk ? chunk.length : 0), rel));
+                i = k;
                 this._d('FENCE_CLOSE_DETECTED', { mark, run, idxStart: j, idxEnd: k, splitAt, region: (j >= preLen) ? 'new' : 'cross' });
                 continue;
               } else {
-                this._d('FENCE_CLOSE_REJECTED_NON_WS_AFTER', { mark, run, idxStart: j, idxEnd: k, region: (j >= preLen) ? 'new' : (k > preLen ? 'cross' : 'old') });
+                this._d('FENCE_CLOSE_REJECTED_NON_WS_AFTER', { mark, run, idxStart: j, idxEnd: k });
               }
             }
           }
         }
+
         i = j + 1;
       }
 
@@ -3349,6 +4193,7 @@
       this.fenceTail = s.slice(-3);
       return { opened, closed, splitAt };
     }
+
     // Ensure message snapshot container exists.
     getMsgSnapshotRoot(msg) {
       if (!msg) return null;
@@ -3788,6 +4633,48 @@
         this.schedulePromoteTail(true);
       }
     }
+      // Keep language header stable across snapshots for the active streaming code.
+      // If the current snapshot produced a tiny/unsupported token (e.g. 'on', 'ml', 's'),
+      // reuse the last known good language (from previous active state or sticky attribute).
+      stabilizeHeaderLabel(prevAC, newAC) {
+        try {
+          if (!newAC || !newAC.codeEl || !newAC.codeEl.isConnected) return;
+
+          const wrap = newAC.codeEl.closest('.code-wrapper');
+          if (!wrap) return;
+
+          const span = wrap.querySelector('.code-header-lang');
+          const curLabel = (span && span.textContent ? span.textContent.trim() : '').toLowerCase();
+
+          // Do not touch tool/output blocks
+          if (curLabel === 'output') return;
+
+          const tokNow = (wrap.getAttribute('data-code-lang') || '').trim().toLowerCase();
+          const sticky = (wrap.getAttribute('data-lang-sticky') || '').trim().toLowerCase();
+          const prev = (prevAC && prevAC.lang && prevAC.lang !== 'plaintext') ? prevAC.lang.toLowerCase() : '';
+
+          const valid = (t) => !!t && t !== 'plaintext' && this._isHLJSSupported(t);
+
+          let finalTok = '';
+          if (valid(tokNow)) finalTok = tokNow;
+          else if (valid(prev)) finalTok = prev;
+          else if (valid(sticky)) finalTok = sticky;
+
+          if (finalTok) {
+            // Update code class and header label consistently
+            this._updateCodeLangClass(newAC.codeEl, finalTok);
+            this._updateCodeHeaderLabel(newAC.codeEl, finalTok, finalTok);
+            try { wrap.setAttribute('data-code-lang', finalTok); } catch (_) {}
+            try { wrap.setAttribute('data-lang-sticky', finalTok); } catch (_) {}
+            newAC.lang = finalTok; // keep AC state in sync
+          } else {
+            // If current label looks like a tiny/incomplete token, normalize to 'code'
+            if (span && curLabel && curLabel.length < 3) {
+              span.textContent = 'code';
+            }
+          }
+        } catch (_) { /* defensive: never break streaming path */ }
+      }
     // Render a snapshot of current stream buffer into the DOM.
     renderSnapshot(msg) {
       const streaming = !!this.isStreaming;
@@ -3822,12 +4709,20 @@
         range.selectNodeContents(snap);
         frag = range.createContextualFragment(html);
       } catch (_) {
-        // Fallback: safe temporary container
         const tmp = document.createElement('div');
         tmp.innerHTML = html;
         frag = document.createDocumentFragment();
         while (tmp.firstChild) frag.appendChild(tmp.firstChild);
       }
+
+      // (stream-aware custom markup):
+      // Apply Custom Markup on the fragment only if at least one rule opted-in for stream.
+      try {
+        if (this.renderer && this.renderer.customMarkup && this.renderer.customMarkup.hasStreamRules()) {
+          const MDinline = this.renderer.MD_STREAM || this.renderer.MD || null;
+          this.renderer.customMarkup.applyStream(frag, MDinline);
+        }
+      } catch (_) { /* keep snapshot path resilient */ }
 
       // Reuse closed, stable code blocks from previous snapshot to avoid re-highlighting
       this.preserveStableClosedCodes(snap, frag, this.fenceOpen === true);
@@ -3840,12 +4735,21 @@
       this._ensureBottomForJustFinalized(snap);
 
       // Setup active streaming code if fence is open, otherwise clear active state
-      if (this.fenceOpen) {
-        const newAC = this.setupActiveCodeFromSnapshot(snap);
-        this.activeCode = newAC || null;
-      } else {
-        this.activeCode = null;
-      }
+        const prevAC = this.activeCode; // remember previous active streaming state (if any)
+
+        if (this.fenceOpen) {
+          const newAC = this.setupActiveCodeFromSnapshot(snap);
+
+          // preserve previous frozen/tail state and stable lang/header across snapshots
+          if (prevAC && newAC) {
+            this.rehydrateActiveCode(prevAC, newAC);
+            this.stabilizeHeaderLabel(prevAC, newAC);
+          }
+
+          this.activeCode = newAC || null;
+        } else {
+          this.activeCode = null;
+        }
 
       // Attach scroll/highlight observers (viewport aware)
       if (!this.fenceOpen) {
@@ -3902,6 +4806,7 @@
       const dt = Utils.now() - t0;
       this._d('SNAPSHOT', { fenceOpen: this.fenceOpen, activeCode: !!this.activeCode, bufLen: this.getStreamLength(), timeMs: Math.round(dt), streaming });
     }
+
     // Get current message container (.msg) or create if allowed.
     getMsg(create, name_header) { return this.dom.getStreamMsg(create, name_header); }
     // Start a new streaming session (clear state and display loader, if any).
@@ -4153,20 +5058,17 @@
       this.cfg = cfg; this.logger = logger || new Logger(cfg);
       this.bridge = null; this.connected = false;
     }
-    // Low-level log via bridge if available.
     log(text) { try { if (this.bridge && this.bridge.log) this.bridge.log(text); } catch (_) {} }
-    // Wire JS callbacks to QWebChannel signals.
     connect(onChunk, onNode, onNodeReplace, onNodeInput) {
       if (!this.bridge) return false; if (this.connected) return true;
       try {
-        if (this.bridge.chunk) this.bridge.chunk.connect(onChunk);
+        if (this.bridge.chunk) this.bridge.chunk.connect((name, chunk, type) => onChunk(name, chunk, type));
         if (this.bridge.node) this.bridge.node.connect(onNode);
         if (this.bridge.nodeReplace) this.bridge.nodeReplace.connect(onNodeReplace);
         if (this.bridge.nodeInput) this.bridge.nodeInput.connect(onNodeInput);
         this.connected = true; return true;
       } catch (e) { this.log(e); return false; }
     }
-    // Detach callbacks.
     disconnect() {
       if (!this.bridge) return false; if (!this.connected) return true;
       try {
@@ -4177,7 +5079,6 @@
       } catch (_) {}
       this.connected = false; return true;
     }
-    // Initialize QWebChannel and notify Python side that JS is ready.
     initQWebChannel(pid, onReady) {
       try {
         new QWebChannel(qt.webChannelTransport, (channel) => {
@@ -4186,9 +5087,8 @@
           onReady && onReady(this.bridge);
           if (this.bridge && this.bridge.js_ready) this.bridge.js_ready(pid);
         });
-      } catch (e) { /* swallow: logger will flush when bridge arrives later */ }
+      } catch (e) { /* swallow */ }
     }
-    // Convenience wrappers for host actions.
     copyCode(text) { if (this.bridge && this.bridge.copy_text) this.bridge.copy_text(text); }
     previewCode(text) { if (this.bridge && this.bridge.preview_text) this.bridge.preview_text(text); }
     runCode(text) { if (this.bridge && this.bridge.run_text) this.bridge.run_text(text); }
@@ -4417,10 +5317,16 @@
       this.streamQ = new StreamQueue(this.cfg, this.stream, this.scrollMgr, this.raf);
       this.events = new EventManager(this.cfg, this.dom, this.scrollMgr, this.highlighter, this.codeScroll, this.toolOutput, this.bridge);
 
+      try {
+        this.stream.setCustomFenceSpecs(this.customMarkup.getSourceFenceSpecs());
+      } catch (_) {}
+
+      this.templates = new NodeTemplateEngine(this.cfg, this.logger);
+      this.data = new DataReceiver(this.cfg, this.templates, this.nodes, this.scrollMgr);
+
       this.tips = null;
       this._lastHeavyResetMs = 0;
 
-      // Bridge hooks between renderer and other subsystems.
       this.renderer.hooks.observeNewCode = (root, opts) => this.highlighter.observeNewCode(root, opts, this.stream.activeCode);
       this.renderer.hooks.observeMsgBoxes = (root) => this.highlighter.observeMsgBoxes(root, (box) => {
         this.highlighter.observeNewCode(box, {
@@ -4437,6 +5343,7 @@
       };
       this.renderer.hooks.codeScrollInit = (root) => this.codeScroll.initScrollableBlocks(root);
     }
+
     // Reset stream state and optionally perform a heavy reset of schedulers and observers.
     resetStreamState(origin, opts) {
       try { this.streamQ.clear(); } catch (_) {}
@@ -4471,6 +5378,17 @@
 
       try { this.tips && this.tips.hide(); } catch (_) {}
     }
+    // API: handle incoming chunk (from bridge).
+    api_onChunk = (name, chunk, type) => {
+      const t = String(type || 'text_delta');
+      if (t === 'text_delta') {
+        this.api_appendStream(name, chunk);
+        return;
+      }
+      // Future-proof: add other chunk types here (attachments, status, etc.)
+      // No-op for unknown types to keep current behavior.
+      this.logger.debug('STREAM', 'IGNORED_NON_TEXT_CHUNK', { type: t, len: (chunk ? String(chunk).length : 0) });
+    };
     // API: begin stream.
     api_beginStream = (chunk = false) => { this.tips && this.tips.hide(); this.resetStreamState('beginStream', { clearMsg: true, finalizeActive: false, forceHeavy: true }); this.stream.beginStream(chunk); };
     // API: end stream.
@@ -4494,12 +5412,27 @@
     // API: clear streaming output area entirely.
     api_clearStream = () => { this.tips && this.tips.hide(); this.resetStreamState('clearStream', { clearMsg: true, forceHeavy: true }); const el = this.dom.getStreamContainer(); if (!el) return; el.replaceChildren(); };
 
-    // API: append rendered nodes (messages).
-    api_appendNode = (html) => { this.resetStreamState('appendNode'); this.nodes.appendNode(html, this.scrollMgr); };
-    // API: replace messages list.
-    api_replaceNodes = (html) => { this.resetStreamState('replaceNodes', { clearMsg: true, forceHeavy: true }); this.dom.clearNodes(); this.nodes.replaceNodes(html, this.scrollMgr); };
+    // API: append/replace messages (non-streaming).
+    api_appendNode = (payload) => { this.resetStreamState('appendNode'); this.data.append(payload); };
+    api_replaceNodes = (payload) => { this.resetStreamState('replaceNodes', { clearMsg: true, forceHeavy: true }); this.dom.clearNodes(); this.data.replace(payload); };
+
     // API: append to input area.
-    api_appendToInput = (html) => { this.nodes.appendToInput(html); this.scrollMgr.userInteracted = false; this.scrollMgr.scheduleScroll(); this.resetStreamState('appendToInput'); };
+      api_appendToInput = (payload) => {
+        this.nodes.appendToInput(payload);
+
+        // Ensure initial auto-follow is ON for the next stream that will start right after user input.
+        // Rationale: previously, if the user had scrolled up, autoFollow could remain false and the
+        // live stream would not follow even though we just sent a new input.
+        this.scrollMgr.autoFollow = true;       // explicitly re-enable page auto-follow
+        this.scrollMgr.userInteracted = false;  // Reset interaction so live scroll is allowed
+
+        // Keep lastScrollTop in sync to avoid misclassification in the next onscroll handler.
+        try { this.scrollMgr.lastScrollTop = Utils.SE.scrollTop | 0; } catch (_) {}
+
+        // Non-live scroll to bottom right away, independent of autoFollow state.
+        this.scrollMgr.scheduleScroll();
+        // NOTE: No resetStreamState() here to avoid flicker/reflow issues while previewing user input.
+      };
 
     // API: clear messages list.
     api_clearNodes = () => { this.dom.clearNodes(); this.resetStreamState('clearNodes', { clearMsg: true, forceHeavy: true }); };
@@ -4597,6 +5530,7 @@
 
     // API: restore collapsed state of codes in a given root.
     api_restoreCollapsedCode = (root) => this.renderer.restoreCollapsedCode(root);
+
     // API: user-triggered page scroll.
     api_scrollToTopUser = () => this.scrollMgr.scrollToTopUser();
     api_scrollToBottomUser = () => this.scrollMgr.scrollToBottomUser();
@@ -4607,7 +5541,11 @@
 
     // API: custom markup rules control.
     api_getCustomMarkupRules = () => this.customMarkup.getRules();
-    api_setCustomMarkupRules = (rules) => { this.customMarkup.setRules(rules); };
+    api_setCustomMarkupRules = (rules) => {
+      this.customMarkup.setRules(rules);
+      // Keep StreamEngine in sync with rules producing fenced code
+      try { this.stream.setCustomFenceSpecs(this.customMarkup.getSourceFenceSpecs()); } catch (_) {}
+    };
 
     // Initialize runtime (called on DOMContentLoaded).
     init() {
@@ -4615,15 +5553,13 @@
       this.dom.init();
       this.ui.ensureStickyHeaderStyle();
 
-      // Tips manager with rAF-based centering and rotation
       this.tips = new TipsManager(this.dom);
-
       this.events.install();
 
       this.bridge.initQWebChannel(this.cfg.PID, (bridge) => {
-        const onChunk = (name, chunk) => this.api_appendStream(name, chunk);
-        const onNode = (html) => this.api_appendNode(html);
-        const onNodeReplace = (html) => this.api_replaceNodes(html);
+        const onChunk = (name, chunk, type) => this.api_onChunk(name, chunk, type);
+        const onNode = (payload) => this.api_appendNode(payload);
+        const onNodeReplace = (payload) => this.api_replaceNodes(payload);
         const onNodeInput = (html) => this.api_appendToInput(html);
         this.bridge.connect(onChunk, onNode, onNodeReplace, onNodeInput);
         try { this.logger.bindBridge(this.bridge.bridge || this.bridge); } catch (_) {}
@@ -4647,7 +5583,6 @@
       }, this.stream.activeCode);
       this.highlighter.scheduleScanVisibleCodes(this.stream.activeCode);
 
-      // Start tips rotation; internal delay matches legacy timing (TIPS_INIT_DELAY_MS)
       this.tips.cycle();
       this.scrollMgr.updateScrollFab(true);
     }
@@ -4665,17 +5600,17 @@
   }
 
   // Ensure RafManager.cancel uses the correct group key cleanup.
-  if (typeof RafManager !== 'undefined' && RafManager.prototype && typeof RafManager.prototype.cancel === 'function') {
-    RafManager.prototype.cancel = function(key) {
-      const t = this.tasks.get(key);
-      if (!t) return;
-      this.tasks.delete(key);
-      if (t.group) {
-        const set = this.groups.get(t.group);
-        if (set) { set.delete(key); if (set.size === 0) this.groups.delete(t.group); }
+    if (typeof RafManager !== 'undefined' && RafManager.prototype && typeof RafManager.prototype.cancel === 'function') {
+        RafManager.prototype.cancel = function(key) {
+          const t = this.tasks.get(key);
+          if (!t) return;
+          this.tasks.delete(key);
+          if (t.group) {
+            const set = this.groups.get(t.group);
+            if (set) { set.delete(key); if (set.size === 0) this.groups.delete(t.group); }
+          }
+        };
       }
-    };
-  }
 
   const runtime = new Runtime();
 
@@ -4687,11 +5622,12 @@
   window.endStream = () => runtime.api_endStream();
   window.applyStream = (name, chunk) => runtime.api_applyStream(name, chunk);
   window.appendStream = (name, chunk) => runtime.api_appendStream(name, chunk);
+  window.appendStreamTyped = (type, name, chunk) => runtime.api_onChunk(name, chunk, type);
   window.nextStream = () => runtime.api_nextStream();
   window.clearStream = () => runtime.api_clearStream();
 
-  window.appendNode = (html) => runtime.api_appendNode(html);
-  window.replaceNodes = (html) => runtime.api_replaceNodes(html);
+  window.appendNode = (payload) => runtime.api_appendNode(payload);
+  window.replaceNodes = (payload) => runtime.api_replaceNodes(payload);
   window.appendToInput = (html) => runtime.api_appendToInput(html);
 
   window.clearNodes = () => runtime.api_clearNodes();

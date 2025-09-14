@@ -3,7 +3,7 @@
 
 [project]
 name = "tombi"
-version = "0.6.5"  # We use git tags for versioning. This is just a placeholder.
+version = "0.6.6"  # We use git tags for versioning. This is just a placeholder.
 description = "🦅 TOML Toolkit 🦅 "
 readme = "python/tombi/README.md"
 requires-python = ">=3.10"
@@ -31,8 +31,8 @@ build-backend = "maturin"
 [tool.maturin]
 bindings = "bin"
 include = [
-  { path = "json.schemastore.org/**/*.json", format = "sdist" },
-  { path = "json.tombi.dev/**/*.json", format = "sdist" },
+  { format = "sdist", path = "json.schemastore.org/**/*.json" },
+  { format = "sdist", path = "json.tombi.dev/**/*.json" },
 ]
 manifest-path = "rust/tombi-cli/Cargo.toml"
 module-name = "tombi"

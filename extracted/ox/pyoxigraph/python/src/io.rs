@@ -28,22 +28,20 @@ use std::sync::OnceLock;
 /// * `N3 <https://w3c.github.io/N3/spec/>`_ (:py:attr:`RdfFormat.N3`)
 /// * `RDF/XML <https://www.w3.org/TR/rdf-syntax-grammar/>`_ (:py:attr:`RdfFormat.RDF_XML`)
 ///
-/// It supports also some media type and extension aliases.
-/// For example, ``application/turtle`` could also be used for `Turtle <https://www.w3.org/TR/turtle/>`_
-/// and ``application/xml`` or ``xml`` for `RDF/XML <https://www.w3.org/TR/rdf-syntax-grammar/>`_.
-///
 /// :param input: The :py:class:`str`, :py:class:`bytes` or I/O object to read from. For example, it could be the file content as a string or a file reader opened in binary mode with ``open('my_file.ttl', 'rb')``.
 /// :type input: bytes or str or typing.IO[bytes] or typing.IO[str] or None, optional
 /// :param format: the format of the RDF serialization. If :py:const:`None`, the format is guessed from the file name extension.
 /// :type format: RdfFormat or None, optional
-/// :param path: The file path to read from. Replaces the ``input`` parameter.
+/// :param path: The file path to read from. Replace the ``input`` parameter.
 /// :type path: str or os.PathLike[str] or None, optional
 /// :param base_iri: the base IRI used to resolve the relative IRIs in the file or :py:const:`None` if relative IRI resolution should not be done.
 /// :type base_iri: str or None, optional
 /// :param without_named_graphs: Sets that the parser must fail when parsing a named graph.
 /// :type without_named_graphs: bool, optional
-/// :param rename_blank_nodes: Renames the blank nodes identifiers from the ones set in the serialization to random ids. This allows to avoid identifier conflicts when merging graphs together.
+/// :param rename_blank_nodes: Renames the blank nodes identifiers from the ones set in the serialization to random ids. This allows avoiding identifier conflicts when merging graphs together.
 /// :type rename_blank_nodes: bool, optional
+/// :param lenient: Skip some data validation during loading, like validating IRIs. This makes parsing faster at the cost of maybe ingesting invalid data.
+/// :type lenient: bool, optional
 /// :return: an iterator of RDF triples or quads depending on the format.
 /// :rtype: QuadParser
 /// :raises ValueError: if the format is not supported.
@@ -53,7 +51,7 @@ use std::sync::OnceLock;
 /// >>> list(parse(input=b'<foo> <p> "1" .', format=RdfFormat.TURTLE, base_iri="http://example.com/"))
 /// [<Quad subject=<NamedNode value=http://example.com/foo> predicate=<NamedNode value=http://example.com/p> object=<Literal value=1 datatype=<NamedNode value=http://www.w3.org/2001/XMLSchema#string>> graph_name=<DefaultGraph>>]
 #[pyfunction]
-#[pyo3(signature = (input = None, format = None, *, path = None, base_iri = None, without_named_graphs = false, rename_blank_nodes = false))]
+#[pyo3(signature = (input = None, format = None, *, path = None, base_iri = None, without_named_graphs = false, rename_blank_nodes = false, lenient = false))]
 pub fn parse(
     input: Option<PyReadableInput>,
     format: Option<PyRdfFormatInput>,
@@ -61,6 +59,7 @@ pub fn parse(
     base_iri: Option<&str>,
     without_named_graphs: bool,
     rename_blank_nodes: bool,
+    lenient: bool,
     py: Python<'_>,
 ) -> PyResult<PyQuadParser> {
     let input = PyReadable::from_args(&path, input, py)?;
@@ -76,6 +75,9 @@ pub fn parse(
     }
     if rename_blank_nodes {
         parser = parser.rename_blank_nodes();
+    }
+    if lenient {
+        parser = parser.lenient();
     }
     Ok(PyQuadParser {
         inner: parser.for_reader(input),
@@ -94,10 +96,6 @@ pub fn parse(
 /// * `TriG <https://www.w3.org/TR/trig/>`_ (:py:attr:`RdfFormat.TRIG`)
 /// * `N3 <https://w3c.github.io/N3/spec/>`_ (:py:attr:`RdfFormat.N3`)
 /// * `RDF/XML <https://www.w3.org/TR/rdf-syntax-grammar/>`_ (:py:attr:`RdfFormat.RDF_XML`)
-///
-/// It supports also some media type and extension aliases.
-/// For example, ``application/turtle`` could also be used for `Turtle <https://www.w3.org/TR/turtle/>`_
-/// and ``application/xml`` or ``xml`` for `RDF/XML <https://www.w3.org/TR/rdf-syntax-grammar/>`_.
 ///
 /// :param input: the RDF triples and quads to serialize.
 /// :type input: collections.abc.Iterable[Triple] or collections.abc.Iterable[Quad]
@@ -233,7 +231,7 @@ impl PyQuadParser {
     }
 
     fn __next__(&mut self, py: Python<'_>) -> PyResult<Option<PyQuad>> {
-        py.allow_threads(|| {
+        py.detach(|| {
             Ok(self
                 .inner
                 .next()
@@ -363,16 +361,21 @@ impl PyRdfFormat {
         self.inner.supports_datasets()
     }
 
-    /// :return: if the formats supports `RDF-star quoted triples <https://w3c.github.io/rdf-star/cg-spec/2021-12-17.html#dfn-quoted>`_.
+    /// :return: if the format supports `RDF-star quoted triples <https://w3c.github.io/rdf-star/cg-spec/2021-12-17.html#dfn-quoted>`_.
     /// :rtype: bool
     ///
     /// >>> RdfFormat.N_TRIPLES.supports_rdf_star
     /// True
     /// >>> RdfFormat.RDF_XML.supports_rdf_star
     /// False
+    #[cfg(feature = "rdf-12")]
     #[getter]
-    fn supports_rdf_star(&self) -> bool {
-        self.inner.supports_rdf_star()
+    fn supports_rdf_star(&self) -> PyResult<bool> {
+        deprecation_warning(
+            "RdfFormat.supports_rdf_star is deprecated, all formats will support RDF 1.2 soon.",
+        )?;
+        #[expect(deprecated)]
+        Ok(self.inner.supports_rdf_star())
     }
 
     /// Looks for a known format from a media type.
@@ -427,7 +430,7 @@ impl PyRdfFormat {
 
     /// :type memo: typing.Any
     /// :rtype: RdfFormat
-    #[allow(unused_variables)]
+    #[expect(unused_variables)]
     fn __deepcopy__<'a>(slf: PyRef<'a, Self>, memo: &'_ Bound<'_, PyAny>) -> PyRef<'a, Self> {
         slf
     }
@@ -450,7 +453,7 @@ impl PyReadable {
             (Some(_), Some(_)) => Err(PyValueError::new_err(
                 "input and file_path can't be both set at the same time",
             )),
-            (Some(path), None) => Ok(Self::File(py.allow_threads(|| File::open(path))?)),
+            (Some(path), None) => Ok(Self::File(py.detach(|| File::open(path))?)),
             (None, Some(input)) => Ok(input.into()),
             (None, None) => Err(PyValueError::new_err(
                 "Either input or file_path must be set",
@@ -474,7 +477,7 @@ impl Read for PyReadable {
 pub enum PyReadableInput {
     String(PyBackedStr),
     Bytes(PyBackedBytes),
-    Io(PyObject),
+    Io(Py<PyAny>),
 }
 
 impl From<PyReadableInput> for PyReadable {
@@ -501,28 +504,28 @@ impl PyWritable {
     ) -> PyResult<Option<Vec<u8>>> {
         let (output, file_path) = match output {
             Some(PyWritableOutput::Path(file_path)) => (
-                Self::File(py.allow_threads(|| File::create(&file_path))?),
+                Self::File(py.detach(|| File::create(&file_path))?),
                 Some(file_path),
             ),
             Some(PyWritableOutput::Io(object)) => (Self::Io(PyIo(object)), None),
             None => (Self::Bytes(Vec::new()), None),
         };
         let serializer = write(BufWriter::new(output), file_path)?;
-        py.allow_threads(|| serializer.into_inner())?.close(py)
+        py.detach(|| serializer.into_inner())?.close(py)
     }
 
     fn close(self, py: Python<'_>) -> PyResult<Option<Vec<u8>>> {
         match self {
             Self::Bytes(bytes) => Ok(Some(bytes)),
             Self::File(mut file) => {
-                py.allow_threads(|| {
+                py.detach(|| {
                     file.flush()?;
                     file.sync_all()
                 })?;
                 Ok(None)
             }
             Self::Io(mut io) => {
-                py.allow_threads(|| io.flush())?;
+                py.detach(|| io.flush())?;
                 Ok(None)
             }
         }
@@ -550,14 +553,14 @@ impl Write for PyWritable {
 #[derive(FromPyObject)]
 pub enum PyWritableOutput {
     Path(PathBuf),
-    Io(PyObject),
+    Io(Py<PyAny>),
 }
 
-pub struct PyIo(PyObject);
+pub struct PyIo(Py<PyAny>);
 
 impl Read for PyIo {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             if buf.is_empty() {
                 return Ok(0);
             }
@@ -580,7 +583,7 @@ impl Read for PyIo {
 
 impl Write for PyIo {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             Ok(self
                 .0
                 .bind(py)
@@ -590,7 +593,7 @@ impl Write for PyIo {
     }
 
     fn flush(&mut self) -> io::Result<()> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             self.0.bind(py).call_method0(intern!(py, "flush"))?;
             Ok(())
         })
@@ -605,7 +608,9 @@ pub fn lookup_rdf_format(
         return match format {
             PyRdfFormatInput::Object(format) => Ok(format.inner),
             PyRdfFormatInput::MediaType(media_type) => {
-                deprecation_warning("Using string to specify a RDF format is deprecated, please use a RdfFormat object instead.")?;
+                deprecation_warning(
+                    "Using string to specify a RDF format is deprecated, please use a RdfFormat object instead.",
+                )?;
                 RdfFormat::from_media_type(&media_type).ok_or_else(|| {
                     PyValueError::new_err(format!(
                         "The media type {media_type} is not supported by pyoxigraph"
@@ -674,7 +679,7 @@ pub fn map_parse_error(error: RdfParseError, file_path: Option<PathBuf>) -> PyEr
 pub fn python_version() -> (u8, u8) {
     static VERSION: OnceLock<(u8, u8)> = OnceLock::new();
     *VERSION.get_or_init(|| {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let v = py.version_info();
             (v.major, v.minor)
         })
@@ -682,7 +687,7 @@ pub fn python_version() -> (u8, u8) {
 }
 
 pub fn deprecation_warning(message: &str) -> PyResult<()> {
-    Python::with_gil(|py| {
+    Python::attach(|py| {
         PyErr::warn(
             py,
             &py.get_type::<PyDeprecationWarning>(),

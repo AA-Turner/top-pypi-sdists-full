@@ -925,6 +925,10 @@ void rocksdb_backup_engine_options_destroy(
   delete options;
 }
 
+void rocksdb_status_ptr_get_error(rocksdb_status_ptr_t* status, char** errptr) {
+  SaveError(errptr, *(status->rep));
+}
+
 rocksdb_checkpoint_t* rocksdb_checkpoint_object_create(rocksdb_t* db,
                                                        char** errptr) {
   Checkpoint* checkpoint;
@@ -3061,6 +3065,10 @@ uint64_t rocksdb_flushjobinfo_smallest_seqno(
   return info->rep.smallest_seqno;
 }
 
+uint32_t rocksdb_flushjobinfo_flush_reason(const rocksdb_flushjobinfo_t* info) {
+  return static_cast<uint32_t>(info->rep.flush_reason);
+}
+
 void rocksdb_reset_status(rocksdb_status_ptr_t* status_ptr) {
   auto ptr = status_ptr->rep;
   *ptr = Status::OK();
@@ -3190,6 +3198,11 @@ int rocksdb_subcompactionjobinfo_base_input_level(
 int rocksdb_subcompactionjobinfo_output_level(
     const rocksdb_subcompactionjobinfo_t* info) {
   return info->rep.output_level;
+}
+
+uint32_t rocksdb_subcompactionjobinfo_compaction_reason(
+    const rocksdb_subcompactionjobinfo_t* info) {
+  return static_cast<uint32_t>(info->rep.compaction_reason);
 }
 
 /* ExternalFileIngestionInfo */
@@ -3746,6 +3759,16 @@ void rocksdb_options_set_memtable_op_scan_flush_trigger(rocksdb_options_t* opt,
 uint32_t rocksdb_options_get_memtable_op_scan_flush_trigger(
     rocksdb_options_t* opt) {
   return opt->rep.memtable_op_scan_flush_trigger;
+}
+
+void rocksdb_options_set_memtable_avg_op_scan_flush_trigger(
+    rocksdb_options_t* opt, uint32_t n) {
+  opt->rep.memtable_avg_op_scan_flush_trigger = n;
+}
+
+uint32_t rocksdb_options_get_memtable_avg_op_scan_flush_trigger(
+    rocksdb_options_t* opt) {
+  return opt->rep.memtable_avg_op_scan_flush_trigger;
 }
 
 void rocksdb_options_enable_statistics(rocksdb_options_t* opt) {

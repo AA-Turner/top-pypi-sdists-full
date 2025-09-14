@@ -49,9 +49,6 @@ Status DBImplSecondary::Recover(
     }
     return s;
   }
-  if (immutable_db_options_.paranoid_checks && s.ok()) {
-    s = CheckConsistency();
-  }
   // Initial max_total_in_memory_state_ before recovery logs.
   max_total_in_memory_state_ = 0;
   for (auto cfd : *versions_->GetColumnFamilySet()) {
@@ -653,49 +650,6 @@ Status DBImplSecondary::NewIterators(
   return Status::OK();
 }
 
-Status DBImplSecondary::CheckConsistency() {
-  mutex_.AssertHeld();
-  Status s = DBImpl::CheckConsistency();
-  // If DBImpl::CheckConsistency() which is stricter returns success, then we
-  // do not need to give a second chance.
-  if (s.ok()) {
-    return s;
-  }
-  // It's possible that DBImpl::CheckConssitency() can fail because the primary
-  // may have removed certain files, causing the GetFileSize(name) call to
-  // fail and returning a PathNotFound. In this case, we take a best-effort
-  // approach and just proceed.
-  TEST_SYNC_POINT_CALLBACK(
-      "DBImplSecondary::CheckConsistency:AfterFirstAttempt", &s);
-
-  if (immutable_db_options_.skip_checking_sst_file_sizes_on_db_open) {
-    return Status::OK();
-  }
-
-  std::vector<LiveFileMetaData> metadata;
-  versions_->GetLiveFilesMetaData(&metadata);
-
-  std::string corruption_messages;
-  for (const auto& md : metadata) {
-    // md.name has a leading "/".
-    std::string file_path = md.db_path + md.name;
-
-    uint64_t fsize = 0;
-    s = env_->GetFileSize(file_path, &fsize);
-    if (!s.ok() &&
-        (env_->GetFileSize(Rocks2LevelTableFileName(file_path), &fsize).ok() ||
-         s.IsPathNotFound())) {
-      s = Status::OK();
-    }
-    if (!s.ok()) {
-      corruption_messages +=
-          "Can't access " + md.name + ": " + s.ToString() + "\n";
-    }
-  }
-  return corruption_messages.empty() ? Status::OK()
-                                     : Status::Corruption(corruption_messages);
-}
-
 Status DBImplSecondary::TryCatchUpWithPrimary() {
   assert(versions_.get() != nullptr);
   Status s;
@@ -894,7 +848,6 @@ Status DBImplSecondary::CompactWithoutInstallation(
 
   VersionStorageInfo* vstorage = version->storage_info();
 
-  // Use comp_options to reuse some CompactFiles functions
   CompactionOptions comp_options;
   comp_options.compression = kDisableCompressionOption;
   comp_options.output_file_size_limit = MaxFileSizeForLevel(
@@ -913,13 +866,27 @@ Status DBImplSecondary::CompactWithoutInstallation(
     return s;
   }
 
+  const int job_id = next_job_id_.fetch_add(1);
+  JobContext job_context(job_id, true /*create_superversion*/);
+  std::vector<SequenceNumber> snapshots = input.snapshots;
+
+  // TODO - snapshot_checker support in Remote Compaction
+  job_context.InitSnapshotContext(/*checker=*/nullptr,
+                                  /*managed_snapshot=*/nullptr,
+                                  kMaxSequenceNumber, std::move(snapshots));
+
+  // TODO - consider serializing the entire Compaction object and using it as
+  // input instead of recreating it in the remote worker
   std::unique_ptr<Compaction> c;
   assert(cfd->compaction_picker());
   c.reset(cfd->compaction_picker()->CompactFiles(
       comp_options, input_files, input.output_level, vstorage,
-      cfd->GetLatestMutableCFOptions(), mutable_db_options_, 0));
+      cfd->GetLatestMutableCFOptions(), mutable_db_options_, 0,
+      /*earliest_snapshot=*/job_context.snapshot_seqs.empty()
+          ? kMaxSequenceNumber
+          : job_context.snapshot_seqs.front(),
+      job_context.snapshot_checker));
   assert(c != nullptr);
-
   c->FinalizeInputInfo(version);
 
   // Create output directory if it's not existed yet
@@ -932,8 +899,6 @@ Status DBImplSecondary::CompactWithoutInstallation(
   LogBuffer log_buffer(InfoLogLevel::INFO_LEVEL,
                        immutable_db_options_.info_log.get());
 
-  const int job_id = next_job_id_.fetch_add(1);
-
   // use primary host's db_id for running the compaction, but db_session_id is
   // using the local one, which is to make sure the unique id is unique from
   // the remote compactors. Because the id is generated from db_id,
@@ -944,7 +909,7 @@ Status DBImplSecondary::CompactWithoutInstallation(
       job_id, c.get(), immutable_db_options_, mutable_db_options_,
       file_options_for_compaction_, versions_.get(), &shutting_down_,
       &log_buffer, output_dir.get(), stats_, &mutex_, &error_handler_,
-      input.snapshots, table_cache_, &event_logger_, dbname_, io_tracer_,
+      &job_context, table_cache_, &event_logger_, dbname_, io_tracer_,
       options.canceled ? *options.canceled : kManualCompactionCanceledFalse_,
       input.db_id, db_session_id_, secondary_path_, input, result);
 

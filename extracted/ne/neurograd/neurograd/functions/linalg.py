@@ -1,7 +1,7 @@
 from neurograd import xp
 from .base import Function
 from neurograd.nn.module import Module
-from typing import TYPE_CHECKING, Union, Tuple, Sequence
+from typing import TYPE_CHECKING, Union, Tuple, Sequence, Literal
 from numpy.typing import ArrayLike
 if TYPE_CHECKING:
     from neurograd.tensor import Tensor
@@ -111,25 +111,37 @@ class TensorDot(Function, Module):
 
 class EinSum(Function, Module):
     name = "EinSum"
-    def __init__(self, subscripts: str, optimize = False, use_opt_einsum = False):
+    def __init__(self, subscripts: str, optimize = False, 
+                 backend: Literal["xp", "opt_einsum", "cuquantum"] = "xp"):
         Function.__init__(self)
         Module.__init__(self)
         self.subscripts = subscripts.replace(" ", "")
         self.optimize = optimize
-        self.use_opt_einsum = use_opt_einsum
-        if self.use_opt_einsum:
-            try:
-                import opt_einsum
-                self.opt_einsum = opt_einsum
-            except ImportError:
-                raise ImportError("opt_einsum is not installed. Please install it with: pip install opt_einsum")
+        self.backend = backend
+        # Import the appropriate backend
+        if self.backend == "opt_einsum":
+            import opt_einsum
+            self.opt_einsum = opt_einsum
+        elif self.backend == "cuquantum":
+            import cuquantum
+            from cuquantum import contract
+            # from cuquantum.tensornet import contract
+            self.cuquantum_contract = contract
     def forward(self, *operands: xp.ndarray) -> xp.ndarray:
         self.operand_shapes = [op.shape for op in operands]
         self.input_operands = operands
-        if self.use_opt_einsum:
+        if self.backend == "opt_einsum":
             return self.opt_einsum.contract(self.subscripts, *operands, optimize=self.optimize, backend=str(xp.__name__))
+        elif self.backend == "cuquantum":
+            # cuQuantum requires all operands to have the same dtype
+            dtypes = [op.dtype for op in operands]
+            if len(set(dtypes)) > 1:
+                # Convert all to float32 if mixed dtypes (common in AMP)
+                target_dtype = xp.float32
+                operands = [op.astype(target_dtype) for op in operands]
+            return self.cuquantum_contract(self.subscripts, *operands, optimize=None if self.optimize is False else self.optimize)
         else:
-            return xp.einsum(self.subscripts, *operands, optimize=self.optimize)   
+            return xp.einsum(self.subscripts, *operands, optimize=self.optimize)
     def backward(self, grad_output: xp.ndarray):
         grads = []
         if '->' in self.subscripts:
@@ -144,24 +156,31 @@ class EinSum(Function, Module):
         for i, tensor in enumerate(self.parent_tensors):
             if not tensor.requires_grad:
                 grads.append(None)
-                continue
+                continue 
             grad_operands = [grad_output]
             grad_specs = [output_str]
             for j, operand in enumerate(self.parent_tensors):
                 if j != i:
                     grad_operands.append(operand.data)
                     grad_specs.append(input_specs[j])
-            grad_equation = ','.join(grad_specs) + '->' + input_specs[i]
-            try:
-                if self.use_opt_einsum:
-                    grad = self.opt_einsum.contract(grad_equation, *grad_operands, optimize=self.optimize,
-                                                    backend=str(xp.__name__))
-                else:
-                    grad = xp.einsum(grad_equation, *grad_operands, optimize=self.optimize)
-                grad = self._handle_broadcasting(grad, self.operand_shapes[i])
-                grads.append(grad)
-            except Exception as e:
-                grads.append(xp.zeros_like(self.input_operands[i]))
+            grad_equation = ','.join(grad_specs) + '->' + input_specs[i] 
+            if self.backend == "opt_einsum":
+                grad = self.opt_einsum.contract(grad_equation, *grad_operands, optimize=self.optimize,
+                                                backend=str(xp.__name__))
+            elif self.backend == "cuquantum":
+                # cuQuantum requires all operands to have the same dtype
+                # Find the most precise dtype among operands
+                dtypes = [op.dtype for op in grad_operands]
+                if len(set(dtypes)) > 1:
+                    # Convert all to float32 if mixed dtypes (common in AMP)
+                    target_dtype = xp.float32
+                    grad_operands = [op.astype(target_dtype) for op in grad_operands]
+                grad = self.cuquantum_contract(grad_equation, *grad_operands,
+                                               optimize=None if self.optimize is False else self.optimize)
+            else:  # Default xp backend
+                grad = xp.einsum(grad_equation, *grad_operands, optimize=self.optimize)    
+            grad = self._handle_broadcasting(grad, self.operand_shapes[i])
+            grads.append(grad)    
         return tuple(grads)
     def _handle_broadcasting(self, grad, original_shape):
         if grad.shape == original_shape:
@@ -173,7 +192,6 @@ class EinSum(Function, Module):
             if orig_dim == 1 and grad_dim > 1:
                 grad = grad.sum(axis=i, keepdims=True)
         return grad
-
 
 class Transpose(Function, Module):
     name = "Transpose"
@@ -206,7 +224,7 @@ def dot(A, B):
     return MatMul()(A, B)
 def tensordot(A, B, axes):
     return TensorDot(axes)(A, B)
-def einsum(subscripts: str, *operands: xp.ndarray, optimize = False, use_opt_einsum = False) -> xp.ndarray:
-    return EinSum(subscripts, optimize=optimize, use_opt_einsum=use_opt_einsum)(*operands)
+def einsum(subscripts: str, *operands: xp.ndarray, optimize = False, backend="xp") -> xp.ndarray:
+    return EinSum(subscripts, optimize=optimize, backend=backend)(*operands)
 def transpose(A, axes=None):
     return Transpose(axes)(A)

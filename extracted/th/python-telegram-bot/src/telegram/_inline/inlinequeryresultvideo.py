@@ -17,6 +17,7 @@
 # You should have received a copy of the GNU Lesser Public License
 # along with this program.  If not, see [http://www.gnu.org/licenses/].
 """This module contains the classes that represent Telegram InlineQueryResultVideo."""
+
 import datetime as dtm
 from collections.abc import Sequence
 from typing import TYPE_CHECKING, Optional, Union
@@ -60,7 +61,7 @@ class InlineQueryResultVideo(InlineQueryResult):
 
             .. versionadded:: 20.2
 
-            ..versionchanged:: 20.5
+            .. versionchanged:: 20.5
               |thumbnail_url_mandatory|
 
         title (:obj:`str`): Title for the result.

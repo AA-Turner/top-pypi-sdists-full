@@ -5,7 +5,7 @@
 //! Usage example:
 //! ```
 //! use oxigraph::model::*;
-//! use oxigraph::sparql::QueryResults;
+//! use oxigraph::sparql::{QueryResults, SparqlEvaluator};
 //! use oxigraph::store::Store;
 //!
 //! let store = Store::new()?;
@@ -20,46 +20,64 @@
 //! assert_eq!(vec![quad], results?);
 //!
 //! // SPARQL query
-//! if let QueryResults::Solutions(mut solutions) = store.query("SELECT ?s WHERE { ?s ?p ?o }")? {
+//! if let QueryResults::Solutions(mut solutions) = SparqlEvaluator::new()
+//!     .parse_query("SELECT ?s WHERE { ?s ?p ?o }")?
+//!     .on_store(&store)
+//!     .execute()?
+//! {
 //!     assert_eq!(solutions.next().unwrap()?.get("s"), Some(&ex.into()));
 //! };
 //! # Result::<_, Box<dyn std::error::Error>>::Ok(())
 //! ```
-use crate::io::{RdfFormat, RdfParseError, RdfParser, RdfSerializer};
+use crate::io::{RdfParseError, RdfParser, RdfSerializer};
 use crate::model::*;
+#[expect(deprecated)]
 use crate::sparql::{
-    evaluate_query, evaluate_update, EvaluationError, Query, QueryExplanation, QueryOptions,
-    QueryResults, Update, UpdateOptions,
+    Query, QueryEvaluationError, QueryExplanation, QueryResults, SparqlEvaluator, Update,
+    UpdateEvaluationError,
 };
+#[cfg(not(target_family = "wasm"))]
+use crate::storage::map_thread_result;
 use crate::storage::numeric_encoder::{Decoder, EncodedQuad, EncodedTerm};
 pub use crate::storage::{CorruptionError, LoaderError, SerializerError, StorageError};
 use crate::storage::{
-    DecodingGraphIterator, DecodingQuadIterator, Storage, StorageBulkLoader, StorageReader,
-    StorageWriter,
+    DEFAULT_BULK_LOAD_BATCH_SIZE, DecodingGraphIterator, DecodingQuadIterator, Storage,
+    StorageBulkLoader, StorageReadableTransaction, StorageReader,
 };
-use std::error::Error;
+#[cfg(not(target_family = "wasm"))]
+use std::cmp::max;
+use std::fmt;
+#[cfg(not(target_family = "wasm"))]
+use std::fs::File;
 use std::io::{Read, Write};
-#[cfg(all(not(target_family = "wasm"), feature = "rocksdb"))]
+use std::mem::swap;
+#[cfg(not(target_family = "wasm"))]
+use std::num::NonZero;
+#[cfg(not(target_family = "wasm"))]
 use std::path::Path;
-use std::{fmt, str};
+use std::sync::Arc;
+#[cfg(not(target_family = "wasm"))]
+use std::sync::mpsc;
+#[cfg(not(target_family = "wasm"))]
+use std::thread;
+#[cfg(not(target_family = "wasm"))]
+use std::thread::available_parallelism;
 
 /// An on-disk [RDF dataset](https://www.w3.org/TR/rdf11-concepts/#dfn-rdf-dataset).
-/// Allows to query and update it using SPARQL.
+/// Allows querying and updating it using SPARQL.
 /// It is based on the [RocksDB](https://rocksdb.org/) key-value store.
 ///
 /// This store ensures the "repeatable read" isolation level: the store only exposes changes that have
-/// been "committed" (i.e. no partial writes) and the exposed state does not change for the complete duration
-/// of a read operation (e.g. a SPARQL query) or a read/write operation (e.g. a SPARQL update).
+/// been "committed" (i.e., no partial writes), and the exposed state does not change for the complete duration
+/// of a read operation (e.g., a SPARQL query) or a read/write operation (e.g., a SPARQL update).
 ///
 /// Usage example:
 /// ```
 /// use oxigraph::model::*;
-/// use oxigraph::sparql::QueryResults;
+/// use oxigraph::sparql::{QueryResults, SparqlEvaluator};
 /// use oxigraph::store::Store;
-/// # use std::fs::remove_dir_all;
 ///
-/// # {
-/// let store = Store::open("example.db")?;
+/// let store = Store::new()?;
 ///
 /// // insertion
 /// let ex = NamedNode::new("http://example.com")?;
@@ -71,12 +89,13 @@ use std::{fmt, str};
 /// assert_eq!(vec![quad], results?);
 ///
 /// // SPARQL query
-/// if let QueryResults::Solutions(mut solutions) = store.query("SELECT ?s WHERE { ?s ?p ?o }")? {
+/// if let QueryResults::Solutions(mut solutions) = SparqlEvaluator::new()
+///     .parse_query("SELECT ?s WHERE { ?s ?p ?o }")?
+///     .on_store(&store)
+///     .execute()?
+/// {
 ///     assert_eq!(solutions.next().unwrap()?.get("s"), Some(&ex.into()));
 /// };
-/// #
-/// # };
-/// # remove_dir_all("example.db")?;
 /// # Result::<_, Box<dyn std::error::Error>>::Ok(())
 /// ```
 #[derive(Clone)]
@@ -119,7 +138,7 @@ impl Store {
     /// Usage example:
     /// ```
     /// use oxigraph::model::*;
-    /// use oxigraph::sparql::QueryResults;
+    /// use oxigraph::sparql::{QueryResults, SparqlEvaluator};
     /// use oxigraph::store::Store;
     ///
     /// let store = Store::new()?;
@@ -129,7 +148,11 @@ impl Store {
     /// store.insert(QuadRef::new(ex, ex, ex, GraphNameRef::DefaultGraph))?;
     ///
     /// // SPARQL query
-    /// if let QueryResults::Solutions(mut solutions) = store.query("SELECT ?s WHERE { ?s ?p ?o }")? {
+    /// if let QueryResults::Solutions(mut solutions) = SparqlEvaluator::new()
+    ///     .parse_query("SELECT ?s WHERE { ?s ?p ?o }")?
+    ///     .on_store(&store)
+    ///     .execute()?
+    /// {
     ///     assert_eq!(
     ///         solutions.next().unwrap()?.get("s"),
     ///         Some(&ex.into_owned().into())
@@ -137,11 +160,13 @@ impl Store {
     /// }
     /// # Result::<_, Box<dyn std::error::Error>>::Ok(())
     /// ```
+    #[deprecated(note = "Use `SparqlEvaluator` interface instead", since = "0.5.0")]
+    #[expect(deprecated)]
     pub fn query(
         &self,
-        query: impl TryInto<Query, Error = impl Into<EvaluationError>>,
-    ) -> Result<QueryResults, EvaluationError> {
-        self.query_opt(query, QueryOptions::default())
+        query: impl TryInto<Query, Error = impl Into<QueryEvaluationError>>,
+    ) -> Result<QueryResults<'static>, QueryEvaluationError> {
+        self.query_opt(query, SparqlEvaluator::new())
     }
 
     /// Executes a [SPARQL 1.1 query](https://www.w3.org/TR/sparql11-query/) with some options.
@@ -149,17 +174,18 @@ impl Store {
     /// Usage example with a custom function serializing terms to N-Triples:
     /// ```
     /// use oxigraph::model::*;
-    /// use oxigraph::sparql::{QueryOptions, QueryResults};
+    /// use oxigraph::sparql::{QueryResults, SparqlEvaluator};
     /// use oxigraph::store::Store;
     ///
-    /// let store = Store::new()?;
-    /// if let QueryResults::Solutions(mut solutions) = store.query_opt(
-    ///     "SELECT (<http://www.w3.org/ns/formats/N-Triples>(1) AS ?nt) WHERE {}",
-    ///     QueryOptions::default().with_custom_function(
+    /// if let QueryResults::Solutions(mut solutions) = SparqlEvaluator::new()
+    ///     .with_custom_function(
     ///         NamedNode::new("http://www.w3.org/ns/formats/N-Triples")?,
     ///         |args| args.get(0).map(|t| Literal::from(t.to_string()).into()),
-    ///     ),
-    /// )? {
+    ///     )
+    ///     .parse_query("SELECT (<http://www.w3.org/ns/formats/N-Triples>(1) AS ?nt) WHERE {}")?
+    ///     .on_store(&Store::new()?)
+    ///     .execute()?
+    /// {
     ///     assert_eq!(
     ///         solutions.next().unwrap()?.get("nt"),
     ///         Some(&Literal::from("\"1\"^^<http://www.w3.org/2001/XMLSchema#integer>").into())
@@ -167,31 +193,32 @@ impl Store {
     /// }
     /// # Result::<_, Box<dyn std::error::Error>>::Ok(())
     /// ```
+    #[deprecated(note = "Use `SparqlEvaluator` interface instead", since = "0.5.0")]
+    #[expect(deprecated)]
     pub fn query_opt(
         &self,
-        query: impl TryInto<Query, Error = impl Into<EvaluationError>>,
-        options: QueryOptions,
-    ) -> Result<QueryResults, EvaluationError> {
-        let (results, _) = self.explain_query_opt(query, options, false)?;
-        results
+        query: impl TryInto<Query, Error = impl Into<QueryEvaluationError>>,
+        options: SparqlEvaluator,
+    ) -> Result<QueryResults<'static>, QueryEvaluationError> {
+        self.query_opt_with_substituted_variables(query, options, [])
     }
 
     /// Executes a [SPARQL 1.1 query](https://www.w3.org/TR/sparql11-query/) with some options while substituting some variables with the given values.
     ///
     /// Substitution follows [RDF-dev SEP-0007](https://github.com/w3c/sparql-dev/blob/main/SEP/SEP-0007/sep-0007.md).
     ///
-    /// Usage example with a custom function serializing terms to N-Triples:
+    /// Usage example:
     /// ```
     /// use oxigraph::model::{Literal, Variable};
-    /// use oxigraph::sparql::{QueryOptions, QueryResults};
+    /// use oxigraph::sparql::{QueryResults, SparqlEvaluator};
     /// use oxigraph::store::Store;
     ///
-    /// let store = Store::new()?;
-    /// if let QueryResults::Solutions(mut solutions) = store.query_opt_with_substituted_variables(
-    ///     "SELECT ?v WHERE {}",
-    ///     QueryOptions::default(),
-    ///     [(Variable::new("v")?, Literal::from(1).into())],
-    /// )? {
+    /// if let QueryResults::Solutions(mut solutions) = SparqlEvaluator::new()
+    ///     .parse_query("SELECT ?v WHERE {}")?
+    ///     .substitute_variable(Variable::new("v")?, Literal::from(1))
+    ///     .on_store(&Store::new()?)
+    ///     .execute()?
+    /// {
     ///     assert_eq!(
     ///         solutions.next().unwrap()?.get("v"),
     ///         Some(&Literal::from(1).into())
@@ -199,72 +226,36 @@ impl Store {
     /// }
     /// # Result::<_, Box<dyn std::error::Error>>::Ok(())
     /// ```
+    #[deprecated(note = "Use `SparqlEvaluator` interface instead", since = "0.5.0")]
+    #[expect(deprecated)]
     pub fn query_opt_with_substituted_variables(
         &self,
-        query: impl TryInto<Query, Error = impl Into<EvaluationError>>,
-        options: QueryOptions,
+        query: impl TryInto<Query, Error = impl Into<QueryEvaluationError>>,
+        options: SparqlEvaluator,
         substitutions: impl IntoIterator<Item = (Variable, Term)>,
-    ) -> Result<QueryResults, EvaluationError> {
-        let (results, _) = self.explain_query_opt_with_substituted_variables(
-            query,
-            options,
-            false,
-            substitutions,
-        )?;
-        results
+    ) -> Result<QueryResults<'static>, QueryEvaluationError> {
+        let mut evaluator = options.for_query(query.try_into().map_err(Into::into)?);
+        for (variable, term) in substitutions {
+            evaluator = evaluator.substitute_variable(variable, term);
+        }
+        evaluator.on_store(self).execute()
     }
 
     /// Executes a [SPARQL 1.1 query](https://www.w3.org/TR/sparql11-query/) with some options and
     /// returns a query explanation with some statistics (if enabled with the `with_stats` parameter).
     ///
-    /// <div class="warning">If you want to compute statistics you need to exhaust the results iterator before having a look at them.</div>
+    /// <div class="warning">If you want to compute statistics, you need to exhaust the results iterator before having a look at them.</div>
     ///
-    /// Usage example serialising the explanation with statistics in JSON:
+    /// Usage example serializing the explanation with statistics in JSON:
     /// ```
-    /// use oxigraph::sparql::{QueryOptions, QueryResults};
+    /// use oxigraph::sparql::{QueryResults, SparqlEvaluator};
     /// use oxigraph::store::Store;
     ///
-    /// let store = Store::new()?;
-    /// if let (Ok(QueryResults::Solutions(solutions)), explanation) = store.explain_query_opt(
-    ///     "SELECT ?s WHERE { VALUES ?s { 1 2 3 } }",
-    ///     QueryOptions::default(),
-    ///     true,
-    /// )? {
-    ///     // We make sure to have read all the solutions
-    ///     for _ in solutions {}
-    ///     let mut buf = Vec::new();
-    ///     explanation.write_in_json(&mut buf)?;
-    /// }
-    /// # Result::<_, Box<dyn std::error::Error>>::Ok(())
-    /// ```
-    pub fn explain_query_opt(
-        &self,
-        query: impl TryInto<Query, Error = impl Into<EvaluationError>>,
-        options: QueryOptions,
-        with_stats: bool,
-    ) -> Result<(Result<QueryResults, EvaluationError>, QueryExplanation), EvaluationError> {
-        self.explain_query_opt_with_substituted_variables(query, options, with_stats, [])
-    }
-
-    /// Executes a [SPARQL 1.1 query](https://www.w3.org/TR/sparql11-query/) with some options and
-    /// returns a query explanation with some statistics (if enabled with the `with_stats` parameter).
-    ///
-    /// <div class="warning">If you want to compute statistics you need to exhaust the results iterator before having a look at them.</div>
-    ///
-    /// Usage example serialising the explanation with statistics in JSON:
-    /// ```
-    /// use oxigraph::sparql::{QueryOptions, QueryResults};
-    /// use oxigraph::store::Store;
-    /// use oxrdf::{Literal, Variable};
-    ///
-    /// let store = Store::new()?;
-    /// if let (Ok(QueryResults::Solutions(solutions)), explanation) = store
-    ///     .explain_query_opt_with_substituted_variables(
-    ///         "SELECT ?s WHERE {}",
-    ///         QueryOptions::default(),
-    ///         true,
-    ///         [(Variable::new("s")?, Literal::from(1).into())],
-    ///     )?
+    /// if let (Ok(QueryResults::Solutions(solutions)), explanation) = SparqlEvaluator::new()
+    ///     .parse_query("SELECT ?s WHERE { VALUES ?s { 1 2 3 } }")?
+    ///     .on_store(&Store::new()?)
+    ///     .compute_statistics()
+    ///     .explain()
     /// {
     ///     // We make sure to have read all the solutions
     ///     for _ in solutions {}
@@ -273,20 +264,79 @@ impl Store {
     /// }
     /// # Result::<_, Box<dyn std::error::Error>>::Ok(())
     /// ```
+    #[deprecated(note = "Use `SparqlEvaluator` interface instead", since = "0.5.0")]
+    #[expect(deprecated)]
+    pub fn explain_query_opt(
+        &self,
+        query: impl TryInto<Query, Error = impl Into<QueryEvaluationError>>,
+        options: SparqlEvaluator,
+        with_stats: bool,
+    ) -> Result<
+        (
+            Result<QueryResults<'static>, QueryEvaluationError>,
+            QueryExplanation,
+        ),
+        QueryEvaluationError,
+    > {
+        let mut prepared = options
+            .for_query(query.try_into().map_err(Into::into)?)
+            .on_store(self);
+        if with_stats {
+            prepared = prepared.compute_statistics();
+        }
+        Ok(prepared.explain())
+    }
+
+    /// Executes a [SPARQL 1.1 query](https://www.w3.org/TR/sparql11-query/) with some options and
+    /// returns a query explanation with some statistics (if enabled with the `with_stats` parameter).
+    ///
+    /// <div class="warning">If you want to compute statistics, you need to exhaust the results iterator before having a look at them.</div>
+    ///
+    /// Usage example serializing the explanation with statistics in JSON:
+    /// ```
+    /// use oxigraph::model::{Literal, Variable};
+    /// use oxigraph::sparql::{QueryResults, SparqlEvaluator};
+    /// use oxigraph::store::Store;
+    ///
+    /// if let (Ok(QueryResults::Solutions(solutions)), explanation) = SparqlEvaluator::new()
+    ///     .parse_query("SELECT ?s WHERE {}")?
+    ///     .substitute_variable(Variable::new("s")?, Literal::from(1))
+    ///     .on_store(&Store::new()?)
+    ///     .compute_statistics()
+    ///     .explain()
+    /// {
+    ///     // We make sure to have read all the solutions
+    ///     for _ in solutions {}
+    ///     let mut buf = Vec::new();
+    ///     explanation.write_in_json(&mut buf)?;
+    /// }
+    /// # Result::<_, Box<dyn std::error::Error>>::Ok(())
+    /// ```
+    #[deprecated(note = "Use `SparqlEvaluator` interface instead", since = "0.5.0")]
+    #[expect(deprecated)]
     pub fn explain_query_opt_with_substituted_variables(
         &self,
-        query: impl TryInto<Query, Error = impl Into<EvaluationError>>,
-        options: QueryOptions,
+        query: impl TryInto<Query, Error = impl Into<QueryEvaluationError>>,
+        options: SparqlEvaluator,
         with_stats: bool,
         substitutions: impl IntoIterator<Item = (Variable, Term)>,
-    ) -> Result<(Result<QueryResults, EvaluationError>, QueryExplanation), EvaluationError> {
-        evaluate_query(
-            self.storage.snapshot(),
-            query,
-            options,
-            with_stats,
-            substitutions,
-        )
+    ) -> Result<
+        (
+            Result<QueryResults<'static>, QueryEvaluationError>,
+            QueryExplanation,
+        ),
+        QueryEvaluationError,
+    > {
+        let mut prepared = options
+            .for_query(query.try_into().map_err(Into::into)?)
+            .on_store(self);
+        if with_stats {
+            prepared = prepared.compute_statistics();
+        }
+        for (variable, term) in substitutions {
+            prepared = prepared.substitute_variable(variable, term);
+        }
+        Ok(prepared.explain())
     }
 
     /// Retrieves quads with a filter on each quad component
@@ -312,11 +362,11 @@ impl Store {
     /// ```
     pub fn quads_for_pattern(
         &self,
-        subject: Option<SubjectRef<'_>>,
+        subject: Option<NamedOrBlankNodeRef<'_>>,
         predicate: Option<NamedNodeRef<'_>>,
         object: Option<TermRef<'_>>,
         graph_name: Option<GraphNameRef<'_>>,
-    ) -> QuadIter {
+    ) -> QuadIter<'static> {
         let reader = self.storage.snapshot();
         QuadIter {
             iter: reader.quads_for_pattern(
@@ -348,7 +398,7 @@ impl Store {
     /// assert_eq!(vec![quad], results);
     /// # Result::<_, Box<dyn std::error::Error>>::Ok(())
     /// ```
-    pub fn iter(&self) -> QuadIter {
+    pub fn iter(&self) -> QuadIter<'static> {
         self.quads_for_pattern(None, None, None, None)
     }
 
@@ -413,39 +463,16 @@ impl Store {
         self.storage.snapshot().is_empty()
     }
 
-    /// Executes a transaction.
+    /// Start a transaction.
     ///
     /// Transactions ensure the "repeatable read" isolation level: the store only exposes changes that have
-    /// been "committed" (i.e. no partial writes) and the exposed state does not change for the complete duration
-    /// of a read operation (e.g. a SPARQL query) or a read/write operation (e.g. a SPARQL update).
+    /// been "committed" (i.e., no partial writes are done),
+    /// and the exposed state does not change for the complete duration of a read operation
+    /// (e.g., a SPARQL query) or a read/write operation (e.g., a SPARQL update).
+    /// Transactional operations are also atomic.
     ///
-    /// Usage example:
-    /// ```
-    /// use oxigraph::model::*;
-    /// use oxigraph::store::{StorageError, Store};
-    ///
-    /// let store = Store::new()?;
-    /// let a = NamedNodeRef::new("http://example.com/a")?;
-    /// let b = NamedNodeRef::new("http://example.com/b")?;
-    ///
-    /// // Copy all triples about ex:a to triples about ex:b
-    /// store.transaction(|mut transaction| {
-    ///     for q in transaction.quads_for_pattern(Some(a.into()), None, None, None) {
-    ///         let q = q?;
-    ///         transaction.insert(QuadRef::new(b, &q.predicate, &q.object, &q.graph_name))?;
-    ///     }
-    ///     Result::<_, StorageError>::Ok(())
-    /// })?;
-    /// # Result::<_, Box<dyn std::error::Error>>::Ok(())
-    /// ```
-    pub fn transaction<T, E: Error + 'static + From<StorageError>>(
-        &self,
-        f: impl for<'a> Fn(Transaction<'a>) -> Result<T, E>,
-    ) -> Result<T, E> {
-        self.storage.transaction(|writer| f(Transaction { writer }))
-    }
-
-    /// Executes a [SPARQL 1.1 update](https://www.w3.org/TR/sparql11-update/).
+    /// Note that the transaction keeps the complete set of changes into memory, do not use them to load
+    /// tens of millions of triples.
     ///
     /// Usage example:
     /// ```
@@ -453,21 +480,60 @@ impl Store {
     /// use oxigraph::store::Store;
     ///
     /// let store = Store::new()?;
+    /// let a = NamedNodeRef::new("http://example.com/a")?;
+    /// let b = NamedNodeRef::new("http://example.com/b")?;
+    ///
+    /// // Copy all triples about ex:a to triples about ex:b
+    /// let mut transaction = store.start_transaction()?;
+    /// let triples = transaction
+    ///     .quads_for_pattern(Some(a.into()), None, None, None)
+    ///     .collect::<Result<Vec<_>, _>>()?;
+    /// for triple in triples {
+    ///     transaction.insert(QuadRef::new(
+    ///         b,
+    ///         &triple.predicate,
+    ///         &triple.object,
+    ///         &triple.graph_name,
+    ///     ));
+    /// }
+    /// transaction.commit()?;
+    /// # Result::<_, Box<dyn std::error::Error>>::Ok(())
+    /// ```
+    pub fn start_transaction(&self) -> Result<Transaction<'_>, StorageError> {
+        Ok(Transaction {
+            inner: self.storage.start_readable_transaction()?,
+        })
+    }
+
+    /// Executes a [SPARQL 1.1 update](https://www.w3.org/TR/sparql11-update/).
+    ///
+    /// Usage example:
+    /// ```
+    /// use oxigraph::model::*;
+    /// use oxigraph::sparql::SparqlEvaluator;
+    /// use oxigraph::store::Store;
+    ///
+    /// let store = Store::new()?;
     ///
     /// // insertion
-    /// store
-    ///     .update("INSERT DATA { <http://example.com> <http://example.com> <http://example.com> }")?;
+    /// SparqlEvaluator::new()
+    ///     .parse_update(
+    ///         "INSERT DATA { <http://example.com> <http://example.com> <http://example.com> }",
+    ///     )?
+    ///     .on_store(&store)
+    ///     .execute()?;
     ///
     /// // we inspect the store contents
     /// let ex = NamedNodeRef::new("http://example.com")?;
     /// assert!(store.contains(QuadRef::new(ex, ex, ex, GraphNameRef::DefaultGraph))?);
     /// # Result::<_, Box<dyn std::error::Error>>::Ok(())
     /// ```
+    #[expect(deprecated)]
     pub fn update(
         &self,
-        update: impl TryInto<Update, Error = impl Into<EvaluationError>>,
-    ) -> Result<(), EvaluationError> {
-        self.update_opt(update, UpdateOptions::default())
+        update: impl TryInto<Update, Error = impl Into<UpdateEvaluationError>>,
+    ) -> Result<(), UpdateEvaluationError> {
+        self.update_opt(update, SparqlEvaluator::new())
     }
 
     /// Executes a [SPARQL 1.1 update](https://www.w3.org/TR/sparql11-update/) with some options.
@@ -487,42 +553,42 @@ impl Store {
     /// )?;
     /// # Result::<_, Box<dyn std::error::Error>>::Ok(())
     /// ```
+    #[expect(deprecated)]
     pub fn update_opt(
         &self,
-        update: impl TryInto<Update, Error = impl Into<EvaluationError>>,
-        options: impl Into<UpdateOptions>,
-    ) -> Result<(), EvaluationError> {
-        let update = update.try_into().map_err(Into::into)?;
-        let options = options.into();
-        self.storage
-            .transaction(|mut t| evaluate_update(&mut t, &update, &options))
+        update: impl TryInto<Update, Error = impl Into<UpdateEvaluationError>>,
+        options: SparqlEvaluator,
+    ) -> Result<(), UpdateEvaluationError> {
+        options
+            .for_update(update.try_into().map_err(Into::into)?)
+            .on_store(self)
+            .execute()
     }
 
-    /// Loads a RDF file under into the store.
+    /// Loads an RDF file under into the store.
     ///
-    /// This function is atomic, quite slow and memory hungry. To get much better performances you might want to use the [`bulk_loader`](Store::bulk_loader).
+    /// This function is atomic, quite slow and memory hungry. To get much better performances, you might want to use the [`bulk_loader`](Store::bulk_loader).
     ///
     /// Usage example:
     /// ```
     /// use oxigraph::store::Store;
-    /// use oxigraph::io::RdfFormat;
+    /// use oxigraph::io::{RdfFormat, RdfParser};
     /// use oxigraph::model::*;
-    /// use oxrdfio::RdfParser;
     ///
     /// let store = Store::new()?;
     ///
-    /// // insert a dataset file (former load_dataset method)
-    /// let file = b"<http://example.com> <http://example.com> <http://example.com> <http://example.com/g> .";
-    /// store.load_from_reader(RdfFormat::NQuads, file.as_ref())?;
+    /// // insert a dataset file
+    /// let file = "<http://example.com> <http://example.com> <http://example.com> <http://example.com/g> .";
+    /// store.load_from_reader(RdfFormat::NQuads, file.as_bytes())?;
     ///
-    /// // insert a graph file (former load_graph method)
-    /// let file = b"<> <> <> .";
+    /// // insert a graph file
+    /// let file = "<> <> <> .";
     /// store.load_from_reader(
     ///     RdfParser::from_format(RdfFormat::Turtle)
     ///         .with_base_iri("http://example.com")?
     ///         .without_named_graphs() // No named graphs allowed in the input
     ///         .with_default_graph(NamedNodeRef::new("http://example.com/g2")?), // we put the file default graph inside of a named graph
-    ///     file.as_ref()
+    ///     file.as_bytes()
     /// )?;
     ///
     /// // we inspect the store contents
@@ -536,106 +602,57 @@ impl Store {
         parser: impl Into<RdfParser>,
         reader: impl Read,
     ) -> Result<(), LoaderError> {
-        let quads = parser
-            .into()
-            .rename_blank_nodes()
-            .for_reader(reader)
-            .collect::<Result<Vec<_>, _>>()?;
-        self.storage.transaction(move |mut t| {
-            for quad in &quads {
-                t.insert(quad.as_ref())?;
-            }
-            Ok(())
-        })
+        let mut transaction = self.storage.start_transaction()?;
+        for quad in parser.into().rename_blank_nodes().for_reader(reader) {
+            transaction.insert(quad?.as_ref());
+        }
+        transaction.commit()?;
+        Ok(())
     }
 
-    /// Loads a graph file (i.e. triples) into the store.
+    /// Loads an RDF file under into the store.
     ///
-    /// This function is atomic, quite slow and memory hungry. To get much better performances you might want to use the [`bulk_loader`](Store::bulk_loader).
+    /// This function is atomic, quite slow and memory hungry. To get much better performances, you might want to use the [`bulk_loader`](Store::bulk_loader).
     ///
     /// Usage example:
     /// ```
-    /// use oxigraph::io::RdfFormat;
-    /// use oxigraph::model::*;
     /// use oxigraph::store::Store;
+    /// use oxigraph::io::{RdfParser, RdfFormat};
+    /// use oxigraph::model::*;
     ///
     /// let store = Store::new()?;
     ///
-    /// // insertion
-    /// let file = b"<http://example.com> <http://example.com> <http://example.com> .";
-    /// store.load_graph(
-    ///     file.as_ref(),
-    ///     RdfFormat::NTriples,
-    ///     GraphName::DefaultGraph,
-    ///     None,
+    /// // insert a dataset file
+    /// let file = "<http://example.com> <http://example.com> <http://example.com> <http://example.com/g> .";
+    /// store.load_from_slice(RdfFormat::NQuads, file)?;
+    ///
+    /// // insert a graph file
+    /// let file = "<> <> <> .";
+    /// store.load_from_slice(
+    ///     RdfParser::from_format(RdfFormat::Turtle)
+    ///         .with_base_iri("http://example.com")?
+    ///         .without_named_graphs() // No named graphs allowed in the input
+    ///         .with_default_graph(NamedNodeRef::new("http://example.com/g2")?), // we put the file default graph inside of a named graph
+    ///     file
     /// )?;
     ///
     /// // we inspect the store contents
     /// let ex = NamedNodeRef::new("http://example.com")?;
-    /// assert!(store.contains(QuadRef::new(ex, ex, ex, GraphNameRef::DefaultGraph))?);
+    /// assert!(store.contains(QuadRef::new(ex, ex, ex, NamedNodeRef::new("http://example.com/g")?))?);
+    /// assert!(store.contains(QuadRef::new(ex, ex, ex, NamedNodeRef::new("http://example.com/g2")?))?);
     /// # Result::<_, Box<dyn std::error::Error>>::Ok(())
     /// ```
-    #[deprecated(note = "use Store.load_from_reader instead", since = "0.4.0")]
-    pub fn load_graph(
+    pub fn load_from_slice(
         &self,
-        reader: impl Read,
-        format: impl Into<RdfFormat>,
-        to_graph_name: impl Into<GraphName>,
-        base_iri: Option<&str>,
+        parser: impl Into<RdfParser>,
+        slice: &(impl AsRef<[u8]> + ?Sized),
     ) -> Result<(), LoaderError> {
-        let mut parser = RdfParser::from_format(format.into())
-            .without_named_graphs()
-            .with_default_graph(to_graph_name);
-        if let Some(base_iri) = base_iri {
-            parser = parser
-                .with_base_iri(base_iri)
-                .map_err(|e| LoaderError::InvalidBaseIri {
-                    iri: base_iri.into(),
-                    error: e,
-                })?;
+        let mut transaction = self.storage.start_transaction()?;
+        for quad in parser.into().rename_blank_nodes().for_slice(slice.as_ref()) {
+            transaction.insert(quad.map_err(RdfParseError::Syntax)?.as_ref());
         }
-        self.load_from_reader(parser, reader)
-    }
-
-    /// Loads a dataset file (i.e. quads) into the store.
-    ///
-    /// This function is atomic, quite slow and memory hungry. To get much better performances you might want to use the [`bulk_loader`](Store::bulk_loader).
-    ///
-    /// Usage example:
-    /// ```
-    /// use oxigraph::io::RdfFormat;
-    /// use oxigraph::model::*;
-    /// use oxigraph::store::Store;
-    ///
-    /// let store = Store::new()?;
-    ///
-    /// // insertion
-    /// let file =
-    ///     b"<http://example.com> <http://example.com> <http://example.com> <http://example.com> .";
-    /// store.load_dataset(file.as_ref(), RdfFormat::NQuads, None)?;
-    ///
-    /// // we inspect the store contents
-    /// let ex = NamedNodeRef::new("http://example.com")?;
-    /// assert!(store.contains(QuadRef::new(ex, ex, ex, ex))?);
-    /// # Result::<_, Box<dyn std::error::Error>>::Ok(())
-    /// ```
-    #[deprecated(note = "use Store.load_from_reader instead", since = "0.4.0")]
-    pub fn load_dataset(
-        &self,
-        reader: impl Read,
-        format: impl Into<RdfFormat>,
-        base_iri: Option<&str>,
-    ) -> Result<(), LoaderError> {
-        let mut parser = RdfParser::from_format(format.into());
-        if let Some(base_iri) = base_iri {
-            parser = parser
-                .with_base_iri(base_iri)
-                .map_err(|e| LoaderError::InvalidBaseIri {
-                    iri: base_iri.into(),
-                    error: e,
-                })?;
-        }
-        self.load_from_reader(parser, reader)
+        transaction.commit()?;
+        Ok(())
     }
 
     /// Adds a quad to this store.
@@ -651,18 +668,19 @@ impl Store {
     /// let quad = QuadRef::new(ex, ex, ex, GraphNameRef::DefaultGraph);
     ///
     /// let store = Store::new()?;
-    /// assert!(store.insert(quad)?);
-    /// assert!(!store.insert(quad)?);
+    /// store.insert(quad)?;
     ///
     /// assert!(store.contains(quad)?);
     /// # Result::<_, Box<dyn std::error::Error>>::Ok(())
     /// ```
-    pub fn insert<'a>(&self, quad: impl Into<QuadRef<'a>>) -> Result<bool, StorageError> {
-        let quad = quad.into();
-        self.transaction(|mut t| t.insert(quad))
+    pub fn insert<'a>(&self, quad: impl Into<QuadRef<'a>>) -> Result<(), StorageError> {
+        let mut transaction = self.storage.start_transaction()?;
+        transaction.insert(quad.into());
+        transaction.commit()?;
+        Ok(())
     }
 
-    /// Adds atomically a set of quads to this store.
+    /// Atomically adds a set of quads to this store.
     ///
     /// <div class="warning">
     ///
@@ -671,8 +689,12 @@ impl Store {
         &self,
         quads: impl IntoIterator<Item = impl Into<Quad>>,
     ) -> Result<(), StorageError> {
-        let quads = quads.into_iter().map(Into::into).collect::<Vec<_>>();
-        self.transaction(move |mut t| t.extend(&quads))
+        let mut transaction = self.storage.start_transaction()?;
+        for quad in quads {
+            transaction.insert(quad.into().as_ref());
+        }
+        transaction.commit()?;
+        Ok(())
     }
 
     /// Removes a quad from this store.
@@ -689,32 +711,32 @@ impl Store {
     ///
     /// let store = Store::new()?;
     /// store.insert(quad)?;
-    /// assert!(store.remove(quad)?);
-    /// assert!(!store.remove(quad)?);
+    /// store.remove(quad)?;
     ///
     /// assert!(!store.contains(quad)?);
     /// # Result::<_, Box<dyn std::error::Error>>::Ok(())
     /// ```
-    pub fn remove<'a>(&self, quad: impl Into<QuadRef<'a>>) -> Result<bool, StorageError> {
-        let quad = quad.into();
-        self.transaction(move |mut t| t.remove(quad))
+    pub fn remove<'a>(&self, quad: impl Into<QuadRef<'a>>) -> Result<(), StorageError> {
+        let mut transaction = self.storage.start_transaction()?;
+        transaction.remove(quad.into());
+        transaction.commit()?;
+        Ok(())
     }
 
     /// Dumps the store into a file.
-    ///    
+    ///
     /// ```
     /// use oxigraph::io::RdfFormat;
     /// use oxigraph::store::Store;
     ///
     /// let file =
-    ///     "<http://example.com> <http://example.com> <http://example.com> <http://example.com> .\n"
-    ///         .as_bytes();
+    ///     "<http://example.com> <http://example.com> <http://example.com> <http://example.com> .\n";
     ///
     /// let store = Store::new()?;
-    /// store.load_from_reader(RdfFormat::NQuads, file)?;
+    /// store.load_from_slice(RdfFormat::NQuads, file)?;
     ///
     /// let buffer = store.dump_to_writer(RdfFormat::NQuads, Vec::new())?;
-    /// assert_eq!(file, buffer.as_slice());
+    /// assert_eq!(file.as_bytes(), buffer.as_slice());
     /// # std::io::Result::Ok(())
     /// ```
     pub fn dump_to_writer<W: Write>(
@@ -734,21 +756,21 @@ impl Store {
     }
 
     /// Dumps a store graph into a file.
-    ///    
+    ///
     /// Usage example:
     /// ```
     /// use oxigraph::io::RdfFormat;
-    /// use oxigraph::model::*;
+    /// use oxigraph::model::GraphNameRef;
     /// use oxigraph::store::Store;
     ///
-    /// let file = "<http://example.com> <http://example.com> <http://example.com> .\n".as_bytes();
+    /// let file = "<http://example.com> <http://example.com> <http://example.com> .\n";
     ///
     /// let store = Store::new()?;
-    /// store.load_graph(file, RdfFormat::NTriples, GraphName::DefaultGraph, None)?;
+    /// store.load_from_slice(RdfFormat::NTriples, file)?;
     ///
     /// let mut buffer = Vec::new();
     /// store.dump_graph_to_writer(GraphNameRef::DefaultGraph, RdfFormat::NTriples, &mut buffer)?;
-    /// assert_eq!(file, buffer.as_slice());
+    /// assert_eq!(file.as_bytes(), buffer.as_slice());
     /// # std::io::Result::Ok(())
     /// ```
     pub fn dump_graph_to_writer<'a, W: Write>(
@@ -762,60 +784,6 @@ impl Store {
             serializer.serialize_triple(quad?.as_ref())?;
         }
         Ok(serializer.finish()?)
-    }
-
-    /// Dumps a store graph into a file.
-    ///    
-    /// Usage example:
-    /// ```
-    /// use oxigraph::io::RdfFormat;
-    /// use oxigraph::model::*;
-    /// use oxigraph::store::Store;
-    ///
-    /// let file = "<http://example.com> <http://example.com> <http://example.com> .\n".as_bytes();
-    ///
-    /// let store = Store::new()?;
-    /// store.load_graph(file, RdfFormat::NTriples, GraphName::DefaultGraph, None)?;
-    ///
-    /// let mut buffer = Vec::new();
-    /// store.dump_graph(&mut buffer, RdfFormat::NTriples, GraphNameRef::DefaultGraph)?;
-    /// assert_eq!(file, buffer.as_slice());
-    /// # std::io::Result::Ok(())
-    /// ```
-    #[deprecated(note = "use Store.dump_graph_to_writer instead", since = "0.4.0")]
-    pub fn dump_graph<'a, W: Write>(
-        &self,
-        writer: W,
-        format: impl Into<RdfFormat>,
-        from_graph_name: impl Into<GraphNameRef<'a>>,
-    ) -> Result<W, SerializerError> {
-        self.dump_graph_to_writer(from_graph_name, format.into(), writer)
-    }
-
-    /// Dumps the store into a file.
-    ///    
-    /// ```
-    /// use oxigraph::io::RdfFormat;
-    /// use oxigraph::store::Store;
-    ///
-    /// let file =
-    ///     "<http://example.com> <http://example.com> <http://example.com> <http://example.com> .\n"
-    ///         .as_bytes();
-    ///
-    /// let store = Store::new()?;
-    /// store.load_from_reader(RdfFormat::NQuads, file)?;
-    ///
-    /// let buffer = store.dump_dataset(Vec::new(), RdfFormat::NQuads)?;
-    /// assert_eq!(file, buffer.as_slice());
-    /// # std::io::Result::Ok(())
-    /// ```
-    #[deprecated(note = "use Store.dump_to_writer instead", since = "0.4.0")]
-    pub fn dump_dataset<W: Write>(
-        &self,
-        writer: W,
-        format: impl Into<RdfFormat>,
-    ) -> Result<W, SerializerError> {
-        self.dump_to_writer(format.into(), writer)
     }
 
     /// Returns all the store named graphs.
@@ -835,7 +803,7 @@ impl Store {
     /// );
     /// # Result::<_, Box<dyn std::error::Error>>::Ok(())
     /// ```
-    pub fn named_graphs(&self) -> GraphNameIter {
+    pub fn named_graphs(&self) -> GraphNameIter<'static> {
         let reader = self.storage.snapshot();
         GraphNameIter {
             iter: reader.named_graphs(),
@@ -886,9 +854,11 @@ impl Store {
     pub fn insert_named_graph<'a>(
         &self,
         graph_name: impl Into<NamedOrBlankNodeRef<'a>>,
-    ) -> Result<bool, StorageError> {
-        let graph_name = graph_name.into();
-        self.transaction(|mut t| t.insert_named_graph(graph_name))
+    ) -> Result<(), StorageError> {
+        let mut transaction = self.storage.start_transaction()?;
+        transaction.insert_named_graph(graph_name.into());
+        transaction.commit()?;
+        Ok(())
     }
 
     /// Clears a graph from this store.
@@ -914,7 +884,15 @@ impl Store {
         graph_name: impl Into<GraphNameRef<'a>>,
     ) -> Result<(), StorageError> {
         let graph_name = graph_name.into();
-        self.transaction(|mut t| t.clear_graph(graph_name))
+        if graph_name.is_default_graph() {
+            let mut transaction = self.storage.start_transaction()?;
+            transaction.clear_default_graph();
+            transaction.commit()
+        } else {
+            let mut transaction = self.storage.start_readable_transaction()?;
+            transaction.clear_graph(graph_name)?;
+            transaction.commit()
+        }
     }
 
     /// Removes a graph from this store.
@@ -932,7 +910,7 @@ impl Store {
     /// store.insert(quad)?;
     /// assert_eq!(1, store.len()?);
     ///
-    /// assert!(store.remove_named_graph(ex)?);
+    /// store.remove_named_graph(ex)?;
     /// assert!(store.is_empty()?);
     /// assert_eq!(0, store.named_graphs().count());
     /// # Result::<_, Box<dyn std::error::Error>>::Ok(())
@@ -940,9 +918,11 @@ impl Store {
     pub fn remove_named_graph<'a>(
         &self,
         graph_name: impl Into<NamedOrBlankNodeRef<'a>>,
-    ) -> Result<bool, StorageError> {
-        let graph_name = graph_name.into();
-        self.transaction(|mut t| t.remove_named_graph(graph_name))
+    ) -> Result<(), StorageError> {
+        let mut transaction = self.storage.start_readable_transaction()?;
+        transaction.remove_named_graph(graph_name.into())?;
+        transaction.commit()?;
+        Ok(())
     }
 
     /// Clears the store.
@@ -963,7 +943,9 @@ impl Store {
     /// # Result::<_, Box<dyn std::error::Error>>::Ok(())
     /// ```
     pub fn clear(&self) -> Result<(), StorageError> {
-        self.transaction(|mut t| t.clear())
+        let mut transaction = self.storage.start_transaction()?;
+        transaction.clear();
+        transaction.commit()
     }
 
     /// Flushes all buffers and ensures that all writes are saved on disk.
@@ -1007,7 +989,7 @@ impl Store {
         self.storage.backup(target_directory.as_ref())
     }
 
-    /// Creates a bulk loader allowing to load at lot of data quickly into the store.
+    /// Creates a bulk loader allowing to load at a lot of data quickly into the store.
     ///
     /// Usage example:
     /// ```
@@ -1019,27 +1001,33 @@ impl Store {
     ///
     /// // quads file insertion
     /// let file =
-    ///     b"<http://example.com> <http://example.com> <http://example.com> <http://example.com> .";
-    /// store
-    ///     .bulk_loader()
-    ///     .load_from_reader(RdfFormat::NQuads, file.as_ref())?;
+    ///     "<http://example.com> <http://example.com> <http://example.com> <http://example.com> .";
+    /// let mut loader = store.bulk_loader();
+    /// loader.load_from_slice(RdfFormat::NQuads, file)?;
+    /// loader.commit()?;
     ///
     /// // we inspect the store contents
     /// let ex = NamedNodeRef::new("http://example.com")?;
     /// assert!(store.contains(QuadRef::new(ex, ex, ex, ex))?);
     /// # Result::<_, Box<dyn std::error::Error>>::Ok(())
     /// ```
-    pub fn bulk_loader(&self) -> BulkLoader {
+    pub fn bulk_loader(&self) -> BulkLoader<'_> {
         BulkLoader {
             storage: self.storage.bulk_loader(),
+            num_threads: None,
+            max_memory_size: None,
             on_parse_error: None,
         }
     }
 
-    /// Validates that all the store invariants held in the data
+    /// Validate that all the store invariants held in the data
     #[doc(hidden)]
     pub fn validate(&self) -> Result<(), StorageError> {
         self.storage.snapshot().validate()
+    }
+
+    pub(super) fn storage(&self) -> &Storage {
+        &self.storage
     }
 }
 
@@ -1053,7 +1041,7 @@ impl fmt::Display for Store {
 }
 
 impl IntoIterator for &Store {
-    type IntoIter = QuadIter;
+    type IntoIter = QuadIter<'static>;
     type Item = Result<Quad, StorageError>;
 
     #[inline]
@@ -1064,45 +1052,53 @@ impl IntoIterator for &Store {
 
 /// An object to do operations during a transaction.
 ///
-/// See [`Store::transaction`] for a more detailed description.
+/// See [`Store::start_transaction`] for a more detailed description.
+#[must_use]
 pub struct Transaction<'a> {
-    writer: StorageWriter<'a>,
+    inner: StorageReadableTransaction<'a>,
 }
 
-impl Transaction<'_> {
+impl<'a> Transaction<'a> {
     /// Executes a [SPARQL 1.1 query](https://www.w3.org/TR/sparql11-query/).
     ///
     /// Usage example:
     /// ```
     /// use oxigraph::model::*;
-    /// use oxigraph::sparql::{EvaluationError, QueryResults};
+    /// use oxigraph::sparql::{QueryResults, SparqlEvaluator};
     /// use oxigraph::store::Store;
     ///
     /// let store = Store::new()?;
-    /// store.transaction(|mut transaction| {
-    ///     if let QueryResults::Solutions(solutions) =
-    ///         transaction.query("SELECT ?s WHERE { ?s ?p ?o }")?
-    ///     {
-    ///         for solution in solutions {
-    ///             if let Some(Term::NamedNode(s)) = solution?.get("s") {
-    ///                 transaction.insert(QuadRef::new(
-    ///                     s,
-    ///                     vocab::rdf::TYPE,
-    ///                     NamedNodeRef::new_unchecked("http://example.com"),
-    ///                     GraphNameRef::DefaultGraph,
-    ///                 ))?;
-    ///             }
+    /// let mut transaction = store.start_transaction()?;
+    /// let mut triples_to_add = Vec::new();
+    /// if let QueryResults::Solutions(solutions) = SparqlEvaluator::new()
+    ///     .parse_query("SELECT ?s WHERE { ?s ?p ?o }")?
+    ///     .on_transaction(&transaction)
+    ///     .execute()?
+    /// {
+    ///     for solution in solutions {
+    ///         if let Some(Term::NamedNode(s)) = solution?.get("s") {
+    ///             triples_to_add.push(Quad::new(
+    ///                 s.clone(),
+    ///                 vocab::rdf::TYPE,
+    ///                 NamedNode::new_unchecked("http://example.com"),
+    ///                 GraphName::DefaultGraph,
+    ///             ));
     ///         }
     ///     }
-    ///     Result::<_, EvaluationError>::Ok(())
-    /// })?;
-    /// # Result::<_, EvaluationError>::Ok(())
+    /// }
+    /// for triple in triples_to_add {
+    ///     transaction.insert(&triple);
+    /// }
+    /// transaction.commit()?;
+    /// # Result::<_, Box<dyn std::error::Error>>::Ok(())
     /// ```
+    #[deprecated(note = "Use `SparqlEvaluator` interface instead", since = "0.5.0")]
+    #[expect(deprecated)]
     pub fn query(
         &self,
-        query: impl TryInto<Query, Error = impl Into<EvaluationError>>,
-    ) -> Result<QueryResults, EvaluationError> {
-        self.query_opt(query, QueryOptions::default())
+        query: impl TryInto<Query, Error = impl Into<QueryEvaluationError>>,
+    ) -> Result<QueryResults<'_>, QueryEvaluationError> {
+        self.query_opt(query, SparqlEvaluator::new())
     }
 
     /// Executes a [SPARQL 1.1 query](https://www.w3.org/TR/sparql11-query/) with some options.
@@ -1110,43 +1106,52 @@ impl Transaction<'_> {
     /// Usage example with a custom function serializing terms to N-Triples:
     /// ```
     /// use oxigraph::model::*;
-    /// use oxigraph::sparql::{EvaluationError, QueryOptions, QueryResults};
+    /// use oxigraph::sparql::{QueryResults, SparqlEvaluator};
     /// use oxigraph::store::Store;
     ///
     /// let store = Store::new()?;
-    /// store.transaction(|mut transaction| {
-    ///     if let QueryResults::Solutions(solutions) = transaction.query_opt(
+    /// let mut transaction = store.start_transaction()?;
+    /// let mut triples_to_add = Vec::new();
+    /// if let QueryResults::Solutions(solutions) = SparqlEvaluator::new()
+    ///     .with_custom_function(
+    ///         NamedNode::new_unchecked("http://www.w3.org/ns/formats/N-Triples"),
+    ///         |args| args.get(0).map(|t| Literal::from(t.to_string()).into()),
+    ///     )
+    ///     .parse_query(
     ///         "SELECT ?s (<http://www.w3.org/ns/formats/N-Triples>(?s) AS ?nt) WHERE { ?s ?p ?o }",
-    ///         QueryOptions::default().with_custom_function(
-    ///             NamedNode::new_unchecked("http://www.w3.org/ns/formats/N-Triples"),
-    ///             |args| args.get(0).map(|t| Literal::from(t.to_string()).into()),
-    ///         ),
-    ///     )? {
-    ///         for solution in solutions {
-    ///             let solution = solution?;
-    ///             if let (Some(Term::NamedNode(s)), Some(nt)) =
-    ///                 (solution.get("s"), solution.get("nt"))
-    ///             {
-    ///                 transaction.insert(QuadRef::new(
-    ///                     s,
-    ///                     NamedNodeRef::new_unchecked("http://example.com/n-triples-representation"),
-    ///                     nt,
-    ///                     GraphNameRef::DefaultGraph,
-    ///                 ))?;
-    ///             }
+    ///     )?
+    ///     .on_transaction(&transaction)
+    ///     .execute()?
+    /// {
+    ///     for solution in solutions {
+    ///         let solution = solution?;
+    ///         if let (Some(Term::NamedNode(s)), Some(nt)) = (solution.get("s"), solution.get("nt")) {
+    ///             triples_to_add.push(Quad::new(
+    ///                 s.clone(),
+    ///                 NamedNode::new_unchecked("http://example.com/n-triples-representation"),
+    ///                 nt.clone(),
+    ///                 GraphName::DefaultGraph,
+    ///             ));
     ///         }
     ///     }
-    ///     Result::<_, EvaluationError>::Ok(())
-    /// })?;
-    /// # Result::<_, EvaluationError>::Ok(())
+    /// }
+    /// for triple in triples_to_add {
+    ///     transaction.insert(&triple);
+    /// }
+    /// transaction.commit()?;
+    /// # Result::<_, Box<dyn std::error::Error>>::Ok(())
     /// ```
+    #[deprecated(note = "Use `SparqlEvaluator` interface instead", since = "0.5.0")]
+    #[expect(deprecated)]
     pub fn query_opt(
         &self,
-        query: impl TryInto<Query, Error = impl Into<EvaluationError>>,
-        options: QueryOptions,
-    ) -> Result<QueryResults, EvaluationError> {
-        let (results, _) = evaluate_query(self.writer.reader(), query, options, false, [])?;
-        results
+        query: impl TryInto<Query, Error = impl Into<QueryEvaluationError>>,
+        options: SparqlEvaluator,
+    ) -> Result<QueryResults<'_>, QueryEvaluationError> {
+        options
+            .for_query(query.try_into().map_err(Into::into)?)
+            .on_transaction(self)
+            .execute()
     }
 
     /// Retrieves quads with a filter on each quad component.
@@ -1154,30 +1159,36 @@ impl Transaction<'_> {
     /// Usage example:
     /// ```
     /// use oxigraph::model::*;
-    /// use oxigraph::store::{StorageError, Store};
+    /// use oxigraph::store::Store;
     ///
     /// let store = Store::new()?;
     /// let a = NamedNodeRef::new("http://example.com/a")?;
     /// let b = NamedNodeRef::new("http://example.com/b")?;
     ///
     /// // Copy all triples about ex:a to triples about ex:b
-    /// store.transaction(|mut transaction| {
-    ///     for q in transaction.quads_for_pattern(Some(a.into()), None, None, None) {
-    ///         let q = q?;
-    ///         transaction.insert(QuadRef::new(b, &q.predicate, &q.object, &q.graph_name))?;
-    ///     }
-    ///     Result::<_, StorageError>::Ok(())
-    /// })?;
+    /// let mut transaction = store.start_transaction()?;
+    /// let triples = transaction
+    ///     .quads_for_pattern(Some(a.into()), None, None, None)
+    ///     .collect::<Result<Vec<_>, _>>()?;
+    /// for triple in triples {
+    ///     transaction.insert(QuadRef::new(
+    ///         b,
+    ///         &triple.predicate,
+    ///         &triple.object,
+    ///         &triple.graph_name,
+    ///     ));
+    /// }
+    /// transaction.commit()?;
     /// # Result::<_, Box<dyn std::error::Error>>::Ok(())
     /// ```
     pub fn quads_for_pattern(
         &self,
-        subject: Option<SubjectRef<'_>>,
+        subject: Option<NamedOrBlankNodeRef<'_>>,
         predicate: Option<NamedNodeRef<'_>>,
         object: Option<TermRef<'_>>,
         graph_name: Option<GraphNameRef<'_>>,
-    ) -> QuadIter {
-        let reader = self.writer.reader();
+    ) -> QuadIter<'_> {
+        let reader = self.inner.reader();
         QuadIter {
             iter: reader.quads_for_pattern(
                 subject.map(EncodedTerm::from).as_ref(),
@@ -1190,26 +1201,26 @@ impl Transaction<'_> {
     }
 
     /// Returns all the quads contained in the store.
-    pub fn iter(&self) -> QuadIter {
+    pub fn iter(&self) -> QuadIter<'_> {
         self.quads_for_pattern(None, None, None, None)
     }
 
     /// Checks if this store contains a given quad.
     pub fn contains<'b>(&self, quad: impl Into<QuadRef<'b>>) -> Result<bool, StorageError> {
         let quad = EncodedQuad::from(quad.into());
-        self.writer.reader().contains(&quad)
+        self.inner.reader().contains(&quad)
     }
 
     /// Returns the number of quads in the store.
     ///
     /// <div class="warning">this function executes a full scan.</div>
     pub fn len(&self) -> Result<usize, StorageError> {
-        self.writer.reader().len()
+        self.inner.reader().len()
     }
 
     /// Returns if the store is empty.
     pub fn is_empty(&self) -> Result<bool, StorageError> {
-        self.writer.reader().is_empty()
+        self.inner.reader().is_empty()
     }
 
     /// Executes a [SPARQL 1.1 update](https://www.w3.org/TR/sparql11-update/).
@@ -1217,72 +1228,77 @@ impl Transaction<'_> {
     /// Usage example:
     /// ```
     /// use oxigraph::model::*;
-    /// use oxigraph::sparql::EvaluationError;
+    /// use oxigraph::sparql::SparqlEvaluator;
     /// use oxigraph::store::Store;
     ///
     /// let store = Store::new()?;
-    /// store.transaction(|mut transaction| {
-    ///     // insertion
-    ///     transaction.update(
+    /// let mut transaction = store.start_transaction()?;
+    /// // insertion
+    /// SparqlEvaluator::new()
+    ///     .parse_update(
     ///         "INSERT DATA { <http://example.com> <http://example.com> <http://example.com> }",
-    ///     )?;
+    ///     )?
+    ///     .on_transaction(&mut transaction)
+    ///     .execute()?;
     ///
-    ///     // we inspect the store contents
-    ///     let ex = NamedNodeRef::new_unchecked("http://example.com");
-    ///     assert!(transaction.contains(QuadRef::new(ex, ex, ex, GraphNameRef::DefaultGraph))?);
-    ///     Result::<_, EvaluationError>::Ok(())
-    /// })?;
-    /// # Result::<_, EvaluationError>::Ok(())
+    /// // we inspect the store contents
+    /// let ex = NamedNodeRef::new_unchecked("http://example.com");
+    /// assert!(transaction.contains(QuadRef::new(ex, ex, ex, GraphNameRef::DefaultGraph))?);
+    ///
+    /// transaction.commit()?;
+    /// # Result::<_, Box<dyn std::error::Error>>::Ok(())
     /// ```
+    #[expect(deprecated)]
     pub fn update(
         &mut self,
-        update: impl TryInto<Update, Error = impl Into<EvaluationError>>,
-    ) -> Result<(), EvaluationError> {
-        self.update_opt(update, UpdateOptions::default())
+        update: impl TryInto<Update, Error = impl Into<UpdateEvaluationError>>,
+    ) -> Result<(), UpdateEvaluationError> {
+        self.update_opt(update, SparqlEvaluator::new())
     }
 
     /// Executes a [SPARQL 1.1 update](https://www.w3.org/TR/sparql11-update/) with some options.
+    #[expect(deprecated)]
     pub fn update_opt(
         &mut self,
-        update: impl TryInto<Update, Error = impl Into<EvaluationError>>,
-        options: impl Into<UpdateOptions>,
-    ) -> Result<(), EvaluationError> {
-        evaluate_update(
-            &mut self.writer,
-            &update.try_into().map_err(Into::into)?,
-            &options.into(),
-        )
+        update: impl TryInto<Update, Error = impl Into<UpdateEvaluationError>>,
+        options: SparqlEvaluator,
+    ) -> Result<(), UpdateEvaluationError> {
+        options
+            .for_update(update.try_into().map_err(Into::into)?)
+            .on_transaction(self)
+            .execute()
     }
 
-    /// Loads a RDF file into the store.
+    /// Loads an RDF file into the store.
     ///
-    /// This function is atomic, quite slow and memory hungry. To get much better performances you might want to use the [`bulk_loader`](Store::bulk_loader).
+    /// This function is atomic, quite slow and memory hungry. To get much better performances, you might want to use the [`bulk_loader`](Store::bulk_loader).
     ///
     /// Usage example:
     /// ```
     /// use oxigraph::store::Store;
-    /// use oxigraph::io::RdfFormat;
+    /// use oxigraph::io::{RdfParser, RdfFormat};
     /// use oxigraph::model::*;
-    /// use oxrdfio::RdfParser;
     ///
     /// let store = Store::new()?;
     ///
-    /// // insert a dataset file (former load_dataset method)
-    /// let file = b"<http://example.com> <http://example.com> <http://example.com> <http://example.com/g> .";
-    /// store.transaction(|mut t| t.load_from_reader(RdfFormat::NQuads, file.as_ref()))?;
+    /// // insert a dataset file
+    /// let file = "<http://example.com> <http://example.com> <http://example.com> <http://example.com/g> .";
+    /// let mut transaction = store.start_transaction()?;
+    /// transaction.load_from_reader(RdfFormat::NQuads, file.as_bytes())?;
+    /// transaction.commit()?;
     ///
-    /// // insert a graph file (former load_graph method)
-    /// let file = b"<> <> <> .";
-    /// store.transaction(|mut t|
-    ///     t.load_from_reader(
-    ///         RdfParser::from_format(RdfFormat::Turtle)
-    ///             .with_base_iri("http://example.com")
-    ///             .unwrap()
-    ///             .without_named_graphs() // No named graphs allowed in the input
-    ///             .with_default_graph(NamedNodeRef::new("http://example.com/g2").unwrap()), // we put the file default graph inside of a named graph
-    ///         file.as_ref()
-    ///     )
+    /// // insert a graph file
+    /// let file = "<> <> <> .";
+    /// let mut transaction = store.start_transaction()?;
+    /// transaction.load_from_reader(
+    ///     RdfParser::from_format(RdfFormat::Turtle)
+    ///         .with_base_iri("http://example.com")
+    ///         .unwrap()
+    ///         .without_named_graphs() // No named graphs allowed in the input
+    ///         .with_default_graph(NamedNodeRef::new("http://example.com/g2").unwrap()), // we put the file default graph inside of a named graph
+    ///     file.as_bytes()
     /// )?;
+    /// transaction.commit()?;
     ///
     /// // we inspect the store contents
     /// let ex = NamedNodeRef::new("http://example.com")?;
@@ -1296,98 +1312,57 @@ impl Transaction<'_> {
         reader: impl Read,
     ) -> Result<(), LoaderError> {
         for quad in parser.into().rename_blank_nodes().for_reader(reader) {
-            self.insert(quad?.as_ref())?;
+            self.insert(quad?.as_ref());
         }
         Ok(())
     }
 
-    /// Loads a graph file (i.e. triples) into the store.
+    /// Loads an RDF file into the store.
+    ///
+    /// This function is atomic, quite slow and memory hungry. To get much better performances, you might want to use the [`bulk_loader`](Store::bulk_loader).
     ///
     /// Usage example:
     /// ```
-    /// use oxigraph::io::RdfFormat;
-    /// use oxigraph::model::*;
     /// use oxigraph::store::Store;
+    /// use oxigraph::io::{RdfParser, RdfFormat};
+    /// use oxigraph::model::*;
     ///
     /// let store = Store::new()?;
     ///
-    /// // insertion
-    /// let file = b"<http://example.com> <http://example.com> <http://example.com> .";
-    /// store.transaction(|mut transaction| {
-    ///     transaction.load_graph(
-    ///         file.as_ref(),
-    ///         RdfFormat::NTriples,
-    ///         GraphName::DefaultGraph,
-    ///         None,
-    ///     )
-    /// })?;
+    /// // insert a dataset file
+    /// let file = "<http://example.com> <http://example.com> <http://example.com> <http://example.com/g> .";
+    /// let mut transaction = store.start_transaction()?;
+    /// transaction.load_from_reader(RdfFormat::NQuads, file.as_bytes())?;
+    /// transaction.commit()?;
+    ///
+    /// // insert a graph file
+    /// let file = "<> <> <> .";
+    /// let mut transaction = store.start_transaction()?;
+    /// transaction.load_from_slice(
+    ///     RdfParser::from_format(RdfFormat::Turtle)
+    ///         .with_base_iri("http://example.com")
+    ///         .unwrap()
+    ///         .without_named_graphs() // No named graphs allowed in the input
+    ///         .with_default_graph(NamedNodeRef::new("http://example.com/g2").unwrap()), // we put the file default graph inside of a named graph
+    ///     file
+    /// )?;
+    /// transaction.commit()?;
     ///
     /// // we inspect the store contents
     /// let ex = NamedNodeRef::new("http://example.com")?;
-    /// assert!(store.contains(QuadRef::new(ex, ex, ex, GraphNameRef::DefaultGraph))?);
+    /// assert!(store.contains(QuadRef::new(ex, ex, ex, NamedNodeRef::new("http://example.com/g")?))?);
+    /// assert!(store.contains(QuadRef::new(ex, ex, ex, NamedNodeRef::new("http://example.com/g2")?))?);
     /// # Result::<_, Box<dyn std::error::Error>>::Ok(())
     /// ```
-    #[deprecated(note = "use Transaction.load_from_reader instead", since = "0.4.0")]
-    pub fn load_graph(
+    pub fn load_from_slice(
         &mut self,
-        reader: impl Read,
-        format: impl Into<RdfFormat>,
-        to_graph_name: impl Into<GraphName>,
-        base_iri: Option<&str>,
+        parser: impl Into<RdfParser>,
+        slice: &(impl AsRef<[u8]> + ?Sized),
     ) -> Result<(), LoaderError> {
-        let mut parser = RdfParser::from_format(format.into())
-            .without_named_graphs()
-            .with_default_graph(to_graph_name);
-        if let Some(base_iri) = base_iri {
-            parser = parser
-                .with_base_iri(base_iri)
-                .map_err(|e| LoaderError::InvalidBaseIri {
-                    iri: base_iri.into(),
-                    error: e,
-                })?;
+        for quad in parser.into().rename_blank_nodes().for_slice(slice) {
+            self.insert(quad.map_err(RdfParseError::Syntax)?.as_ref());
         }
-        self.load_from_reader(parser, reader)
-    }
-
-    /// Loads a dataset file (i.e. quads) into the store.
-    ///
-    /// Usage example:
-    /// ```
-    /// use oxigraph::io::RdfFormat;
-    /// use oxigraph::model::*;
-    /// use oxigraph::store::Store;
-    ///
-    /// let store = Store::new()?;
-    ///
-    /// // insertion
-    /// let file =
-    ///     b"<http://example.com> <http://example.com> <http://example.com> <http://example.com> .";
-    /// store.transaction(|mut transaction| {
-    ///     transaction.load_dataset(file.as_ref(), RdfFormat::NQuads, None)
-    /// })?;
-    ///
-    /// // we inspect the store contents
-    /// let ex = NamedNodeRef::new_unchecked("http://example.com");
-    /// assert!(store.contains(QuadRef::new(ex, ex, ex, ex))?);
-    /// # Result::<_,oxigraph::store::LoaderError>::Ok(())
-    /// ```
-    #[deprecated(note = "use Transaction.load_from_reader instead", since = "0.4.0")]
-    pub fn load_dataset(
-        &mut self,
-        reader: impl Read,
-        format: impl Into<RdfFormat>,
-        base_iri: Option<&str>,
-    ) -> Result<(), LoaderError> {
-        let mut parser = RdfParser::from_format(format.into());
-        if let Some(base_iri) = base_iri {
-            parser = parser
-                .with_base_iri(base_iri)
-                .map_err(|e| LoaderError::InvalidBaseIri {
-                    iri: base_iri.into(),
-                    error: e,
-                })?;
-        }
-        self.load_from_reader(parser, reader)
+        Ok(())
     }
 
     /// Adds a quad to this store.
@@ -1403,23 +1378,37 @@ impl Transaction<'_> {
     /// let quad = QuadRef::new(ex, ex, ex, GraphNameRef::DefaultGraph);
     ///
     /// let store = Store::new()?;
-    /// store.transaction(|mut transaction| transaction.insert(quad))?;
+    /// let mut transaction = store.start_transaction()?;
+    /// transaction.insert(quad);
+    /// transaction.commit()?;
     /// assert!(store.contains(quad)?);
     /// # Result::<_,oxigraph::store::StorageError>::Ok(())
     /// ```
-    pub fn insert<'b>(&mut self, quad: impl Into<QuadRef<'b>>) -> Result<bool, StorageError> {
-        self.writer.insert(quad.into())
+    pub fn insert<'b>(&mut self, quad: impl Into<QuadRef<'b>>) {
+        self.inner.insert(quad.into())
     }
 
     /// Adds a set of quads to this store.
-    pub fn extend<'b>(
-        &mut self,
-        quads: impl IntoIterator<Item = impl Into<QuadRef<'b>>>,
-    ) -> Result<(), StorageError> {
+    ///
+    /// Usage example:
+    /// ```
+    /// use oxigraph::model::*;
+    /// use oxigraph::store::Store;
+    ///
+    /// let ex = NamedNodeRef::new_unchecked("http://example.com");
+    /// let quad = QuadRef::new(ex, ex, ex, GraphNameRef::DefaultGraph);
+    ///
+    /// let store = Store::new()?;
+    /// let mut transaction = store.start_transaction()?;
+    /// transaction.extend([quad]);
+    /// transaction.commit()?;
+    /// assert!(store.contains(quad)?);
+    /// # Result::<_,oxigraph::store::StorageError>::Ok(())
+    /// ```
+    pub fn extend<'b>(&mut self, quads: impl IntoIterator<Item = impl Into<QuadRef<'b>>>) {
         for quad in quads {
-            self.writer.insert(quad.into())?;
+            self.inner.insert(quad.into());
         }
-        Ok(())
     }
 
     /// Removes a quad from this store.
@@ -1434,20 +1423,20 @@ impl Transaction<'_> {
     /// let ex = NamedNodeRef::new_unchecked("http://example.com");
     /// let quad = QuadRef::new(ex, ex, ex, GraphNameRef::DefaultGraph);
     /// let store = Store::new()?;
-    /// store.transaction(|mut transaction| {
-    ///     transaction.insert(quad)?;
-    ///     transaction.remove(quad)
-    /// })?;
+    /// let mut transaction = store.start_transaction()?;
+    /// transaction.insert(quad);
+    /// transaction.remove(quad);
+    /// transaction.commit()?;
     /// assert!(!store.contains(quad)?);
     /// # Result::<_,oxigraph::store::StorageError>::Ok(())
     /// ```
-    pub fn remove<'b>(&mut self, quad: impl Into<QuadRef<'b>>) -> Result<bool, StorageError> {
-        self.writer.remove(quad.into())
+    pub fn remove<'b>(&mut self, quad: impl Into<QuadRef<'b>>) {
+        self.inner.remove(quad.into())
     }
 
-    /// Returns all the store named graphs.
-    pub fn named_graphs(&self) -> GraphNameIter {
-        let reader = self.writer.reader();
+    /// Returns all the named graphs in the store.
+    pub fn named_graphs(&self) -> GraphNameIter<'_> {
+        let reader = self.inner.reader();
         GraphNameIter {
             iter: reader.named_graphs(),
             reader,
@@ -1459,7 +1448,7 @@ impl Transaction<'_> {
         &self,
         graph_name: impl Into<NamedOrBlankNodeRef<'b>>,
     ) -> Result<bool, StorageError> {
-        self.writer
+        self.inner
             .reader()
             .contains_named_graph(&EncodedTerm::from(graph_name.into()))
     }
@@ -1475,18 +1464,17 @@ impl Transaction<'_> {
     ///
     /// let ex = NamedNodeRef::new_unchecked("http://example.com");
     /// let store = Store::new()?;
-    /// store.transaction(|mut transaction| transaction.insert_named_graph(ex))?;
+    /// let mut transaction = store.start_transaction()?;
+    /// transaction.insert_named_graph(ex);
+    /// transaction.commit()?;
     /// assert_eq!(
     ///     store.named_graphs().collect::<Result<Vec<_>, _>>()?,
     ///     vec![ex.into_owned().into()]
     /// );
     /// # Result::<_,oxigraph::store::StorageError>::Ok(())
     /// ```
-    pub fn insert_named_graph<'b>(
-        &mut self,
-        graph_name: impl Into<NamedOrBlankNodeRef<'b>>,
-    ) -> Result<bool, StorageError> {
-        self.writer.insert_named_graph(graph_name.into())
+    pub fn insert_named_graph<'b>(&mut self, graph_name: impl Into<NamedOrBlankNodeRef<'b>>) {
+        self.inner.insert_named_graph(graph_name.into())
     }
 
     /// Clears a graph from this store.
@@ -1499,10 +1487,10 @@ impl Transaction<'_> {
     /// let ex = NamedNodeRef::new_unchecked("http://example.com");
     /// let quad = QuadRef::new(ex, ex, ex, ex);
     /// let store = Store::new()?;
-    /// store.transaction(|mut transaction| {
-    ///     transaction.insert(quad)?;
-    ///     transaction.clear_graph(ex)
-    /// })?;
+    /// let mut transaction = store.start_transaction()?;
+    /// transaction.insert(quad);
+    /// transaction.clear_graph(ex)?;
+    /// transaction.commit()?;
     /// assert!(store.is_empty()?);
     /// assert_eq!(1, store.named_graphs().count());
     /// # Result::<_,oxigraph::store::StorageError>::Ok(())
@@ -1511,7 +1499,7 @@ impl Transaction<'_> {
         &mut self,
         graph_name: impl Into<GraphNameRef<'b>>,
     ) -> Result<(), StorageError> {
-        self.writer.clear_graph(graph_name.into())
+        self.inner.clear_graph(graph_name.into())
     }
 
     /// Removes a graph from this store.
@@ -1526,10 +1514,10 @@ impl Transaction<'_> {
     /// let ex = NamedNodeRef::new_unchecked("http://example.com");
     /// let quad = QuadRef::new(ex, ex, ex, ex);
     /// let store = Store::new()?;
-    /// store.transaction(|mut transaction| {
-    ///     transaction.insert(quad)?;
-    ///     transaction.remove_named_graph(ex)
-    /// })?;
+    /// let mut transaction = store.start_transaction()?;
+    /// transaction.insert(quad);
+    /// transaction.remove_named_graph(ex)?;
+    /// transaction.commit()?;
     /// assert!(store.is_empty()?);
     /// assert_eq!(0, store.named_graphs().count());
     /// # Result::<_,oxigraph::store::StorageError>::Ok(())
@@ -1537,8 +1525,8 @@ impl Transaction<'_> {
     pub fn remove_named_graph<'b>(
         &mut self,
         graph_name: impl Into<NamedOrBlankNodeRef<'b>>,
-    ) -> Result<bool, StorageError> {
-        self.writer.remove_named_graph(graph_name.into())
+    ) -> Result<(), StorageError> {
+        self.inner.remove_named_graph(graph_name.into())
     }
 
     /// Clears the store.
@@ -1550,21 +1538,48 @@ impl Transaction<'_> {
     ///
     /// let ex = NamedNodeRef::new_unchecked("http://example.com");
     /// let store = Store::new()?;
-    /// store.transaction(|mut transaction| {
-    ///     transaction.insert(QuadRef::new(ex, ex, ex, ex))?;
-    ///     transaction.clear()
-    /// })?;
+    /// let mut transaction = store.start_transaction()?;
+    /// transaction.insert(QuadRef::new(ex, ex, ex, ex));
+    /// transaction.clear()?;
+    /// transaction.commit()?;
     /// assert!(store.is_empty()?);
     /// # Result::<_,oxigraph::store::StorageError>::Ok(())
     /// ```
     pub fn clear(&mut self) -> Result<(), StorageError> {
-        self.writer.clear()
+        self.inner.clear()
+    }
+
+    /// Commits the transaction, i.e., apply its modifications to the underlying store.
+    ///
+    /// Usage example:
+    /// ```
+    /// use oxigraph::model::*;
+    /// use oxigraph::store::Store;
+    ///
+    /// let ex = NamedNodeRef::new_unchecked("http://example.com");
+    /// let store = Store::new()?;
+    /// let mut transaction = store.start_transaction()?;
+    /// transaction.insert(QuadRef::new(ex, ex, ex, ex));
+    /// transaction.commit()?;
+    /// assert!(store.contains(QuadRef::new(ex, ex, ex, ex))?);
+    /// # Result::<_,oxigraph::store::StorageError>::Ok(())
+    /// ```
+    pub fn commit(self) -> Result<(), StorageError> {
+        self.inner.commit()
+    }
+
+    pub(super) fn inner(&self) -> &StorageReadableTransaction<'a> {
+        &self.inner
+    }
+
+    pub(super) fn inner_mut(&mut self) -> &mut StorageReadableTransaction<'a> {
+        &mut self.inner
     }
 }
 
-impl IntoIterator for &Transaction<'_> {
-    type IntoIter = QuadIter;
+impl<'a> IntoIterator for &'a Transaction<'_> {
     type Item = Result<Quad, StorageError>;
+    type IntoIter = QuadIter<'a>;
 
     #[inline]
     fn into_iter(self) -> Self::IntoIter {
@@ -1573,12 +1588,13 @@ impl IntoIterator for &Transaction<'_> {
 }
 
 /// An iterator returning the quads contained in a [`Store`].
-pub struct QuadIter {
-    iter: DecodingQuadIterator,
-    reader: StorageReader,
+#[must_use]
+pub struct QuadIter<'a> {
+    iter: DecodingQuadIterator<'a>,
+    reader: StorageReader<'a>,
 }
 
-impl Iterator for QuadIter {
+impl Iterator for QuadIter<'_> {
     type Item = Result<Quad, StorageError>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -1590,12 +1606,13 @@ impl Iterator for QuadIter {
 }
 
 /// An iterator returning the graph names contained in a [`Store`].
-pub struct GraphNameIter {
-    iter: DecodingGraphIterator,
-    reader: StorageReader,
+#[must_use]
+pub struct GraphNameIter<'a> {
+    iter: DecodingGraphIterator<'a>,
+    reader: StorageReader<'a>,
 }
 
-impl Iterator for GraphNameIter {
+impl Iterator for GraphNameIter<'_> {
     type Item = Result<NamedOrBlankNode, StorageError>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -1611,19 +1628,15 @@ impl Iterator for GraphNameIter {
     }
 }
 
-/// A bulk loader allowing to load at lot of data quickly into the store.
-///
-/// <div class="warning">The operations provided here are not atomic.
-/// If the operation fails in the middle, only a part of the data may be written to the store.
-/// Results might get weird if you delete data during the loading process.</div>
+/// A bulk loader allowing to load a lot of data quickly into the store.
 ///
 /// Memory usage is configurable using [`with_max_memory_size_in_megabytes`](Self::with_max_memory_size_in_megabytes)
 /// and the number of used threads with [`with_num_threads`](Self::with_num_threads).
-/// By default the memory consumption target (excluding the system and RocksDB internal consumption)
+/// By default, the memory consumption target (excluding the system and RocksDB internal consumption)
 /// is around 2GB per thread and 2 threads.
 /// These targets are considered per loaded file.
 ///
-/// Usage example with loading a dataset:
+/// Usage example a dataset:
 /// ```
 /// use oxigraph::io::RdfFormat;
 /// use oxigraph::model::*;
@@ -1633,10 +1646,10 @@ impl Iterator for GraphNameIter {
 ///
 /// // quads file insertion
 /// let file =
-///     b"<http://example.com> <http://example.com> <http://example.com> <http://example.com> .";
-/// store
-///     .bulk_loader()
-///     .load_from_reader(RdfFormat::NQuads, file.as_ref())?;
+///     "<http://example.com> <http://example.com> <http://example.com> <http://example.com> .";
+/// let mut loader = store.bulk_loader();
+/// loader.load_from_slice(RdfFormat::NQuads, file)?;
+/// loader.commit()?;
 ///
 /// // we inspect the store contents
 /// let ex = NamedNodeRef::new("http://example.com")?;
@@ -1644,52 +1657,61 @@ impl Iterator for GraphNameIter {
 /// # Result::<_, Box<dyn std::error::Error>>::Ok(())
 /// ```
 #[must_use]
-pub struct BulkLoader {
-    storage: StorageBulkLoader,
-    on_parse_error: Option<Box<dyn Fn(RdfParseError) -> Result<(), RdfParseError>>>,
+pub struct BulkLoader<'a> {
+    storage: StorageBulkLoader<'a>,
+    num_threads: Option<usize>,
+    max_memory_size: Option<usize>,
+    on_parse_error: Option<Arc<dyn Fn(RdfParseError) -> Result<(), RdfParseError> + Send + Sync>>,
 }
 
-impl BulkLoader {
-    /// Sets the maximal number of threads to be used by the bulk loader per operation.
+impl BulkLoader<'_> {
+    /// Sets the maximal number of background threads to be used by the bulk loader.
     ///
-    /// This number must be at last 2 (one for parsing and one for loading).
-    ///
-    /// The default value is 2.
+    /// The default value is the number of threads on the machine.
     pub fn with_num_threads(mut self, num_threads: usize) -> Self {
-        self.storage = self.storage.with_num_threads(num_threads);
+        self.num_threads = Some(num_threads);
         self
     }
 
-    #[doc(hidden)]
-    #[deprecated(note = "Use with_num_threads", since = "0.4.0")]
-    pub fn set_num_threads(self, num_threads: usize) -> Self {
-        self.with_num_threads(num_threads)
-    }
-
-    /// Sets a rough idea of the maximal amount of memory to be used by this operation.
+    /// Sets a rough idea about the maximal amount of memory to be used by this operation.
     ///
-    /// This number must be at last a few megabytes per thread.
+    /// This number must be at least a few megabytes per thread.
     ///
     /// Memory used by RocksDB and the system is not taken into account in this limit.
-    /// Note that depending on the system behavior this amount might never be reached or be blown up
-    /// (for example if the data contains very long IRIs or literals).
+    /// Note that depending on the system behavior, this amount might never be reached or be blown up
+    /// (for example, if the data contains very long IRIs or literals).
     ///
     /// By default, a target 2GB per used thread is used.
     pub fn with_max_memory_size_in_megabytes(mut self, max_memory_size: usize) -> Self {
-        self.storage = self
-            .storage
-            .with_max_memory_size_in_megabytes(max_memory_size);
+        self.max_memory_size = Some(max_memory_size);
         self
     }
 
-    #[doc(hidden)]
-    #[deprecated(note = "Use with_max_memory_size_in_megabytes", since = "0.4.0")]
-    pub fn set_max_memory_size_in_megabytes(self, max_memory_size: usize) -> Self {
-        self.with_max_memory_size_in_megabytes(max_memory_size)
+    #[cfg(not(target_family = "wasm"))]
+    fn target_num_threads(&self) -> usize {
+        max(
+            1,
+            self.num_threads
+                .unwrap_or_else(|| available_parallelism().map_or(1, NonZero::get)),
+        )
+    }
+
+    #[cfg(target_family = "wasm")]
+    #[expect(clippy::unused_self)]
+    fn target_num_threads(&self) -> usize {
+        1
+    }
+
+    fn target_batch_size(&self) -> usize {
+        if let Some(max_memory_size) = self.max_memory_size {
+            max_memory_size * 1000 / self.target_num_threads()
+        } else {
+            DEFAULT_BULK_LOAD_BATCH_SIZE
+        }
     }
 
     /// Adds a `callback` evaluated from time to time with the number of loaded triples.
-    pub fn on_progress(mut self, callback: impl Fn(u64) + 'static) -> Self {
+    pub fn on_progress(mut self, callback: impl Fn(u64) + Send + Sync + 'static) -> Self {
         self.storage = self.storage.on_progress(callback);
         self
     }
@@ -1697,12 +1719,12 @@ impl BulkLoader {
     /// Adds a `callback` catching all parse errors and choosing if the parsing should continue
     /// by returning `Ok` or fail by returning `Err`.
     ///
-    /// By default the parsing fails.
+    /// By default, the parsing fails.
     pub fn on_parse_error(
         mut self,
-        callback: impl Fn(RdfParseError) -> Result<(), RdfParseError> + 'static,
+        callback: impl Fn(RdfParseError) -> Result<(), RdfParseError> + Send + Sync + 'static,
     ) -> Self {
-        self.on_parse_error = Some(Box::new(callback));
+        self.on_parse_error = Some(Arc::new(callback));
         self
     }
 
@@ -1710,13 +1732,9 @@ impl BulkLoader {
     ///
     /// This function is optimized for large dataset loading speed. For small files, [`Store::load_from_reader`] might be more convenient.
     ///
-    /// <div class="warning">This method is not atomic.
-    /// If the parsing fails in the middle of the file, only a part of it may be written to the store.
-    /// Results might get weird if you delete data during the loading process.</div>
+    /// See [the struct](Self) documentation for more details.
     ///
-    /// This method is optimized for speed. See [the struct](Self) documentation for more details.
-    ///
-    /// To get better speed on valid datasets, consider enabling [`RdfParser::unchecked`] option to skip some validations.
+    /// To get better speed on valid datasets, consider enabling [`RdfParser::lenient`] option to skip some validations.
     ///
     /// Usage example:
     /// ```
@@ -1726,22 +1744,26 @@ impl BulkLoader {
     ///
     /// let store = Store::new()?;
     ///
-    /// // insert a dataset file (former load_dataset method)
-    /// let file = b"<http://example.com> <http://example.com> <http://example.com> <http://example.com/g> .";
-    /// store.bulk_loader().load_from_reader(
-    ///     RdfParser::from_format(RdfFormat::NQuads).unchecked(), // we inject a custom parser with options
-    ///     file.as_ref()
+    /// // insert a dataset file
+    /// let file = "<http://example.com> <http://example.com> <http://example.com> <http://example.com/g> .";
+    /// let mut loader = store.bulk_loader();
+    /// loader.load_from_reader(
+    ///     RdfParser::from_format(RdfFormat::NQuads).lenient(), // we inject a custom parser with options
+    ///     file.as_bytes()
     /// )?;
+    /// loader.commit()?;
     ///
-    /// // insert a graph file (former load_graph method)
-    /// let file = b"<> <> <> .";
-    /// store.bulk_loader().load_from_reader(
+    /// // insert a graph file
+    /// let file = "<> <> <> .";
+    /// let mut loader = store.bulk_loader();
+    /// loader.load_from_reader(
     ///     RdfParser::from_format(RdfFormat::Turtle)
     ///         .with_base_iri("http://example.com")?
     ///         .without_named_graphs() // No named graphs allowed in the input
     ///         .with_default_graph(NamedNodeRef::new("http://example.com/g2")?), // we put the file default graph inside of a named graph
-    ///     file.as_ref()
+    ///     file.as_bytes()
     /// )?;
+    /// loader.commit()?;
     ///
     /// // we inspect the store contents
     /// let ex = NamedNodeRef::new("http://example.com")?;
@@ -1750,10 +1772,11 @@ impl BulkLoader {
     /// # Result::<_, Box<dyn std::error::Error>>::Ok(())
     /// ```
     pub fn load_from_reader(
-        &self,
+        &mut self,
         parser: impl Into<RdfParser>,
         reader: impl Read,
     ) -> Result<(), LoaderError> {
+        let on_parse_error = self.on_parse_error.as_ref().map(Arc::clone);
         self.load_ok_quads(
             parser
                 .into()
@@ -1762,7 +1785,7 @@ impl BulkLoader {
                 .filter_map(|r| match r {
                     Ok(q) => Some(Ok(q)),
                     Err(e) => {
-                        if let Some(callback) = &self.on_parse_error {
+                        if let Some(callback) = &on_parse_error {
                             if let Err(e) = callback(e) {
                                 Some(Err(e))
                             } else {
@@ -1776,145 +1799,303 @@ impl BulkLoader {
         )
     }
 
-    /// Loads a dataset file using the bulk loader.
+    /// Loads serialized RDF in a slice using the bulk loader.
     ///
-    /// This function is optimized for large dataset loading speed. For small files, [`Store::load_dataset`] might be more convenient.
+    /// This function is optimized for large dataset loading speed. For small files, [`Store::load_from_reader`] might be more convenient.
     ///
-    /// <div class="warning">This method is not atomic.
-    /// If the parsing fails in the middle of the file, only a part of it may be written to the store.
-    /// Results might get weird if you delete data during the loading process.</div>
+    /// See [the struct](Self) documentation for more details.
     ///
-    /// This method is optimized for speed. See [the struct](Self) documentation for more details.
+    /// To get better speed on valid datasets, consider enabling [`RdfParser::lenient`] option to skip some validations.
     ///
     /// Usage example:
     /// ```
-    /// use oxigraph::io::RdfFormat;
-    /// use oxigraph::model::*;
     /// use oxigraph::store::Store;
+    /// use oxigraph::io::{RdfParser, RdfFormat};
+    /// use oxigraph::model::*;
     ///
     /// let store = Store::new()?;
     ///
-    /// // insertion
-    /// let file =
-    ///     b"<http://example.com> <http://example.com> <http://example.com> <http://example.com> .";
-    /// store
-    ///     .bulk_loader()
-    ///     .load_dataset(file.as_ref(), RdfFormat::NQuads, None)?;
+    /// // insert a dataset file
+    /// let file = "<http://example.com> <http://example.com> <http://example.com> <http://example.com/g> .";
+    /// let mut loader = store.bulk_loader();
+    /// loader.load_from_slice(
+    ///     RdfParser::from_format(RdfFormat::NQuads).lenient(), // we inject a custom parser with options
+    ///     file
+    /// )?;
+    /// loader.commit()?;
+    ///
+    /// // insert a graph file
+    /// let file = "<> <> <> .";
+    /// let mut loader = store.bulk_loader();
+    /// loader.load_from_slice(
+    ///     RdfParser::from_format(RdfFormat::Turtle)
+    ///         .with_base_iri("http://example.com")?
+    ///         .without_named_graphs() // No named graphs allowed in the input
+    ///         .with_default_graph(NamedNodeRef::new("http://example.com/g2")?), // we put the file default graph inside of a named graph
+    ///     file
+    /// )?;
+    /// loader.commit()?;
     ///
     /// // we inspect the store contents
     /// let ex = NamedNodeRef::new("http://example.com")?;
-    /// assert!(store.contains(QuadRef::new(ex, ex, ex, ex))?);
+    /// assert!(store.contains(QuadRef::new(ex, ex, ex, NamedNodeRef::new("http://example.com/g")?))?);
+    /// assert!(store.contains(QuadRef::new(ex, ex, ex, NamedNodeRef::new("http://example.com/g2")?))?);
     /// # Result::<_, Box<dyn std::error::Error>>::Ok(())
     /// ```
-    #[deprecated(note = "use BulkLoader.load_from_reader instead", since = "0.4.0")]
-    pub fn load_dataset(
-        &self,
-        reader: impl Read,
-        format: impl Into<RdfFormat>,
-        base_iri: Option<&str>,
+    pub fn load_from_slice(
+        &mut self,
+        parser: impl Into<RdfParser>,
+        slice: &(impl AsRef<[u8]> + ?Sized),
     ) -> Result<(), LoaderError> {
-        let mut parser = RdfParser::from_format(format.into()).rename_blank_nodes();
-        if let Some(base_iri) = base_iri {
-            parser = parser
-                .with_base_iri(base_iri)
-                .map_err(|e| LoaderError::InvalidBaseIri {
-                    iri: base_iri.into(),
-                    error: e,
-                })?;
-        }
-        self.load_ok_quads(parser.for_reader(reader).filter_map(|r| match r {
-            Ok(q) => Some(Ok(q)),
-            Err(e) => {
-                if let Some(callback) = &self.on_parse_error {
-                    if let Err(e) = callback(e) {
-                        Some(Err(e))
-                    } else {
-                        None
+        let on_parse_error = self.on_parse_error.as_ref().map(Arc::clone);
+        self.load_ok_quads(
+            parser
+                .into()
+                .rename_blank_nodes()
+                .for_slice(slice)
+                .filter_map(|r| match r {
+                    Ok(q) => Some(Ok(q)),
+                    Err(e) => {
+                        if let Some(callback) = &on_parse_error {
+                            if let Err(e) = callback(e.into()) {
+                                Some(Err(e))
+                            } else {
+                                None
+                            }
+                        } else {
+                            Some(Err(e.into()))
+                        }
                     }
-                } else {
-                    Some(Err(e))
-                }
-            }
-        }))
+                }),
+        )
     }
 
-    /// Loads a graph file using the bulk loader.
+    /// Loads RDF file using the bulk loader.
     ///
-    /// This function is optimized for large graph loading speed. For small files, [`Store::load_graph`] might be more convenient.   
+    /// If the input format is N-Triples or N-Quads, it will spawn multiple parallel threads to parse the file.
     ///
-    /// <div class="warning">This method is not atomic.
-    /// If the parsing fails in the middle of the file, only a part of it may be written to the store.
-    /// Results might get weird if you delete data during the loading process.</div>
+    /// This function is optimized for large dataset loading speed. For small files, [`Store::load_from_reader`] might be more convenient.
     ///
-    /// This method is optimized for speed. See [the struct](Self) documentation for more details.
+    /// See [the struct](Self) documentation for more details.
+    ///
+    /// To get better speed on valid datasets, consider enabling [`RdfParser::lenient`] option to skip some validations.
     ///
     /// Usage example:
-    /// ```
-    /// use oxigraph::io::RdfFormat;
-    /// use oxigraph::model::*;
+    /// ```no_run
     /// use oxigraph::store::Store;
+    /// use oxigraph::io::{RdfParser, RdfFormat};
+    /// use oxigraph::model::*;
     ///
     /// let store = Store::new()?;
     ///
-    /// // insertion
-    /// let file = b"<http://example.com> <http://example.com> <http://example.com> .";
-    /// store.bulk_loader().load_graph(
-    ///     file.as_ref(),
-    ///     RdfFormat::NTriples,
-    ///     GraphName::DefaultGraph,
-    ///     None,
+    /// // insert a dataset file
+    /// let file = "<http://example.com> <http://example.com> <http://example.com> <http://example.com/g> .";
+    /// let mut loader = store.bulk_loader();
+    /// loader.parallel_load_from_slice(
+    ///     RdfParser::from_format(RdfFormat::NQuads).lenient(), // we inject a custom parser with options
+    ///     file,
     /// )?;
+    /// loader.commit()?;
+    ///
+    /// // insert a graph file
+    /// let file = "<http://example.com> <http://example.com> <http://example.com> .";
+    /// let mut loader = store.bulk_loader();
+    /// loader.parallel_load_from_slice(
+    ///     RdfParser::from_format(RdfFormat::NTriples)
+    ///         .with_base_iri("http://example.com")?
+    ///         .without_named_graphs() // No named graphs allowed in the input
+    ///         .with_default_graph(NamedNodeRef::new("http://example.com/g2")?), // we put the file default graph inside of a named graph
+    ///     file,
+    /// )?;
+    /// loader.commit()?;
     ///
     /// // we inspect the store contents
     /// let ex = NamedNodeRef::new("http://example.com")?;
-    /// assert!(store.contains(QuadRef::new(ex, ex, ex, GraphNameRef::DefaultGraph))?);
+    /// assert!(store.contains(QuadRef::new(ex, ex, ex, NamedNodeRef::new("http://example.com/g")?))?);
+    /// assert!(store.contains(QuadRef::new(ex, ex, ex, NamedNodeRef::new("http://example.com/g2")?))?);
     /// # Result::<_, Box<dyn std::error::Error>>::Ok(())
     /// ```
-    #[deprecated(note = "use BulkLoader.load_from_reader instead", since = "0.4.0")]
-    pub fn load_graph(
-        &self,
-        reader: impl Read,
-        format: impl Into<RdfFormat>,
-        to_graph_name: impl Into<GraphName>,
-        base_iri: Option<&str>,
+    #[cfg(not(target_family = "wasm"))]
+    pub fn parallel_load_from_file(
+        &mut self,
+        parser: impl Into<RdfParser>,
+        path: impl AsRef<Path>,
     ) -> Result<(), LoaderError> {
-        let mut parser = RdfParser::from_format(format.into())
-            .without_named_graphs()
-            .with_default_graph(to_graph_name)
-            .rename_blank_nodes();
-        if let Some(base_iri) = base_iri {
-            parser = parser
-                .with_base_iri(base_iri)
-                .map_err(|e| LoaderError::InvalidBaseIri {
-                    iri: base_iri.into(),
-                    error: e,
-                })?;
+        let target_num_threads = self.target_num_threads() / 2;
+        if target_num_threads < 2 {
+            return self.load_from_reader(parser, File::open(path).map_err(RdfParseError::from)?);
         }
-        self.load_ok_quads(parser.for_reader(reader).filter_map(|r| match r {
-            Ok(q) => Some(Ok(q)),
-            Err(e) => {
-                if let Some(callback) = &self.on_parse_error {
-                    if let Err(e) = callback(e) {
-                        Some(Err(e))
-                    } else {
-                        None
-                    }
-                } else {
-                    Some(Err(e))
-                }
+        let target_batch_size = self.target_batch_size();
+        let on_parse_error = self.on_parse_error.as_ref().map(Arc::clone);
+        let parsers = parser
+            .into()
+            .rename_blank_nodes()
+            .split_file_for_parallel_parsing(path, target_num_threads)
+            .map_err(RdfParseError::Io)?;
+        thread::scope(|scope| {
+            let (sender, receiver) = mpsc::sync_channel(1);
+            let threads = parsers
+                .into_iter()
+                .map(|parser| {
+                    let sender = sender.clone();
+                    let on_parse_error = on_parse_error.clone();
+                    scope.spawn(move || {
+                        let mut batch = Vec::with_capacity(target_batch_size);
+                        for result in parser {
+                            match result {
+                                Ok(quad) => {
+                                    batch.push(quad);
+                                    if batch.len() >= target_batch_size {
+                                        let mut batch_to_save =
+                                            Vec::with_capacity(target_batch_size);
+                                        swap(&mut batch, &mut batch_to_save);
+                                        if sender.send(batch_to_save).is_err() {
+                                            return Ok(());
+                                        };
+                                    }
+                                }
+                                Err(e) => {
+                                    if let Some(callback) = &on_parse_error {
+                                        callback(e)?;
+                                    } else {
+                                        return Err(LoaderError::from(e));
+                                    }
+                                }
+                            }
+                        }
+                        if !batch.is_empty() {
+                            let _we_are_returning = sender.send(batch);
+                        }
+                        Ok(())
+                    })
+                })
+                .collect::<Vec<_>>();
+            drop(sender);
+            while let Ok(batch) = receiver.recv() {
+                self.storage.load_batch(batch, target_num_threads)?;
             }
-        }))
+            for thread in threads {
+                map_thread_result(thread.join()).map_err(StorageError::from)??;
+            }
+            Ok(())
+        })
+    }
+
+    /// Loads serialized RDF in a slice using the bulk loader.
+    ///
+    /// If the input format is N-Triples or N-Quads, it will spawn multiple parallel threads to parse the file.
+    ///
+    /// This function is optimized for large dataset loading speed. For small files, [`Store::load_from_reader`] might be more convenient.
+    ///
+    /// See [the struct](Self) documentation for more details.
+    ///
+    /// To get better speed on valid datasets, consider enabling [`RdfParser::lenient`] option to skip some validations.
+    ///
+    /// Usage example:
+    /// ```
+    /// use oxigraph::store::Store;
+    /// use oxigraph::io::{RdfParser, RdfFormat};
+    /// use oxigraph::model::*;
+    ///
+    /// let store = Store::new()?;
+    ///
+    /// // insert a dataset file
+    /// let file = "<http://example.com> <http://example.com> <http://example.com> <http://example.com/g> .";
+    /// let mut loader = store.bulk_loader();
+    /// loader.parallel_load_from_slice(
+    ///     RdfParser::from_format(RdfFormat::NQuads).lenient(), // we inject a custom parser with options
+    ///     file,
+    /// )?;
+    /// loader.commit()?;
+    ///
+    /// // insert a graph file
+    /// let file = "<http://example.com> <http://example.com> <http://example.com> .";
+    /// let mut loader = store.bulk_loader();
+    /// loader.parallel_load_from_slice(
+    ///     RdfParser::from_format(RdfFormat::NTriples)
+    ///         .with_base_iri("http://example.com")?
+    ///         .without_named_graphs() // No named graphs allowed in the input
+    ///         .with_default_graph(NamedNodeRef::new("http://example.com/g2")?), // we put the file default graph inside of a named graph
+    ///     file
+    /// )?;
+    /// loader.commit()?;
+    ///
+    /// // we inspect the store contents
+    /// let ex = NamedNodeRef::new("http://example.com")?;
+    /// assert!(store.contains(QuadRef::new(ex, ex, ex, NamedNodeRef::new("http://example.com/g")?))?);
+    /// assert!(store.contains(QuadRef::new(ex, ex, ex, NamedNodeRef::new("http://example.com/g2")?))?);
+    /// # Result::<_, Box<dyn std::error::Error>>::Ok(())
+    /// ```
+    #[cfg(not(target_family = "wasm"))]
+    pub fn parallel_load_from_slice(
+        &mut self,
+        parser: impl Into<RdfParser>,
+        slice: &(impl AsRef<[u8]> + ?Sized),
+    ) -> Result<(), LoaderError> {
+        let target_num_threads = self.target_num_threads() / 2;
+        if target_num_threads < 2 {
+            return self.load_from_slice(parser, slice);
+        }
+        let target_batch_size = self.target_batch_size();
+        let on_parse_error = self.on_parse_error.as_ref().map(Arc::clone);
+        let parsers = parser
+            .into()
+            .rename_blank_nodes()
+            .split_slice_for_parallel_parsing(slice, target_num_threads);
+        thread::scope(|scope| {
+            let (sender, receiver) = mpsc::sync_channel(1);
+            let threads = parsers
+                .into_iter()
+                .map(|parser| {
+                    let sender = sender.clone();
+                    let on_parse_error = on_parse_error.clone();
+                    scope.spawn(move || {
+                        let mut batch = Vec::with_capacity(target_batch_size);
+                        for result in parser {
+                            match result {
+                                Ok(quad) => {
+                                    batch.push(quad);
+                                    if batch.len() >= target_batch_size {
+                                        let mut batch_to_save =
+                                            Vec::with_capacity(target_batch_size);
+                                        swap(&mut batch, &mut batch_to_save);
+                                        if sender.send(batch_to_save).is_err() {
+                                            return Ok(());
+                                        }
+                                    }
+                                }
+                                Err(e) => {
+                                    if let Some(callback) = &on_parse_error {
+                                        callback(e.into())?;
+                                    } else {
+                                        return Err(LoaderError::from(RdfParseError::from(e)));
+                                    }
+                                }
+                            }
+                        }
+                        if !batch.is_empty() {
+                            let _we_are_returning = sender.send(batch);
+                        }
+                        Ok(())
+                    })
+                })
+                .collect::<Vec<_>>();
+            drop(sender);
+            while let Ok(batch) = receiver.recv() {
+                self.storage.load_batch(batch, target_num_threads)?;
+            }
+            for thread in threads {
+                map_thread_result(thread.join()).map_err(StorageError::from)??;
+            }
+            Ok(())
+        })
     }
 
     /// Adds a set of quads using the bulk loader.
     ///
-    /// <div class="warning">This method is not atomic.
-    /// If the process fails in the middle of the file, only a part of the data may be written to the store.
-    /// Results might get weird if you delete data during the loading process.</div>
-    ///
-    /// This method is optimized for speed. See [the struct](Self) documentation for more details.
+    /// See [the struct](Self) documentation for more details.
     pub fn load_quads(
-        &self,
+        &mut self,
         quads: impl IntoIterator<Item = impl Into<Quad>>,
     ) -> Result<(), StorageError> {
         self.load_ok_quads(quads.into_iter().map(Ok::<_, StorageError>))
@@ -1922,22 +2103,36 @@ impl BulkLoader {
 
     /// Adds a set of quads using the bulk loader while breaking in the middle of the process in case of error.
     ///
-    /// <div class="warning">This method is not atomic.
-    /// If the process fails in the middle of the file, only a part of the data may be written to the store.
-    /// Results might get weird if you delete data during the loading process.</div>
-    ///
-    /// This method is optimized for speed. See [the struct](Self) documentation for more details.
+    /// See [the struct](Self) documentation for more details.
     pub fn load_ok_quads<EI, EO: From<StorageError> + From<EI>>(
-        &self,
+        &mut self,
         quads: impl IntoIterator<Item = Result<impl Into<Quad>, EI>>,
     ) -> Result<(), EO> {
-        self.storage
-            .load(quads.into_iter().map(|q| q.map(Into::into)))
+        let target_num_threads = self.target_num_threads();
+        let target_batch_size = self.target_batch_size();
+        let mut batch = Vec::with_capacity(target_batch_size);
+        for quad in quads {
+            batch.push(quad?.into());
+            if batch.len() >= target_batch_size {
+                let mut batch_to_save = Vec::with_capacity(target_batch_size);
+                swap(&mut batch, &mut batch_to_save);
+                self.storage.load_batch(batch_to_save, target_num_threads)?;
+            }
+        }
+        if !batch.is_empty() {
+            self.storage.load_batch(batch, target_num_threads)?;
+        }
+        Ok(())
+    }
+
+    /// Saves all the quads loaded using the bulk loader into the store.
+    pub fn commit(self) -> Result<(), StorageError> {
+        self.storage.commit()
     }
 }
 
 #[cfg(test)]
-#[allow(clippy::panic_in_result_fn)]
+#[expect(clippy::panic_in_result_fn)]
 mod tests {
     use super::*;
 
@@ -1951,7 +2146,7 @@ mod tests {
     fn store() -> Result<(), StorageError> {
         use crate::model::*;
 
-        let main_s = Subject::from(BlankNode::default());
+        let main_s = NamedOrBlankNode::from(BlankNode::default());
         let main_p = NamedNode::new("http://example.com").unwrap();
         let main_o = Term::from(Literal::from(1));
         let main_g = GraphName::from(BlankNode::default());
@@ -2002,16 +2197,19 @@ mod tests {
 
         let store = Store::new()?;
         for t in &default_quads {
-            assert!(store.insert(t)?);
+            store.insert(t)?;
+            assert!(store.contains(t)?);
         }
-        assert!(!store.insert(&default_quad)?);
+        store.insert(&default_quad)?;
 
-        assert!(store.remove(&default_quad)?);
-        assert!(!store.remove(&default_quad)?);
-        assert!(store.insert(&named_quad)?);
-        assert!(!store.insert(&named_quad)?);
-        assert!(store.insert(&default_quad)?);
-        assert!(!store.insert(&default_quad)?);
+        store.remove(&default_quad)?;
+        assert!(!store.contains(&default_quad)?);
+        store.remove(&default_quad)?;
+        store.insert(&named_quad)?;
+        assert!(store.contains(&named_quad)?);
+        store.insert(&named_quad)?;
+        store.insert(&default_quad)?;
+        store.insert(&default_quad)?;
         store.validate()?;
 
         assert_eq!(store.len()?, 4);

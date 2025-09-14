@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kreuzberg
-Version: 3.13.3
+Version: 3.14.1
 Summary: Document intelligence framework for Python - Extract text, metadata, and structured data from diverse file formats
 Project-URL: documentation, https://kreuzberg.dev
 Project-URL: homepage, https://github.com/Goldziher/kreuzberg
@@ -31,10 +31,10 @@ Requires-Python: >=3.10
 Requires-Dist: anyio>=4.10.0
 Requires-Dist: chardetng-py>=0.3.5
 Requires-Dist: exceptiongroup>=1.2.2; python_version < '3.11'
-Requires-Dist: html-to-markdown[lxml]>=1.10.0
-Requires-Dist: mcp>=1.13.0
+Requires-Dist: html-to-markdown[lxml]>=1.11.0
+Requires-Dist: mcp>=1.14.0
 Requires-Dist: msgspec>=0.18.0
-Requires-Dist: numpy>=1.24.0
+Requires-Dist: numpy>=2.0.0
 Requires-Dist: playa-pdf>=0.7.0
 Requires-Dist: polars>=1.33.1
 Requires-Dist: psutil>=7.0.0

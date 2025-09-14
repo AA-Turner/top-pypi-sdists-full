@@ -1,3 +1,4 @@
+use std::path::Path;
 use std::str::FromStr;
 
 use anyhow::Result;
@@ -8,6 +9,7 @@ mod check_added_large_files;
 mod check_json;
 mod check_toml;
 mod check_yaml;
+mod fix_byte_order_marker;
 mod fix_end_of_file;
 mod fix_trailing_whitespace;
 mod mixed_line_ending;
@@ -16,6 +18,7 @@ pub(crate) enum Implemented {
     TrailingWhitespace,
     CheckAddedLargeFiles,
     EndOfFileFixer,
+    FixByteOrderMarker,
     CheckJson,
     CheckToml,
     CheckYaml,
@@ -30,6 +33,7 @@ impl FromStr for Implemented {
             "trailing-whitespace" => Ok(Self::TrailingWhitespace),
             "check-added-large-files" => Ok(Self::CheckAddedLargeFiles),
             "end-of-file-fixer" => Ok(Self::EndOfFileFixer),
+            "fix-byte-order-marker" => Ok(Self::FixByteOrderMarker),
             "check-json" => Ok(Self::CheckJson),
             "check-toml" => Ok(Self::CheckToml),
             "check-yaml" => Ok(Self::CheckYaml),
@@ -51,7 +55,7 @@ impl Implemented {
         }
     }
 
-    pub(crate) async fn run(self, hook: &Hook, filenames: &[&String]) -> Result<(i32, Vec<u8>)> {
+    pub(crate) async fn run(self, hook: &Hook, filenames: &[&Path]) -> Result<(i32, Vec<u8>)> {
         match self {
             Self::TrailingWhitespace => {
                 fix_trailing_whitespace::fix_trailing_whitespace(hook, filenames).await
@@ -60,6 +64,9 @@ impl Implemented {
                 check_added_large_files::check_added_large_files(hook, filenames).await
             }
             Self::EndOfFileFixer => fix_end_of_file::fix_end_of_file(hook, filenames).await,
+            Self::FixByteOrderMarker => {
+                fix_byte_order_marker::fix_byte_order_marker(hook, filenames).await
+            }
             Self::CheckJson => check_json::check_json(hook, filenames).await,
             Self::CheckToml => check_toml::check_toml(hook, filenames).await,
             Self::CheckYaml => check_yaml::check_yaml(hook, filenames).await,

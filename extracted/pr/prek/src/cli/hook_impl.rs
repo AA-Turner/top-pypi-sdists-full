@@ -10,40 +10,78 @@ use constants::env_vars::EnvVars;
 
 use crate::cli::{self, ExitStatus, RunArgs};
 use crate::config::HookType;
-use crate::git;
+use crate::fs::CWD;
 use crate::printer::Printer;
+use crate::workspace;
+use crate::workspace::Project;
+use crate::{git, warn_user};
 
 pub(crate) async fn hook_impl(
     config: Option<PathBuf>,
+    includes: Vec<String>,
+    skips: Vec<String>,
     hook_type: HookType,
     _hook_dir: PathBuf,
     skip_on_missing_config: bool,
+    script_version: Option<usize>,
     args: Vec<OsString>,
     printer: Printer,
 ) -> Result<ExitStatus> {
     // TODO: run in legacy mode
 
-    if let Some(ref config_file) = config {
-        if !config_file.try_exists()? {
-            return if skip_on_missing_config || EnvVars::is_set(EnvVars::PREK_ALLOW_NO_CONFIG) {
+    if script_version != Some(cli::install::CUR_SCRIPT_VERSION) {
+        warn_user!(
+            "The installed hook script `{hook_type}` is outdated (version: {:?}, expected: {}). Please reinstall the hooks with `prek install`.",
+            script_version.unwrap_or(1),
+            cli::install::CUR_SCRIPT_VERSION
+        );
+    }
+
+    let allow_missing_config =
+        skip_on_missing_config || EnvVars::is_set(EnvVars::PREK_ALLOW_NO_CONFIG);
+    let warn_for_no_config = || {
+        eprintln!(
+            "- To temporarily silence this, run `{}`",
+            format!("{}=1 git ...", EnvVars::PREK_ALLOW_NO_CONFIG).cyan()
+        );
+        eprintln!(
+            "- To permanently silence this, install hooks with the `{}` flag",
+            "--allow-missing-config".cyan()
+        );
+        eprintln!("- To uninstall hooks, run `{}`", "prek uninstall".cyan());
+    };
+
+    // Check if there is config file
+    if let Some(ref config) = config {
+        if !config.try_exists()? {
+            return if allow_missing_config {
                 Ok(ExitStatus::Success)
             } else {
                 eprintln!(
                     "{}: config file not found: `{}`",
                     "error".red().bold(),
-                    config_file.display().cyan()
+                    config.display().cyan()
                 );
-                eprintln!(
-                    "- To temporarily silence this, run `{}`",
-                    format!("{}=1 git ...", EnvVars::PREK_ALLOW_NO_CONFIG).cyan()
-                );
-                eprintln!(
-                    "- To permanently silence this, install hooks with the `{}` flag",
-                    "--allow-missing-config".cyan()
-                );
-                eprintln!("- To uninstall hooks, run `{}`", "prek uninstall".cyan());
+                warn_for_no_config();
+
                 Ok(ExitStatus::Failure)
             };
+        }
+    } else {
+        // Try to discover a project from current directory (after `--cd`)
+        match Project::discover(config.as_deref(), &CWD) {
+            Err(e) if matches!(e, workspace::Error::MissingPreCommitConfig) => {
+                return if allow_missing_config {
+                    Ok(ExitStatus::Success)
+                } else {
+                    eprintln!("{}: {e}", "error".red().bold());
+                    warn_for_no_config();
+
+                    Ok(ExitStatus::Failure)
+                };
+            }
+            Ok(_) => {}
+            Err(e) => return Err(e.into()),
         }
     }
 
@@ -58,7 +96,8 @@ pub(crate) async fn hook_impl(
 
     cli::run(
         config,
-        run_args.hook_ids,
+        includes,
+        skips,
         hook_type.into(),
         run_args.from_ref,
         run_args.to_ref,
@@ -66,6 +105,8 @@ pub(crate) async fn hook_impl(
         vec![],
         vec![],
         false, // last_commit is always false in hook implementation context
+        false,
+        false,
         false,
         run_args.extra,
         false,

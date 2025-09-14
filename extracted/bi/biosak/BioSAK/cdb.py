@@ -30,6 +30,7 @@ def cdb(args):
     op_file_1 = '%s/%s_reformatted_1.%s' % (cdb_path, cdb_base, cdb_ext)
     op_file_2 = '%s/%s_reformatted_2.%s' % (cdb_path, cdb_base, cdb_ext)
 
+    bin_to_cluster_dict = {}
     cluster_to_bin_dict = {}
     obtained_clusters = set()
     col_index = dict()
@@ -43,6 +44,7 @@ def cdb(args):
             bin_id = line_split[col_index['genome']]
             secondary_cluster = line_split[col_index['secondary_cluster']]
             obtained_clusters.add(secondary_cluster)
+            bin_to_cluster_dict[bin_id] = secondary_cluster
             if secondary_cluster not in cluster_to_bin_dict:
                 cluster_to_bin_dict[secondary_cluster] = [bin_id]
             else:

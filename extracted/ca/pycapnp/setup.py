@@ -23,7 +23,7 @@ from buildutils.bundle import fetch_libcapnp
 
 
 MAJOR = 2
-MINOR = 1
+MINOR = 2
 MICRO = 0
 TAG = ""
 VERSION = "%d.%d.%d%s" % (MAJOR, MINOR, MICRO, TAG)
@@ -201,6 +201,7 @@ extensions = [
         "*",
         [
             "capnp/helpers/capabilityHelper.cpp",
+            "capnp/includes/PyCustomMessageBuilder.cpp",
             "capnp/lib/*.pyx",
         ],
         extra_compile_args=extra_compile_args,

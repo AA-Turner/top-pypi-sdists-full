@@ -1,15 +1,14 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 
-import socketserver
-import http.server
 import errno
+import http.server
 import os
 import random
-import socket
+import socketserver
 
-from . import Command
-from ..console import log
 from .. import util
+from ..console import log
+from . import Command
 
 
 def random_ports(port, n):
@@ -39,14 +38,13 @@ def create_httpd(handler_cls, port=0):
             httpd = MyTCPServer(("", port), handler_cls)
             base_url = f"http://127.0.0.1:{port}/"
             break
-        except socket.error as e:
+        except OSError as e:
             if e.errno == errno.EADDRINUSE:
                 continue
             else:
                 raise
     else:
-        raise util.UserError("Failed to find an unused port for "
-                             "serving web pages")
+        raise util.UserError("Failed to find an unused port for serving web pages")
 
     return httpd, base_url
 
@@ -57,16 +55,19 @@ class Preview(Command):
         parser = subparsers.add_parser(
             "preview",
             help="Preview the results using a local web server",
-            description="Preview the results using a local web server")
+            description="Preview the results using a local web server",
+        )
 
-        parser.add_argument("--port", "-p", type=int, default=0,
-                            help="Port to run webserver on.  [8080]")
-        parser.add_argument("--browser", "-b", action="store_true",
-                            help="Open in webbrowser")
         parser.add_argument(
-            '--html-dir', '-o', default=None, help=(
-                "Optional output directory. Default is 'html_dir' "
-                "from asv config"))
+            "--port", "-p", type=int, default=0, help="Port to run webserver on.  [8080]"
+        )
+        parser.add_argument("--browser", "-b", action="store_true", help="Open in webbrowser")
+        parser.add_argument(
+            '--html-dir',
+            '-o',
+            default=None,
+            help=("Optional output directory. Default is 'html_dir' from asv config"),
+        )
 
         parser.set_defaults(func=cls.run_from_args)
 
@@ -76,8 +77,7 @@ class Preview(Command):
     def run_from_conf_args(cls, conf, args):
         if args.html_dir:
             conf.html_dir = args.html_dir
-        return cls.run(conf=conf, port=args.port,
-                       browser=args.browser)
+        return cls.run(conf=conf, port=args.port, browser=args.browser)
 
     @classmethod
     def run(cls, conf, port=0, browser=False):
@@ -85,8 +85,7 @@ class Preview(Command):
 
         class Handler(http.server.SimpleHTTPRequestHandler):
             def translate_path(self, path):
-                path = http.server.SimpleHTTPRequestHandler.translate_path(
-                    self, path)
+                path = http.server.SimpleHTTPRequestHandler.translate_path(self, path)
                 return util.long_path(path)
 
         httpd, base_url = create_httpd(Handler, port=port)
@@ -95,6 +94,7 @@ class Preview(Command):
 
         if browser:
             import webbrowser
+
             webbrowser.open(base_url)
 
         log.info("Press ^C to abort\n")

@@ -14,7 +14,7 @@ use crate::languages::golang::installer::GoInstaller;
 use crate::languages::version::LanguageRequest;
 use crate::process::Cmd;
 use crate::run::{prepend_paths, run_by_batch};
-use crate::store::{CacheBucket, Store};
+use crate::store::{CacheBucket, Store, ToolBucket};
 
 #[derive(Debug, Copy, Clone)]
 pub(crate) struct Golang;
@@ -118,7 +118,7 @@ impl LanguageImpl for Golang {
     async fn run(
         &self,
         hook: &InstalledHook,
-        filenames: &[&String],
+        filenames: &[&Path],
         store: &Store,
     ) -> anyhow::Result<(i32, Vec<u8>)> {
         let env_dir = hook.env_path().expect("Node must have env path");
@@ -126,21 +126,29 @@ impl LanguageImpl for Golang {
             unreachable!()
         };
 
-        let go_cache = store.cache_path(CacheBucket::Go);
+        let go_bin = bin_dir(env_dir);
+        let go_tools = store.tools_path(ToolBucket::Go);
         let go_root_bin = info.toolchain.parent().expect("Go root should exist");
         let go_root = go_root_bin.parent().expect("Go root should exist");
-        let go_bin = bin_dir(env_dir);
+        let go_cache = store.cache_path(CacheBucket::Go);
+
+        // Only set GOROOT and GOPATH if using the Go installed by prek
+        let go_envs = if go_root_bin.starts_with(go_tools) {
+            vec![(EnvVars::GOROOT, go_root), (EnvVars::GOPATH, &go_cache)]
+        } else {
+            vec![]
+        };
         let new_path = prepend_paths(&[&go_bin, go_root_bin]).context("Failed to join PATH")?;
 
         let entry = hook.entry.resolve(Some(&new_path))?;
-        let run = async move |batch: &[&String]| {
+        let run = async move |batch: &[&Path]| {
             let mut output = Cmd::new(&entry[0], "go hook")
+                .current_dir(hook.work_dir())
                 .args(&entry[1..])
                 .env("PATH", &new_path)
                 .env(EnvVars::GOTOOLCHAIN, "local")
-                .env(EnvVars::GOROOT, go_root)
                 .env(EnvVars::GOBIN, &go_bin)
-                .env(EnvVars::GOPATH, &go_cache)
+                .envs(go_envs.iter().copied())
                 .args(&hook.args)
                 .args(batch)
                 .check(false)

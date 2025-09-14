@@ -1,7 +1,9 @@
 //! Implementation of [SPARQL Query Results XML Format](https://www.w3.org/TR/rdf-sparql-XMLres/)
 
+#![allow(clippy::large_enum_variant)]
+
 use crate::error::{QueryResultsParseError, QueryResultsSyntaxError};
-use oxrdf::vocab::rdf;
+use oxrdf::vocab::{rdf, xsd};
 use oxrdf::*;
 use quick_xml::escape::{escape, unescape};
 use quick_xml::events::{BytesDecl, BytesEnd, BytesStart, BytesText, Event};
@@ -156,7 +158,7 @@ impl InnerXmlSolutionsSerializer {
         Self {}
     }
 
-    #[allow(clippy::unused_self)]
+    #[expect(clippy::unused_self)]
     fn write<'a>(
         &self,
         output: &mut Vec<Event<'a>>,
@@ -173,7 +175,7 @@ impl InnerXmlSolutionsSerializer {
         output.push(Event::End(BytesEnd::new("result")));
     }
 
-    #[allow(clippy::unused_self)]
+    #[expect(clippy::unused_self)]
     fn finish(self, output: &mut Vec<Event<'_>>) {
         output.push(Event::End(BytesEnd::new("results")));
         output.push(Event::End(BytesEnd::new("sparql")));
@@ -196,7 +198,20 @@ fn write_xml_term<'a>(output: &mut Vec<Event<'a>>, term: TermRef<'a>) {
             let mut start = BytesStart::new("literal");
             if let Some(language) = literal.language() {
                 start.push_attribute(("xml:lang", language));
-            } else if !literal.is_plain() {
+                #[cfg(feature = "sparql-12")]
+                if let Some(direction) = literal.direction() {
+                    start.push_attribute((
+                        "its:dir",
+                        match direction {
+                            BaseDirection::Ltr => "ltr",
+                            BaseDirection::Rtl => "rtl",
+                        },
+                    ));
+                    // TODO: put it in the root?
+                    start.push_attribute(("xmlns:its", "http://www.w3.org/2005/11/its"));
+                    start.push_attribute(("its:version", "2.0"));
+                }
+            } else if literal.datatype() != xsd::STRING {
                 start.push_attribute(("datatype", literal.datatype().as_str()))
             }
             output.push(Event::Start(start));
@@ -205,7 +220,7 @@ fn write_xml_term<'a>(output: &mut Vec<Event<'a>>, term: TermRef<'a>) {
             )));
             output.push(Event::End(BytesEnd::new("literal")));
         }
-        #[cfg(feature = "rdf-star")]
+        #[cfg(feature = "sparql-12")]
         TermRef::Triple(triple) => {
             output.push(Event::Start(BytesStart::new("triple")));
             output.push(Event::Start(BytesStart::new("subject")));
@@ -222,7 +237,6 @@ fn write_xml_term<'a>(output: &mut Vec<Event<'a>>, term: TermRef<'a>) {
     }
 }
 
-#[allow(clippy::large_enum_variant)]
 pub enum ReaderXmlQueryResultsParserOutput<R: Read> {
     Solutions {
         variables: Vec<Variable>,
@@ -286,7 +300,6 @@ impl<R: Read> ReaderXmlSolutionsParser<R> {
 }
 
 #[cfg(feature = "async-tokio")]
-#[allow(clippy::large_enum_variant)]
 pub enum TokioAsyncReaderXmlQueryResultsParserOutput<R: AsyncRead + Unpin> {
     Solutions {
         variables: Vec<Variable>,
@@ -357,7 +370,6 @@ impl<R: AsyncRead + Unpin> TokioAsyncReaderXmlSolutionsParser<R> {
     }
 }
 
-#[allow(clippy::large_enum_variant)]
 pub enum SliceXmlQueryResultsParserOutput<'a> {
     Solutions {
         variables: Vec<Variable>,
@@ -438,7 +450,6 @@ impl SliceXmlSolutionsParser<'_> {
     }
 }
 
-#[allow(clippy::large_enum_variant)]
 enum XmlInnerQueryResults {
     Solutions {
         variables: Vec<Variable>,
@@ -532,6 +543,8 @@ impl XmlInnerQueryResultsParser {
                                 current_var: None,
                                 term: None,
                                 lang: None,
+                                #[cfg(feature = "sparql-12")]
+                                direction:None,
                                 datatype: None,
                                 subject_stack: Vec::new(),
                                 predicate_stack: Vec::new(),
@@ -568,10 +581,10 @@ impl XmlInnerQueryResultsParser {
                     }
                     Ok(None)
                 } else {
-                    Err(QueryResultsSyntaxError::msg("Unexpected early file end. All results file should have a <head> and a <result> or <boolean> tag").into())
+                    Err(QueryResultsSyntaxError::msg("Unexpected early file end. All results file must have a <head> and a <result> or <boolean> tag").into())
                 }
             }
-            Event::Eof => Err(QueryResultsSyntaxError::msg("Unexpected early file end. All results file should have a <head> and a <result> or <boolean> tag").into()),
+            Event::Eof => Err(QueryResultsSyntaxError::msg("Unexpected early file end. All results file must have a <head> and a <result> or <boolean> tag").into()),
             Event::Comment(_) | Event::Decl(_) | Event::PI(_) | Event::DocType(_) => {
                 Ok(None)
             }
@@ -607,6 +620,8 @@ struct XmlInnerSolutionsParser {
     current_var: Option<String>,
     term: Option<Term>,
     lang: Option<String>,
+    #[cfg(feature = "sparql-12")]
+    direction: Option<String>,
     datatype: Option<NamedNode>,
     subject_stack: Vec<Term>,
     predicate_stack: Vec<Term>,
@@ -614,7 +629,6 @@ struct XmlInnerSolutionsParser {
 }
 
 impl XmlInnerSolutionsParser {
-    #[allow(clippy::unwrap_in_result)]
     pub fn read_event(
         &mut self,
         event: Event<'_>,
@@ -690,6 +704,12 @@ impl XmlInnerSolutionsParser {
                                         ))
                                     })?);
                             }
+                            #[cfg(feature = "sparql-12")]
+                            if attr.key.as_ref() == b"its:dir" {
+                                self.direction = Some(
+                                    unescape(&self.decoder.decode(&attr.value)?)?.into_owned(),
+                                );
+                            }
                         }
                         self.state_stack.push(State::Literal);
                         Ok(None)
@@ -728,12 +748,12 @@ impl XmlInnerSolutionsParser {
                 ))
                 .into()),
                 State::BNode => Err(QueryResultsSyntaxError::msg(format!(
-                    "<uri> must only contain a string, found <{}>",
+                    "<bnode> must only contain a string, found <{}>",
                     self.decoder.decode(event.name().as_ref())?
                 ))
                 .into()),
                 State::Literal => Err(QueryResultsSyntaxError::msg(format!(
-                    "<uri> must only contain a string, found <{}>",
+                    "<literal> must only contain a string, found <{}>",
                     self.decoder.decode(event.name().as_ref())?
                 ))
                 .into()),
@@ -767,7 +787,14 @@ impl XmlInnerSolutionsParser {
                     }
                     Some(State::Literal) => {
                         self.term = Some(
-                            build_literal(data, self.lang.take(), self.datatype.take())?.into(),
+                            build_literal(
+                                data,
+                                self.lang.take(),
+                                #[cfg(feature = "sparql-12")]
+                                self.direction.take(),
+                                self.datatype.take(),
+                            )?
+                            .into(),
                         );
                         Ok(None)
                     }
@@ -827,13 +854,21 @@ impl XmlInnerSolutionsParser {
                 State::Literal => {
                     if self.term.is_none() {
                         // We default to the empty literal
-                        self.term =
-                            Some(build_literal("", self.lang.take(), self.datatype.take())?.into())
+                        self.term = Some(
+                            build_literal(
+                                "",
+                                self.lang.take(),
+                                #[cfg(feature = "sparql-12")]
+                                self.direction.take(),
+                                self.datatype.take(),
+                            )?
+                            .into(),
+                        )
                     }
                     Ok(None)
                 }
                 State::Triple => {
-                    #[cfg(feature = "rdf-star")]
+                    #[cfg(feature = "sparql-12")]
                     if let (Some(subject), Some(predicate), Some(object)) = (
                         self.subject_stack.pop(),
                         self.predicate_stack.pop(),
@@ -842,24 +877,28 @@ impl XmlInnerSolutionsParser {
                         self.term = Some(
                             Triple::new(
                                 match subject {
-                                    Term::NamedNode(subject) => subject.into(),
-                                    Term::BlankNode(subject) => subject.into(),
-                                    Term::Triple(subject) => Subject::Triple(subject),
+                                    Term::NamedNode(subject) => NamedOrBlankNode::from(subject),
+                                    Term::BlankNode(subject) => NamedOrBlankNode::from(subject),
+                                    Term::Triple(_) => {
+                                        return Err(QueryResultsSyntaxError::msg(
+                                            "The <subject> value cannot be a <triple>",
+                                        )
+                                        .into());
+                                    }
                                     Term::Literal(_) => {
                                         return Err(QueryResultsSyntaxError::msg(
-                                            "The <subject> value should not be a <literal>",
+                                            "The <subject> value cannot be a <literal>",
                                         )
                                         .into());
                                     }
                                 },
-                                match predicate {
-                                    Term::NamedNode(predicate) => predicate,
-                                    _ => {
-                                        return Err(QueryResultsSyntaxError::msg(
-                                            "The <predicate> value should be an <uri>",
-                                        )
-                                        .into());
-                                    }
+                                if let Term::NamedNode(predicate) = predicate {
+                                    predicate
+                                } else {
+                                    return Err(QueryResultsSyntaxError::msg(
+                                        "The <predicate> value must be an <uri>",
+                                    )
+                                    .into());
                                 },
                                 object,
                             )
@@ -868,14 +907,14 @@ impl XmlInnerSolutionsParser {
                         Ok(None)
                     } else {
                         Err(QueryResultsSyntaxError::msg(
-                            "A <triple> should contain a <subject>, a <predicate> and an <object>",
+                            "A <triple> must contain a <subject>, a <predicate> and an <object>",
                         )
                         .into())
                     }
-                    #[cfg(not(feature = "rdf-star"))]
+                    #[cfg(not(feature = "sparql-12"))]
                     {
                         Err(QueryResultsSyntaxError::msg(
-                            "The <triple> tag is only supported with RDF-star",
+                            "The <triple> tag is only supported in RDF 1.2",
                         )
                         .into())
                     }
@@ -896,27 +935,58 @@ impl XmlInnerSolutionsParser {
 fn build_literal(
     value: impl Into<String>,
     lang: Option<String>,
+    #[cfg(feature = "sparql-12")] direction: Option<String>,
     datatype: Option<NamedNode>,
-) -> Result<Literal, QueryResultsParseError> {
-    match lang {
-        Some(lang) => {
+) -> Result<Literal, QueryResultsSyntaxError> {
+    if let Some(lang) = lang {
+        #[cfg(feature = "sparql-12")]
+        if let Some(direction) = direction {
             if let Some(datatype) = datatype {
-                if datatype.as_ref() != rdf::LANG_STRING {
+                if datatype.as_ref() != rdf::DIR_LANG_STRING {
                     return Err(QueryResultsSyntaxError::msg(format!(
-                        "xml:lang value '{lang}' provided with the datatype {datatype}"
-                    ))
-                    .into());
+                        "its:dir value '{direction}' provided with the datatype {datatype}"
+                    )));
                 }
             }
-            Literal::new_language_tagged_literal(value, &lang).map_err(|e| {
-                QueryResultsSyntaxError::msg(format!("Invalid xml:lang value '{lang}': {e}")).into()
-            })
+            return Literal::new_directional_language_tagged_literal(
+                value,
+                &lang,
+                match direction.as_str() {
+                    "ltr" => BaseDirection::Ltr,
+                    "rtl" => BaseDirection::Rtl,
+                    _ => {
+                        return Err(QueryResultsSyntaxError::msg(format!(
+                            "Invalid its:dir value '{direction}', expecting 'ltr' or 'rtl'"
+                        )));
+                    }
+                },
+            )
+            .map_err(|e| {
+                QueryResultsSyntaxError::msg(format!("Invalid xml:lang value '{lang}': {e}"))
+            });
         }
-        None => Ok(if let Some(datatype) = datatype {
+        if let Some(datatype) = datatype {
+            if datatype.as_ref() != rdf::LANG_STRING {
+                return Err(QueryResultsSyntaxError::msg(format!(
+                    "xml:lang value '{lang}' provided with the datatype {datatype}"
+                )));
+            }
+        }
+        Literal::new_language_tagged_literal(value, &lang).map_err(|e| {
+            QueryResultsSyntaxError::msg(format!("Invalid xml:lang value '{lang}': {e}"))
+        })
+    } else {
+        #[cfg(feature = "sparql-12")]
+        if direction.is_some() {
+            return Err(QueryResultsSyntaxError::msg(
+                "its:dir can only be present alongside xml:lang",
+            ));
+        }
+        Ok(if let Some(datatype) = datatype {
             Literal::new_typed_literal(value, datatype)
         } else {
             Literal::new_simple_literal(value)
-        }),
+        })
     }
 }
 

@@ -1,16 +1,16 @@
 Metadata-Version: 2.4
 Name: cachebox
-Version: 5.0.1
+Version: 5.0.2
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Rust
 Classifier: Intended Audience :: Developers
@@ -23,10 +23,9 @@ License-File: LICENSE
 Summary: The fastest memoizing and caching Python library written in Rust
 Keywords: caching,cached,cachebox,cache,in-memory-caching,memoizing
 Home-Page: https://github.com/awolverp/cachebox
-Author: awolverp
 Author-email: awolverp <awolverp@gmail.com>
 License: MIT
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 Project-URL: Homepage, https://github.com/awolverp/cachebox
 
@@ -69,7 +68,7 @@ This can make your application very faster and it's a good choice in big applica
 - 🧶 Completely thread-safe
 - 🔧 Tested and correct
 - **\[R\]** written in Rust for maximum performance
-- 🤝 Compatible with Python 3.8+ (PyPy and CPython)
+- 🤝 Compatible with Python 3.9+ (PyPy and CPython)
 - 📦 Supports 7 advanced caching algorithms
 
 ### Page Contents

@@ -1,15 +1,21 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 
+import math
 import random
 import warnings
-import math
 from itertools import product
 
 import pytest
-from asv_runner.statistics import (compute_stats, LaplacePosterior, quantile, quantile_ci,
-                                   binom_pmf, get_err)
+from asv_runner.statistics import (
+    LaplacePosterior,
+    binom_pmf,
+    compute_stats,
+    get_err,
+    quantile,
+    quantile_ci,
+)
 
-from asv import statistics
+from asv import _stats
 
 
 def test_compute_stats():
@@ -18,8 +24,16 @@ def test_compute_stats():
 
     assert compute_stats([], 1) == (None, None)
     assert compute_stats([15.0], 1) == (
-        15.0, {'ci_99_a': -math.inf, 'ci_99_b': math.inf,
-               'number': 1, 'q_25': 15.0, 'q_75': 15.0, 'repeat': 1})
+        15.0,
+        {
+            'ci_99_a': -math.inf,
+            'ci_99_b': math.inf,
+            'number': 1,
+            'q_25': 15.0,
+            'q_75': 15.0,
+            'repeat': 1,
+        },
+    )
 
     for nsamples, true_mean in product([10, 50, 250], [0, 0.3, 0.6]):
         samples = np.random.randn(nsamples) + true_mean
@@ -51,8 +65,8 @@ def test_is_different():
         samples_b = true_mean + 0.1 * np.random.rand(n)
         _, stats_a = compute_stats(samples_a, 1)
         _, stats_b = compute_stats(samples_b, 1)
-        assert statistics.is_different(None, None, stats_a, stats_b) == significant
-        assert statistics.is_different(samples_a, samples_b, stats_a, stats_b) == significant
+        assert _stats.is_different(None, None, stats_a, stats_b) == significant
+        assert _stats.is_different(samples_a, samples_b, stats_a, stats_b) == significant
 
 
 def _check_ci(estimator, sampler, nsamples=300):
@@ -111,8 +125,7 @@ def test_quantile_ci():
     np.random.seed(1)
 
     for sampler in [sample_exp, sample_normal]:
-        cis = _check_ci(lambda z, alpha: quantile_ci(z, 0.5, alpha),
-                        sampler, nsamples=300)
+        cis = _check_ci(lambda z, alpha: quantile_ci(z, 0.5, alpha), sampler, nsamples=300)
         atol = 5 / 300
         for size, alpha, alpha_got in cis:
             if size < 20:
@@ -132,8 +145,20 @@ def test_quantile_ci_small():
 
 def test_quantile_ci_r():
     # Compare to R
-    x = [-2.47946614, -1.49595963, -1.02812482, -0.76592323, -0.09452743, 0.10732743,
-         0.27798342, 0.50173779, 0.57829823, 0.60474948, 0.94695675, 1.20159789]
+    x = [
+        -2.47946614,
+        -1.49595963,
+        -1.02812482,
+        -0.76592323,
+        -0.09452743,
+        0.10732743,
+        0.27798342,
+        0.50173779,
+        0.57829823,
+        0.60474948,
+        0.94695675,
+        1.20159789,
+    ]
 
     # quantile(x, type=7, prob=p)
     q_20_e = -0.9756845
@@ -315,43 +340,49 @@ def test_mann_whitney_u_cdf():
                 if p is None:
                     continue
 
-                p2 = statistics.mann_whitney_u_cdf(m, n, u, memo=memo)
+                p2 = _stats.mann_whitney_u_cdf(m, n, u, memo=memo)
                 assert p2 == pytest.approx(p, abs=1e-3, rel=0), (m, n, u, p2, p)
 
     # Tables from Mann & Whitney, Ann. Math. Statist. 18, 50 (1947).
-    tbl = [[.250, .100, .050],
-           [.500, .200, .100],
-           [.750, .400, .200],
-           [None, .600, .350],
-           [None, None, .500],
-           [None, None, .650]]
+    tbl = [
+        [0.250, 0.100, 0.050],
+        [0.500, 0.200, 0.100],
+        [0.750, 0.400, 0.200],
+        [None, 0.600, 0.350],
+        [None, None, 0.500],
+        [None, None, 0.650],
+    ]
     check_table(3, tbl)
 
-    tbl = [[.200, .067, .028, .014],
-           [.400, .133, .057, .029],
-           [.600, .267, .114, .057],
-           [None, .400, .200, .100],
-           [None, .600, .314, .171],
-           [None, None, .429, .243],
-           [None, None, .571, .343],
-           [None, None, None, .443],
-           [None, None, None, .557]]
+    tbl = [
+        [0.200, 0.067, 0.028, 0.014],
+        [0.400, 0.133, 0.057, 0.029],
+        [0.600, 0.267, 0.114, 0.057],
+        [None, 0.400, 0.200, 0.100],
+        [None, 0.600, 0.314, 0.171],
+        [None, None, 0.429, 0.243],
+        [None, None, 0.571, 0.343],
+        [None, None, None, 0.443],
+        [None, None, None, 0.557],
+    ]
     check_table(4, tbl)
 
-    tbl = [[.167, .047, .018, .008, .004],
-           [.333, .095, .036, .016, .008],
-           [.500, .190, .071, .032, .016],
-           [.667, .286, .125, .056, .028],
-           [None, .429, .196, .095, .048],
-           [None, .571, .286, .143, .075],
-           [None, None, .393, .206, .111],
-           [None, None, .500, .278, .155],
-           [None, None, .607, .365, .210],
-           [None, None, None, .452, .274],
-           [None, None, None, .548, .345],
-           [None, None, None, None, .421],
-           [None, None, None, None, .500],
-           [None, None, None, None, .579]]
+    tbl = [
+        [0.167, 0.047, 0.018, 0.008, 0.004],
+        [0.333, 0.095, 0.036, 0.016, 0.008],
+        [0.500, 0.190, 0.071, 0.032, 0.016],
+        [0.667, 0.286, 0.125, 0.056, 0.028],
+        [None, 0.429, 0.196, 0.095, 0.048],
+        [None, 0.571, 0.286, 0.143, 0.075],
+        [None, None, 0.393, 0.206, 0.111],
+        [None, None, 0.500, 0.278, 0.155],
+        [None, None, 0.607, 0.365, 0.210],
+        [None, None, None, 0.452, 0.274],
+        [None, None, None, 0.548, 0.345],
+        [None, None, None, None, 0.421],
+        [None, None, None, None, 0.500],
+        [None, None, None, None, 0.579],
+    ]
     check_table(5, tbl)
 
 
@@ -363,15 +394,15 @@ def test_mann_whitney_u_scipy():
     def check(x, y):
         u0, p0 = stats.mannwhitneyu(x, y, alternative='two-sided', use_continuity=False)
 
-        u, p = statistics.mann_whitney_u(x.tolist(), y.tolist(), method='normal')
+        u, p = _stats.mann_whitney_u(x.tolist(), y.tolist(), method='normal')
         assert u == u0
         assert p == pytest.approx(p0, rel=1e-9, abs=0)
 
-        u, p = statistics.mann_whitney_u(x.tolist(), y.tolist(), method='exact')
+        u, p = _stats.mann_whitney_u(x.tolist(), y.tolist(), method='exact')
         assert u == u0
         assert p == pytest.approx(p0, rel=5e-2, abs=5e-3)
 
-        u, p = statistics.mann_whitney_u(x.tolist(), y.tolist())
+        u, p = _stats.mann_whitney_u(x.tolist(), y.tolist())
         assert u == u0
         assert p == pytest.approx(p0, rel=5e-2, abs=5e-3)
 
@@ -388,19 +419,19 @@ def test_mann_whitney_u_basic():
     # wilcox.test(a, b, exact=TRUE)
     a = [1, 2, 3, 4]
     b = [0.9, 1.1, 0.7]
-    u, p = statistics.mann_whitney_u(a, b, method='exact')
+    u, p = _stats.mann_whitney_u(a, b, method='exact')
     assert u == 11
     assert p == pytest.approx(0.11428571428571428, abs=0, rel=1e-10)
 
     a = [1, 2]
     b = [1.5]
-    u, p = statistics.mann_whitney_u(a, b, method='exact')
+    u, p = _stats.mann_whitney_u(a, b, method='exact')
     assert u == 1
     assert p == 1.0
 
     a = [1, 2]
     b = [2.5]
-    u, p = statistics.mann_whitney_u(a, b, method='exact')
+    u, p = _stats.mann_whitney_u(a, b, method='exact')
     assert u == 0
     assert p == pytest.approx(2 / 3, abs=0, rel=1e-10)
 
@@ -419,10 +450,9 @@ def test_mann_whitney_u_R():
 
     for m in range(1, len(a) + 1):
         for n in range(1, len(b) + 1):
-            u, p = statistics.mann_whitney_u(a[:m], b[:n])
+            u, p = _stats.mann_whitney_u(a[:m], b[:n])
 
-            r = wilcox_test(robjects.FloatVector(a[:m]),
-                            robjects.FloatVector(b[:n]))
+            r = wilcox_test(robjects.FloatVector(a[:m]), robjects.FloatVector(b[:n]))
 
             if max(m, n) <= 20:
                 err = 1e-10  # exact method
@@ -442,7 +472,7 @@ def test_mann_whitney_u_R():
 def test_binom():
     for n in range(10):
         for k in range(10):
-            p = statistics.binom(n, k)
+            p = _stats.binom(n, k)
             if 0 <= k <= n:
                 p2 = math.factorial(n) / math.factorial(k) / math.factorial(n - k)
             else:

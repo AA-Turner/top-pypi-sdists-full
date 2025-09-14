@@ -1,4 +1,5 @@
 use oxrdf::{NamedNode, Term, Variable};
+use spargebra::SparqlSyntaxError;
 use std::convert::Infallible;
 use std::error::Error;
 
@@ -27,14 +28,28 @@ pub enum QueryEvaluationError {
     /// The given `SERVICE` is not supported
     #[error("The service {0} is not supported")]
     UnsupportedService(NamedNode),
-    #[cfg(feature = "rdf-star")]
-    #[error("The storage provided a triple term that is not a valid RDF-star term")]
+    #[cfg(feature = "sparql-12")]
+    #[error("The SPARQL dataset returned a triple term that is not a valid RDF 1.2 term")]
     InvalidStorageTripleTerm,
+    #[error("The SPARQL operation has been cancelled")]
+    Cancelled,
+    #[doc(hidden)]
+    #[error(transparent)]
+    Unexpected(Box<dyn Error + Send + Sync>),
 }
 
 impl From<Infallible> for QueryEvaluationError {
     #[inline]
     fn from(error: Infallible) -> Self {
         match error {}
+    }
+}
+
+// TODO: remove when removing the Store::update method
+#[doc(hidden)]
+impl From<SparqlSyntaxError> for QueryEvaluationError {
+    #[inline]
+    fn from(error: SparqlSyntaxError) -> Self {
+        Self::Unexpected(Box::new(error))
     }
 }

@@ -1,7 +1,8 @@
 //! A [Turtle](https://www.w3.org/TR/turtle/) streaming parser implemented by [`TurtleParser`]
 //! and a serializer implemented by [`TurtleSerializer`].
 
-use crate::chunker::get_turtle_file_chunks;
+use crate::MIN_PARALLEL_CHUNK_SIZE;
+use crate::chunker::get_turtle_slice_chunks;
 use crate::terse::TriGRecognizer;
 #[cfg(feature = "async-tokio")]
 use crate::toolkit::TokioAsyncReaderIterator;
@@ -9,26 +10,23 @@ use crate::toolkit::{Parser, ReaderIterator, SliceIterator, TurtleParseError, Tu
 #[cfg(feature = "async-tokio")]
 use crate::trig::TokioAsyncWriterTriGSerializer;
 use crate::trig::{LowLevelTriGSerializer, TriGSerializer, WriterTriGSerializer};
-use crate::MIN_PARALLEL_CHUNK_SIZE;
 use oxiri::{Iri, IriParseError};
 use oxrdf::{GraphNameRef, Triple, TripleRef};
-use std::collections::hash_map::Iter;
 use std::collections::HashMap;
+use std::collections::hash_map::Iter;
 use std::io::{self, Read, Write};
 #[cfg(feature = "async-tokio")]
 use tokio::io::{AsyncRead, AsyncWrite};
 
 /// A [Turtle](https://www.w3.org/TR/turtle/) streaming parser.
 ///
-/// Support for [Turtle-star](https://w3c.github.io/rdf-star/cg-spec/2021-12-17.html#turtle-star) is available behind the `rdf-star` feature and the [`TurtleParser::with_quoted_triples`] option.
-///
 /// Count the number of people:
 /// ```
-/// use oxrdf::vocab::rdf;
 /// use oxrdf::NamedNodeRef;
+/// use oxrdf::vocab::rdf;
 /// use oxttl::TurtleParser;
 ///
-/// let file = br#"@base <http://example.com/> .
+/// let file = r#"@base <http://example.com/> .
 /// @prefix schema: <http://schema.org/> .
 /// <foo> a schema:Person ;
 ///     schema:name "Foo" .
@@ -37,7 +35,7 @@ use tokio::io::{AsyncRead, AsyncWrite};
 ///
 /// let schema_person = NamedNodeRef::new("http://schema.org/Person")?;
 /// let mut count = 0;
-/// for triple in TurtleParser::new().for_reader(file.as_ref()) {
+/// for triple in TurtleParser::new().for_reader(file.as_bytes()) {
 ///     let triple = triple?;
 ///     if triple.predicate == rdf::TYPE && triple.object == schema_person.into() {
 ///         count += 1;
@@ -49,11 +47,9 @@ use tokio::io::{AsyncRead, AsyncWrite};
 #[derive(Default, Clone)]
 #[must_use]
 pub struct TurtleParser {
-    unchecked: bool,
+    lenient: bool,
     base: Option<Iri<String>>,
     prefixes: HashMap<String, Iri<String>>,
-    #[cfg(feature = "rdf-star")]
-    with_quoted_triples: bool,
 }
 
 impl TurtleParser {
@@ -67,11 +63,17 @@ impl TurtleParser {
     ///
     /// It will skip some validations.
     ///
-    /// Note that if the file is actually not valid, broken RDF might be emitted by the parser.
+    /// Note that if the file is actually not valid, the parser might emit broken RDF.
     #[inline]
-    pub fn unchecked(mut self) -> Self {
-        self.unchecked = true;
+    pub fn lenient(mut self) -> Self {
+        self.lenient = true;
         self
+    }
+
+    #[deprecated(note = "Use `lenient()` instead", since = "0.2.0")]
+    #[inline]
+    pub fn unchecked(self) -> Self {
+        self.lenient()
     }
 
     #[inline]
@@ -91,23 +93,15 @@ impl TurtleParser {
         Ok(self)
     }
 
-    /// Enables [Turtle-star](https://w3c.github.io/rdf-star/cg-spec/2021-12-17.html#turtle-star).
-    #[cfg(feature = "rdf-star")]
-    #[inline]
-    pub fn with_quoted_triples(mut self) -> Self {
-        self.with_quoted_triples = true;
-        self
-    }
-
     /// Parses a Turtle file from a [`Read`] implementation.
     ///
     /// Count the number of people:
     /// ```
-    /// use oxrdf::vocab::rdf;
     /// use oxrdf::NamedNodeRef;
+    /// use oxrdf::vocab::rdf;
     /// use oxttl::TurtleParser;
     ///
-    /// let file = br#"@base <http://example.com/> .
+    /// let file = r#"@base <http://example.com/> .
     /// @prefix schema: <http://schema.org/> .
     /// <foo> a schema:Person ;
     ///     schema:name "Foo" .
@@ -116,7 +110,7 @@ impl TurtleParser {
     ///
     /// let schema_person = NamedNodeRef::new("http://schema.org/Person")?;
     /// let mut count = 0;
-    /// for triple in TurtleParser::new().for_reader(file.as_ref()) {
+    /// for triple in TurtleParser::new().for_reader(file.as_bytes()) {
     ///     let triple = triple?;
     ///     if triple.predicate == rdf::TYPE && triple.object == schema_person.into() {
     ///         count += 1;
@@ -137,11 +131,11 @@ impl TurtleParser {
     /// ```
     /// # #[tokio::main(flavor = "current_thread")]
     /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// use oxrdf::vocab::rdf;
     /// use oxrdf::NamedNodeRef;
+    /// use oxrdf::vocab::rdf;
     /// use oxttl::TurtleParser;
     ///
-    /// let file = br#"@base <http://example.com/> .
+    /// let file = r#"@base <http://example.com/> .
     /// @prefix schema: <http://schema.org/> .
     /// <foo> a schema:Person ;
     ///     schema:name "Foo" .
@@ -150,7 +144,7 @@ impl TurtleParser {
     ///
     /// let schema_person = NamedNodeRef::new("http://schema.org/Person")?;
     /// let mut count = 0;
-    /// let mut parser = TurtleParser::new().for_tokio_async_reader(file.as_ref());
+    /// let mut parser = TurtleParser::new().for_tokio_async_reader(file.as_bytes());
     /// while let Some(triple) = parser.next().await {
     ///     let triple = triple?;
     ///     if triple.predicate == rdf::TYPE && triple.object == schema_person.into() {
@@ -175,11 +169,11 @@ impl TurtleParser {
     ///
     /// Count the number of people:
     /// ```
-    /// use oxrdf::vocab::rdf;
     /// use oxrdf::NamedNodeRef;
+    /// use oxrdf::vocab::rdf;
     /// use oxttl::TurtleParser;
     ///
-    /// let file = br#"@base <http://example.com/> .
+    /// let file = r#"@base <http://example.com/> .
     /// @prefix schema: <http://schema.org/> .
     /// <foo> a schema:Person ;
     ///     schema:name "Foo" .
@@ -197,15 +191,13 @@ impl TurtleParser {
     /// assert_eq!(2, count);
     /// # Result::<_, Box<dyn std::error::Error>>::Ok(())
     /// ```
-    pub fn for_slice(self, slice: &[u8]) -> SliceTurtleParser<'_> {
+    pub fn for_slice(self, slice: &(impl AsRef<[u8]> + ?Sized)) -> SliceTurtleParser<'_> {
         SliceTurtleParser {
             inner: TriGRecognizer::new_parser(
-                slice,
+                slice.as_ref(),
                 true,
                 false,
-                #[cfg(feature = "rdf-star")]
-                self.with_quoted_triples,
-                self.unchecked,
+                self.lenient,
                 self.base,
                 self.prefixes,
             )
@@ -213,7 +205,7 @@ impl TurtleParser {
         }
     }
 
-    /// Creates a vector of iterators that may be used to parse a Turtle document slice in parallel.
+    /// Creates a vector of parsers that may be used to parse a Turtle document slice in parallel.
     /// To dynamically specify target_parallelism, use e.g. [`std::thread::available_parallelism`].
     /// Intended to work on large documents.
     /// Can fail or return wrong results if there are prefixes or base iris that are not defined
@@ -221,12 +213,12 @@ impl TurtleParser {
     ///
     /// Count the number of people:
     /// ```
-    /// use oxrdf::vocab::rdf;
     /// use oxrdf::NamedNodeRef;
+    /// use oxrdf::vocab::rdf;
     /// use oxttl::TurtleParser;
     /// use rayon::iter::{IntoParallelIterator, ParallelIterator};
     ///
-    /// let file = br#"@base <http://example.com/> .
+    /// let file = r#"@base <http://example.com/> .
     /// @prefix schema: <http://schema.org/> .
     /// <foo> a schema:Person ;
     ///     schema:name "Foo" .
@@ -234,7 +226,7 @@ impl TurtleParser {
     ///     schema:name "Bar" ."#;
     ///
     /// let schema_person = NamedNodeRef::new("http://schema.org/Person")?;
-    /// let readers = TurtleParser::new().split_slice_for_parallel_parsing(file.as_ref(), 2);
+    /// let readers = TurtleParser::new().split_slice_for_parallel_parsing(file, 2);
     /// let count = readers
     ///     .into_par_iter()
     ///     .map(|reader| {
@@ -253,9 +245,10 @@ impl TurtleParser {
     /// ```
     pub fn split_slice_for_parallel_parsing(
         mut self,
-        slice: &[u8],
+        slice: &(impl AsRef<[u8]> + ?Sized),
         target_parallelism: usize,
     ) -> Vec<SliceTurtleParser<'_>> {
+        let slice = slice.as_ref();
         let n_chunks = (slice.len() / MIN_PARALLEL_CHUNK_SIZE).clamp(1, target_parallelism);
 
         if n_chunks > 1 {
@@ -269,7 +262,7 @@ impl TurtleParser {
             }
         }
 
-        get_turtle_file_chunks(slice, n_chunks, &self)
+        get_turtle_slice_chunks(slice, n_chunks, &self)
             .into_iter()
             .map(|(start, end)| self.clone().for_slice(&slice[start..end]))
             .collect()
@@ -279,8 +272,8 @@ impl TurtleParser {
     ///
     /// Count the number of people:
     /// ```
-    /// use oxrdf::vocab::rdf;
     /// use oxrdf::NamedNodeRef;
+    /// use oxrdf::vocab::rdf;
     /// use oxttl::TurtleParser;
     ///
     /// let file: [&[u8]; 5] = [
@@ -319,9 +312,7 @@ impl TurtleParser {
                 Vec::new(),
                 false,
                 false,
-                #[cfg(feature = "rdf-star")]
-                self.with_quoted_triples,
-                self.unchecked,
+                self.lenient,
                 self.base,
                 self.prefixes,
             ),
@@ -335,11 +326,11 @@ impl TurtleParser {
 ///
 /// Count the number of people:
 /// ```
-/// use oxrdf::vocab::rdf;
 /// use oxrdf::NamedNodeRef;
+/// use oxrdf::vocab::rdf;
 /// use oxttl::TurtleParser;
 ///
-/// let file = br#"@base <http://example.com/> .
+/// let file = r#"@base <http://example.com/> .
 /// @prefix schema: <http://schema.org/> .
 /// <foo> a schema:Person ;
 ///     schema:name "Foo" .
@@ -348,7 +339,7 @@ impl TurtleParser {
 ///
 /// let schema_person = NamedNodeRef::new("http://schema.org/Person")?;
 /// let mut count = 0;
-/// for triple in TurtleParser::new().for_reader(file.as_ref()) {
+/// for triple in TurtleParser::new().for_reader(file.as_bytes()) {
 ///     let triple = triple?;
 ///     if triple.predicate == rdf::TYPE && triple.object == schema_person.into() {
 ///         count += 1;
@@ -372,12 +363,12 @@ impl<R: Read> ReaderTurtleParser<R> {
     /// ```
     /// use oxttl::TurtleParser;
     ///
-    /// let file = br#"@base <http://example.com/> .
+    /// let file = r#"@base <http://example.com/> .
     /// @prefix schema: <http://schema.org/> .
     /// <foo> a schema:Person ;
     ///     schema:name "Foo" ."#;
     ///
-    /// let mut parser = TurtleParser::new().for_reader(file.as_ref());
+    /// let mut parser = TurtleParser::new().for_reader(file.as_bytes());
     /// assert!(parser.prefixes().collect::<Vec<_>>().is_empty()); // No prefix at the beginning
     ///
     /// parser.next().unwrap()?; // We read the first triple
@@ -385,6 +376,7 @@ impl<R: Read> ReaderTurtleParser<R> {
     ///     parser.prefixes().collect::<Vec<_>>(),
     ///     [("schema", "http://schema.org/")]
     /// ); // There are now prefixes
+    /// //
     /// # Result::<_, Box<dyn std::error::Error>>::Ok(())
     /// ```
     pub fn prefixes(&self) -> TurtlePrefixesIter<'_> {
@@ -398,12 +390,12 @@ impl<R: Read> ReaderTurtleParser<R> {
     /// ```
     /// use oxttl::TurtleParser;
     ///
-    /// let file = br#"@base <http://example.com/> .
+    /// let file = r#"@base <http://example.com/> .
     /// @prefix schema: <http://schema.org/> .
     /// <foo> a schema:Person ;
     ///     schema:name "Foo" ."#;
     ///
-    /// let mut parser = TurtleParser::new().for_reader(file.as_ref());
+    /// let mut parser = TurtleParser::new().for_reader(file.as_bytes());
     /// assert!(parser.base_iri().is_none()); // No base at the beginning because none has been given to the parser.
     ///
     /// parser.next().unwrap()?; // We read the first triple
@@ -437,11 +429,11 @@ impl<R: Read> Iterator for ReaderTurtleParser<R> {
 /// ```
 /// # #[tokio::main(flavor = "current_thread")]
 /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
-/// use oxrdf::vocab::rdf;
 /// use oxrdf::NamedNodeRef;
+/// use oxrdf::vocab::rdf;
 /// use oxttl::TurtleParser;
 ///
-/// let file = br#"@base <http://example.com/> .
+/// let file = r#"@base <http://example.com/> .
 /// @prefix schema: <http://schema.org/> .
 /// <foo> a schema:Person ;
 ///     schema:name "Foo" .
@@ -450,7 +442,7 @@ impl<R: Read> Iterator for ReaderTurtleParser<R> {
 ///
 /// let schema_person = NamedNodeRef::new("http://schema.org/Person")?;
 /// let mut count = 0;
-/// let mut parser = TurtleParser::new().for_tokio_async_reader(file.as_ref());
+/// let mut parser = TurtleParser::new().for_tokio_async_reader(file.as_bytes());
 /// while let Some(triple) = parser.next().await {
 ///     let triple = triple?;
 ///     if triple.predicate == rdf::TYPE && triple.object == schema_person.into() {
@@ -485,12 +477,12 @@ impl<R: AsyncRead + Unpin> TokioAsyncReaderTurtleParser<R> {
     /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// use oxttl::TurtleParser;
     ///
-    /// let file = br#"@base <http://example.com/> .
+    /// let file = r#"@base <http://example.com/> .
     /// @prefix schema: <http://schema.org/> .
     /// <foo> a schema:Person ;
     ///     schema:name "Foo" ."#;
     ///
-    /// let mut parser = TurtleParser::new().for_tokio_async_reader(file.as_ref());
+    /// let mut parser = TurtleParser::new().for_tokio_async_reader(file.as_bytes());
     /// assert_eq!(parser.prefixes().collect::<Vec<_>>(), []); // No prefix at the beginning
     ///
     /// parser.next().await.unwrap()?; // We read the first triple
@@ -498,6 +490,7 @@ impl<R: AsyncRead + Unpin> TokioAsyncReaderTurtleParser<R> {
     ///     parser.prefixes().collect::<Vec<_>>(),
     ///     [("schema", "http://schema.org/")]
     /// ); // There are now prefixes
+    /// //
     /// # Ok(())
     /// # }
     /// ```
@@ -514,16 +507,17 @@ impl<R: AsyncRead + Unpin> TokioAsyncReaderTurtleParser<R> {
     /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// use oxttl::TurtleParser;
     ///
-    /// let file = br#"@base <http://example.com/> .
+    /// let file = r#"@base <http://example.com/> .
     /// @prefix schema: <http://schema.org/> .
     /// <foo> a schema:Person ;
     ///     schema:name "Foo" ."#;
     ///
-    /// let mut parser = TurtleParser::new().for_tokio_async_reader(file.as_ref());
+    /// let mut parser = TurtleParser::new().for_tokio_async_reader(file.as_bytes());
     /// assert!(parser.base_iri().is_none()); // No base IRI at the beginning
     ///
     /// parser.next().await.unwrap()?; // We read the first triple
     /// assert_eq!(parser.base_iri(), Some("http://example.com/")); // There is now a base IRI
+    /// //
     /// # Ok(())
     /// # }
     /// ```
@@ -544,11 +538,11 @@ impl<R: AsyncRead + Unpin> TokioAsyncReaderTurtleParser<R> {
 ///
 /// Count the number of people:
 /// ```
-/// use oxrdf::vocab::rdf;
 /// use oxrdf::NamedNodeRef;
+/// use oxrdf::vocab::rdf;
 /// use oxttl::TurtleParser;
 ///
-/// let file = br#"@base <http://example.com/> .
+/// let file = r#"@base <http://example.com/> .
 /// @prefix schema: <http://schema.org/> .
 /// <foo> a schema:Person ;
 ///     schema:name "Foo" .
@@ -581,7 +575,7 @@ impl SliceTurtleParser<'_> {
     /// ```
     /// use oxttl::TurtleParser;
     ///
-    /// let file = br#"@base <http://example.com/> .
+    /// let file = r#"@base <http://example.com/> .
     /// @prefix schema: <http://schema.org/> .
     /// <foo> a schema:Person ;
     ///     schema:name "Foo" ."#;
@@ -594,6 +588,7 @@ impl SliceTurtleParser<'_> {
     ///     parser.prefixes().collect::<Vec<_>>(),
     ///     [("schema", "http://schema.org/")]
     /// ); // There are now prefixes
+    /// //
     /// # Result::<_, Box<dyn std::error::Error>>::Ok(())
     /// ```
     pub fn prefixes(&self) -> TurtlePrefixesIter<'_> {
@@ -607,7 +602,7 @@ impl SliceTurtleParser<'_> {
     /// ```
     /// use oxttl::TurtleParser;
     ///
-    /// let file = br#"@base <http://example.com/> .
+    /// let file = r#"@base <http://example.com/> .
     /// @prefix schema: <http://schema.org/> .
     /// <foo> a schema:Person ;
     ///     schema:name "Foo" ."#;
@@ -644,8 +639,8 @@ impl Iterator for SliceTurtleParser<'_> {
 ///
 /// Count the number of people:
 /// ```
-/// use oxrdf::vocab::rdf;
 /// use oxrdf::NamedNodeRef;
+/// use oxrdf::vocab::rdf;
 /// use oxttl::TurtleParser;
 ///
 /// let file: [&[u8]; 5] = [
@@ -717,13 +712,13 @@ impl LowLevelTurtleParser {
     /// ```
     /// use oxttl::TurtleParser;
     ///
-    /// let file = br#"@base <http://example.com/> .
+    /// let file = r#"@base <http://example.com/> .
     /// @prefix schema: <http://schema.org/> .
     /// <foo> a schema:Person ;
     ///     schema:name "Foo" ."#;
     ///
     /// let mut parser = TurtleParser::new().low_level();
-    /// parser.extend_from_slice(file);
+    /// parser.extend_from_slice(file.as_bytes());
     /// assert_eq!(parser.prefixes().collect::<Vec<_>>(), []); // No prefix at the beginning
     ///
     /// parser.parse_next().unwrap()?; // We read the first triple
@@ -731,6 +726,7 @@ impl LowLevelTurtleParser {
     ///     parser.prefixes().collect::<Vec<_>>(),
     ///     [("schema", "http://schema.org/")]
     /// ); // There are now prefixes
+    /// //
     /// # Result::<_, Box<dyn std::error::Error>>::Ok(())
     /// ```
     pub fn prefixes(&self) -> TurtlePrefixesIter<'_> {
@@ -744,17 +740,18 @@ impl LowLevelTurtleParser {
     /// ```
     /// use oxttl::TurtleParser;
     ///
-    /// let file = br#"@base <http://example.com/> .
+    /// let file = r#"@base <http://example.com/> .
     /// @prefix schema: <http://schema.org/> .
     /// <foo> a schema:Person ;
     ///     schema:name "Foo" ."#;
     ///
     /// let mut parser = TurtleParser::new().low_level();
-    /// parser.extend_from_slice(file);
+    /// parser.extend_from_slice(file.as_bytes());
     /// assert!(parser.base_iri().is_none()); // No base IRI at the beginning
     ///
     /// parser.parse_next().unwrap()?; // We read the first triple
     /// assert_eq!(parser.base_iri(), Some("http://example.com/")); // There is now a base IRI
+    /// //
     /// # Result::<_, Box<dyn std::error::Error>>::Ok(())
     /// ```
     pub fn base_iri(&self) -> Option<&str> {
@@ -790,8 +787,6 @@ impl<'a> Iterator for TurtlePrefixesIter<'a> {
 }
 
 /// A [Turtle](https://www.w3.org/TR/turtle/) serializer.
-///
-/// Support for [Turtle-star](https://w3c.github.io/rdf-star/cg-spec/2021-12-17.html#turtle-star) is available behind the `rdf-star` feature.
 ///
 /// ```
 /// use oxrdf::vocab::rdf;
@@ -1099,7 +1094,7 @@ impl LowLevelTurtleSerializer {
 }
 
 #[cfg(test)]
-#[allow(clippy::panic_in_result_fn)]
+#[expect(clippy::panic_in_result_fn)]
 mod tests {
     use super::*;
     use oxrdf::{BlankNodeRef, LiteralRef, NamedNodeRef};
@@ -1127,7 +1122,10 @@ mod tests {
             NamedNodeRef::new_unchecked("http://example.com/p2"),
             BlankNodeRef::new_unchecked("b2"),
         ))?;
-        assert_eq!(String::from_utf8(serializer.finish()?).unwrap(), "<http://example.com/s> <http://example.com/p> <http://example.com/o> , \"foo\" ;\n\t<http://example.com/p2> \"foo\"@en .\n_:b <http://example.com/p2> _:b2 .\n");
+        assert_eq!(
+            String::from_utf8(serializer.finish()?).unwrap(),
+            "<http://example.com/s> <http://example.com/p> <http://example.com/o> , \"foo\" ;\n\t<http://example.com/p2> \"foo\"@en .\n_:b <http://example.com/p2> _:b2 .\n"
+        );
         Ok(())
     }
 }

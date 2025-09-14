@@ -113,7 +113,6 @@ class Schema(TypedDict, total=False):
     pattern: str
     example: Any
     anyOf: List["Schema"]
-    additionalProperties: Any
 
 
 class FunctionDeclaration(TypedDict, total=False):
@@ -281,6 +280,7 @@ class RequestBody(TypedDict, total=False):
     safetySettings: List[SafetSettingsConfig]
     generationConfig: GenerationConfig
     cachedContent: str
+    labels: Dict[str, str]
     speechConfig: SpeechConfig
 
 

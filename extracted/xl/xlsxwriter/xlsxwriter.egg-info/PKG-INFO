@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: xlsxwriter
-Version: 3.2.6
+Version: 3.2.7
 Summary: A Python module for creating Excel XLSX files.
 Home-page: https://github.com/jmcnamara/XlsxWriter
 Author: John McNamara

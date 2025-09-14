@@ -9,7 +9,7 @@ use oxjsonld::{
     JsonLdParser, JsonLdPrefixesIter, JsonLdProfileSet, JsonLdRemoteDocument, ReaderJsonLdParser,
     SliceJsonLdParser,
 };
-use oxrdf::{BlankNode, GraphName, IriParseError, Quad, Subject, Term, Triple};
+use oxrdf::{BlankNode, GraphName, IriParseError, NamedOrBlankNode, Quad, Term, Triple};
 #[cfg(feature = "async-tokio")]
 use oxrdfxml::TokioAsyncReaderRdfXmlParser;
 use oxrdfxml::{RdfXmlParser, RdfXmlPrefixesIter, ReaderRdfXmlParser, SliceRdfXmlParser};
@@ -30,8 +30,11 @@ use oxttl::turtle::TokioAsyncReaderTurtleParser;
 use oxttl::turtle::{ReaderTurtleParser, SliceTurtleParser, TurtleParser, TurtlePrefixesIter};
 use std::collections::HashMap;
 use std::error::Error;
-use std::io::Read;
+use std::fs::File;
+use std::io;
+use std::io::{Read, Take};
 use std::panic::{RefUnwindSafe, UnwindSafe};
+use std::path::Path;
 #[cfg(feature = "async-tokio")]
 use tokio::io::AsyncRead;
 
@@ -95,47 +98,11 @@ impl RdfParser {
                     RdfParserKind::JsonLd(JsonLdParser::new().with_profile(profile), profile)
                 }
                 RdfFormat::N3 => RdfParserKind::N3(N3Parser::new()),
-                RdfFormat::NQuads => RdfParserKind::NQuads({
-                    #[cfg(feature = "rdf-star")]
-                    {
-                        NQuadsParser::new().with_quoted_triples()
-                    }
-                    #[cfg(not(feature = "rdf-star"))]
-                    {
-                        NQuadsParser::new()
-                    }
-                }),
-                RdfFormat::NTriples => RdfParserKind::NTriples({
-                    #[cfg(feature = "rdf-star")]
-                    {
-                        NTriplesParser::new().with_quoted_triples()
-                    }
-                    #[cfg(not(feature = "rdf-star"))]
-                    {
-                        NTriplesParser::new()
-                    }
-                }),
+                RdfFormat::NQuads => RdfParserKind::NQuads(NQuadsParser::new()),
+                RdfFormat::NTriples => RdfParserKind::NTriples(NTriplesParser::new()),
                 RdfFormat::RdfXml => RdfParserKind::RdfXml(RdfXmlParser::new()),
-                RdfFormat::TriG => RdfParserKind::TriG({
-                    #[cfg(feature = "rdf-star")]
-                    {
-                        TriGParser::new().with_quoted_triples()
-                    }
-                    #[cfg(not(feature = "rdf-star"))]
-                    {
-                        TriGParser::new()
-                    }
-                }),
-                RdfFormat::Turtle => RdfParserKind::Turtle({
-                    #[cfg(feature = "rdf-star")]
-                    {
-                        TurtleParser::new().with_quoted_triples()
-                    }
-                    #[cfg(not(feature = "rdf-star"))]
-                    {
-                        TurtleParser::new()
-                    }
-                }),
+                RdfFormat::TriG => RdfParserKind::TriG(TriGParser::new()),
+                RdfFormat::Turtle => RdfParserKind::Turtle(TurtleParser::new()),
             },
             default_graph: GraphName::DefaultGraph,
             without_named_graphs: false,
@@ -266,19 +233,25 @@ impl RdfParser {
     ///
     /// It will skip some validations.
     ///
-    /// Note that if the file is actually not valid, broken RDF might be emitted by the parser.
+    /// Note that if the file is actually not valid, the parser might emit broken RDF.
     #[inline]
-    pub fn unchecked(mut self) -> Self {
+    pub fn lenient(mut self) -> Self {
         self.inner = match self.inner {
             RdfParserKind::JsonLd(p, f) => RdfParserKind::JsonLd(p.lenient(), f),
-            RdfParserKind::N3(p) => RdfParserKind::N3(p.unchecked()),
-            RdfParserKind::NTriples(p) => RdfParserKind::NTriples(p.unchecked()),
-            RdfParserKind::NQuads(p) => RdfParserKind::NQuads(p.unchecked()),
-            RdfParserKind::RdfXml(p) => RdfParserKind::RdfXml(p.unchecked()),
-            RdfParserKind::TriG(p) => RdfParserKind::TriG(p.unchecked()),
-            RdfParserKind::Turtle(p) => RdfParserKind::Turtle(p.unchecked()),
+            RdfParserKind::N3(p) => RdfParserKind::N3(p.lenient()),
+            RdfParserKind::NTriples(p) => RdfParserKind::NTriples(p.lenient()),
+            RdfParserKind::NQuads(p) => RdfParserKind::NQuads(p.lenient()),
+            RdfParserKind::RdfXml(p) => RdfParserKind::RdfXml(p.lenient()),
+            RdfParserKind::TriG(p) => RdfParserKind::TriG(p.lenient()),
+            RdfParserKind::Turtle(p) => RdfParserKind::Turtle(p.lenient()),
         };
         self
+    }
+
+    #[deprecated(note = "Use `lenient()` instead", since = "0.2.0")]
+    #[inline]
+    pub fn unchecked(self) -> Self {
+        self.lenient()
     }
 
     /// Parses from a [`Read`] implementation and returns an iterator of quads.
@@ -310,7 +283,7 @@ impl RdfParser {
                 RdfParserKind::Turtle(p) => ReaderQuadParserKind::Turtle(p.for_reader(reader)),
             },
             mapper: QuadMapper {
-                default_graph: self.default_graph.clone(),
+                default_graph: self.default_graph,
                 without_named_graphs: self.without_named_graphs,
                 blank_node_map: self.rename_blank_nodes.then(HashMap::new),
             },
@@ -366,7 +339,7 @@ impl RdfParser {
                 }
             },
             mapper: QuadMapper {
-                default_graph: self.default_graph.clone(),
+                default_graph: self.default_graph,
                 without_named_graphs: self.without_named_graphs,
                 blank_node_map: self.rename_blank_nodes.then(HashMap::new),
             },
@@ -378,7 +351,7 @@ impl RdfParser {
     /// ```
     /// use oxrdfio::{RdfFormat, RdfParser};
     ///
-    /// let file = b"<http://example.com/s> <http://example.com/p> <http://example.com/o> .";
+    /// let file = "<http://example.com/s> <http://example.com/p> <http://example.com/o> .";
     ///
     /// let quads = RdfParser::from_format(RdfFormat::NTriples)
     ///     .for_slice(file)
@@ -388,7 +361,7 @@ impl RdfParser {
     /// assert_eq!(quads[0].subject.to_string(), "<http://example.com/s>");
     /// # std::io::Result::Ok(())
     /// ```
-    pub fn for_slice(self, slice: &[u8]) -> SliceQuadParser<'_> {
+    pub fn for_slice(self, slice: &(impl AsRef<[u8]> + ?Sized)) -> SliceQuadParser<'_> {
         SliceQuadParser {
             inner: match self.inner {
                 RdfParserKind::JsonLd(p, _) => SliceQuadParserKind::JsonLd(p.for_slice(slice)),
@@ -400,11 +373,120 @@ impl RdfParser {
                 RdfParserKind::Turtle(p) => SliceQuadParserKind::Turtle(p.for_slice(slice)),
             },
             mapper: QuadMapper {
-                default_graph: self.default_graph.clone(),
+                default_graph: self.default_graph,
                 without_named_graphs: self.without_named_graphs,
                 blank_node_map: self.rename_blank_nodes.then(HashMap::new),
             },
         }
+    }
+
+    /// Creates a vector of parsers that may be used to parse the document slice in parallel.
+    /// To dynamically specify target_parallelism, use e.g. [`std::thread::available_parallelism`].
+    ///
+    /// This only works for N-Triples and N-Quads and is only interesting on large documents.
+    ///
+    ///
+    /// ```
+    /// use oxrdfio::{RdfFormat, RdfParser};
+    ///
+    /// let file = "<http://example.com/s> <http://example.com/p> <http://example.com/o> .";
+    ///
+    /// let quads = RdfParser::from_format(RdfFormat::NTriples)
+    ///     .split_slice_for_parallel_parsing(file, 4)
+    ///     .into_iter()
+    ///     .flatten()
+    ///     .collect::<Result<Vec<_>, _>>()?;
+    ///
+    /// assert_eq!(quads.len(), 1);
+    /// assert_eq!(quads[0].subject.to_string(), "<http://example.com/s>");
+    /// # std::io::Result::Ok(())
+    /// ```
+    pub fn split_slice_for_parallel_parsing(
+        self,
+        slice: &(impl AsRef<[u8]> + ?Sized),
+        target_parallelism: usize,
+    ) -> Vec<SliceQuadParser<'_>> {
+        match self.inner {
+            RdfParserKind::NTriples(p) => p
+                .split_slice_for_parallel_parsing(slice, target_parallelism)
+                .into_iter()
+                .map(|p| SliceQuadParser {
+                    inner: SliceQuadParserKind::NTriples(p),
+                    mapper: QuadMapper {
+                        default_graph: self.default_graph.clone(),
+                        without_named_graphs: self.without_named_graphs,
+                        blank_node_map: self.rename_blank_nodes.then(HashMap::new),
+                    },
+                })
+                .collect(),
+            RdfParserKind::NQuads(p) => p
+                .split_slice_for_parallel_parsing(slice, target_parallelism)
+                .into_iter()
+                .map(|p| SliceQuadParser {
+                    inner: SliceQuadParserKind::NQuads(p),
+                    mapper: QuadMapper {
+                        default_graph: self.default_graph.clone(),
+                        without_named_graphs: self.without_named_graphs,
+                        blank_node_map: self.rename_blank_nodes.then(HashMap::new),
+                    },
+                })
+                .collect(),
+            _ => vec![self.for_slice(slice)],
+        }
+    }
+
+    /// Creates a vector of parsers that may be used to parse the file in parallel.
+    /// To dynamically specify target_parallelism, use e.g. [`std::thread::available_parallelism`].
+    ///
+    /// This only works for N-Triples and N-Quads and is only interesting on large documents.
+    ///
+    /// ```no_run
+    /// use oxrdfio::{RdfFormat, RdfParser};
+    /// # let path = tempfile::NamedTempFile::new()?;
+    /// # std::fs::write(&path, "<http://example.com/s> <http://example.com/p> <http://example.com/o> .")?;
+    ///
+    /// let quads = RdfParser::from_format(RdfFormat::NTriples)
+    ///     .split_file_for_parallel_parsing(&path, 4)?
+    ///     .into_iter()
+    ///     .flatten()
+    ///     .collect::<Result<Vec<_>, _>>()?;
+    ///
+    /// assert_eq!(quads.len(), 1);
+    /// assert_eq!(quads[0].subject.to_string(), "<http://example.com/s>");
+    /// # std::io::Result::Ok(())
+    /// ```
+    pub fn split_file_for_parallel_parsing(
+        self,
+        path: impl AsRef<Path>,
+        target_parallelism: usize,
+    ) -> io::Result<Vec<ReaderQuadParser<Take<File>>>> {
+        Ok(match self.inner {
+            RdfParserKind::NTriples(p) => p
+                .split_file_for_parallel_parsing(path, target_parallelism)?
+                .into_iter()
+                .map(|p| ReaderQuadParser {
+                    inner: ReaderQuadParserKind::NTriples(p),
+                    mapper: QuadMapper {
+                        default_graph: self.default_graph.clone(),
+                        without_named_graphs: self.without_named_graphs,
+                        blank_node_map: self.rename_blank_nodes.then(HashMap::new),
+                    },
+                })
+                .collect(),
+            RdfParserKind::NQuads(p) => p
+                .split_file_for_parallel_parsing(path, target_parallelism)?
+                .into_iter()
+                .map(|p| ReaderQuadParser {
+                    inner: ReaderQuadParserKind::NQuads(p),
+                    mapper: QuadMapper {
+                        default_graph: self.default_graph.clone(),
+                        without_named_graphs: self.without_named_graphs,
+                        blank_node_map: self.rename_blank_nodes.then(HashMap::new),
+                    },
+                })
+                .collect(),
+            _ => vec![self.for_reader(File::open(path)?.take(u64::MAX))],
+        })
     }
 }
 
@@ -498,12 +580,12 @@ impl<R: Read> ReaderQuadParser<R> {
     /// ```
     /// use oxrdfio::{RdfFormat, RdfParser};
     ///
-    /// let file = br#"@base <http://example.com/> .
+    /// let file = r#"@base <http://example.com/> .
     /// @prefix schema: <http://schema.org/> .
     /// <foo> a schema:Person ;
     ///     schema:name "Foo" ."#;
     ///
-    /// let mut parser = RdfParser::from_format(RdfFormat::Turtle).for_reader(file.as_slice());
+    /// let mut parser = RdfParser::from_format(RdfFormat::Turtle).for_reader(file.as_bytes());
     /// assert!(parser.prefixes().collect::<Vec<_>>().is_empty()); // No prefix at the beginning
     ///
     /// parser.next().unwrap()?; // We read the first triple
@@ -511,6 +593,7 @@ impl<R: Read> ReaderQuadParser<R> {
     ///     parser.prefixes().collect::<Vec<_>>(),
     ///     [("schema", "http://schema.org/")]
     /// ); // There are now prefixes
+    /// //
     /// # Result::<_, Box<dyn std::error::Error>>::Ok(())
     /// ```
     pub fn prefixes(&self) -> PrefixesIter<'_> {
@@ -535,12 +618,12 @@ impl<R: Read> ReaderQuadParser<R> {
     /// ```
     /// use oxrdfio::{RdfFormat, RdfParser};
     ///
-    /// let file = br#"@base <http://example.com/> .
+    /// let file = r#"@base <http://example.com/> .
     /// @prefix schema: <http://schema.org/> .
     /// <foo> a schema:Person ;
     ///     schema:name "Foo" ."#;
     ///
-    /// let mut parser = RdfParser::from_format(RdfFormat::Turtle).for_reader(file.as_slice());
+    /// let mut parser = RdfParser::from_format(RdfFormat::Turtle).for_reader(file.as_bytes());
     /// assert!(parser.base_iri().is_none()); // No base at the beginning because none has been given to the parser.
     ///
     /// parser.next().unwrap()?; // We read the first triple
@@ -558,14 +641,52 @@ impl<R: Read> ReaderQuadParser<R> {
         }
     }
 
+    /// A callback to load remote documents during parsing like JSON-LD contexts.
+    ///
+    /// ```
+    /// use oxrdf::NamedNodeRef;
+    /// use oxrdf::vocab::rdf;
+    /// use oxrdfio::{JsonLdProfile, JsonLdProfileSet, LoadedDocument, RdfFormat, RdfParser};
+    ///
+    /// let file = r#"{
+    ///     "@context": "file://context.jsonld",
+    ///     "@type": "schema:Person",
+    ///     "@id": "http://example.com/foo",
+    ///     "schema:name": "Foo"
+    /// }"#;
+    ///
+    /// let schema_person = NamedNodeRef::new("http://schema.org/Person")?;
+    /// let mut count = 0;
+    /// for quad in RdfParser::from_format(RdfFormat::JsonLd {
+    ///     profile: JsonLdProfileSet::empty(),
+    /// })
+    /// .for_reader(file.as_bytes())
+    /// .with_document_loader(|url| {
+    ///     assert_eq!(url, "file://context.jsonld");
+    ///     Ok(LoadedDocument {
+    ///         url: "file://context.jsonld".into(),
+    ///         content: br#"{"@context":{"schema": "http://schema.org/"}}"#.to_vec(),
+    ///         format: RdfFormat::JsonLd {
+    ///             profile: JsonLdProfile::Context.into(),
+    ///         },
+    ///     })
+    /// }) {
+    ///     let quad = quad?;
+    ///     if quad.predicate == rdf::TYPE && quad.object == schema_person.into() {
+    ///         count += 1;
+    ///     }
+    /// }
+    /// assert_eq!(1, count);
+    /// # Result::<_, Box<dyn std::error::Error>>::Ok(())
+    /// ```
     pub fn with_document_loader(
         mut self,
         loader: impl Fn(&str) -> Result<LoadedDocument, Box<dyn Error + Send + Sync>>
-            + Send
-            + Sync
-            + UnwindSafe
-            + RefUnwindSafe
-            + 'static,
+        + Send
+        + Sync
+        + UnwindSafe
+        + RefUnwindSafe
+        + 'static,
     ) -> Self {
         self.inner = match self.inner {
             ReaderQuadParserKind::JsonLd(p) => {
@@ -590,7 +711,7 @@ impl<R: Read> ReaderQuadParser<R> {
     }
 }
 
-/// Parses a RDF file from a Tokio [`AsyncRead`] implementation.
+/// Parses an RDF file from a Tokio [`AsyncRead`] implementation.
 ///
 /// Can be built using [`RdfParser::for_tokio_async_reader`].
 ///
@@ -677,13 +798,13 @@ impl<R: AsyncRead + Unpin> TokioAsyncReaderQuadParser<R> {
     /// # async fn main() -> Result<(), oxrdfio::RdfParseError> {
     /// use oxrdfio::{RdfFormat, RdfParser};
     ///
-    /// let file = br#"@base <http://example.com/> .
+    /// let file = r#"@base <http://example.com/> .
     /// @prefix schema: <http://schema.org/> .
     /// <foo> a schema:Person ;
     ///     schema:name "Foo" ."#;
     ///
     /// let mut parser =
-    ///     RdfParser::from_format(RdfFormat::Turtle).for_tokio_async_reader(file.as_slice());
+    ///     RdfParser::from_format(RdfFormat::Turtle).for_tokio_async_reader(file.as_bytes());
     /// assert_eq!(parser.prefixes().collect::<Vec<_>>(), []); // No prefix at the beginning
     ///
     /// parser.next().await.unwrap()?; // We read the first triple
@@ -691,6 +812,7 @@ impl<R: AsyncRead + Unpin> TokioAsyncReaderQuadParser<R> {
     ///     parser.prefixes().collect::<Vec<_>>(),
     ///     [("schema", "http://schema.org/")]
     /// ); // There are now prefixes
+    /// //
     /// # Ok(())
     /// # }
     /// ```
@@ -717,17 +839,18 @@ impl<R: AsyncRead + Unpin> TokioAsyncReaderQuadParser<R> {
     /// # async fn main() -> Result<(), oxrdfio::RdfParseError> {
     /// use oxrdfio::{RdfFormat, RdfParser};
     ///
-    /// let file = br#"@base <http://example.com/> .
+    /// let file = r#"@base <http://example.com/> .
     /// @prefix schema: <http://schema.org/> .
     /// <foo> a schema:Person ;
     ///     schema:name "Foo" ."#;
     ///
     /// let mut parser =
-    ///     RdfParser::from_format(RdfFormat::Turtle).for_tokio_async_reader(file.as_slice());
+    ///     RdfParser::from_format(RdfFormat::Turtle).for_tokio_async_reader(file.as_bytes());
     /// assert!(parser.base_iri().is_none()); // No base IRI at the beginning
     ///
     /// parser.next().await.unwrap()?; // We read the first triple
     /// assert_eq!(parser.base_iri(), Some("http://example.com/")); // There is now a base IRI
+    /// //
     /// # Ok(())
     /// # }
     /// ```
@@ -751,7 +874,7 @@ impl<R: AsyncRead + Unpin> TokioAsyncReaderQuadParser<R> {
 /// ```
 /// use oxrdfio::{RdfFormat, RdfParser};
 ///
-/// let file = b"<http://example.com/s> <http://example.com/p> <http://example.com/o> .";
+/// let file = "<http://example.com/s> <http://example.com/p> <http://example.com/o> .";
 ///
 /// let quads = RdfParser::from_format(RdfFormat::NTriples)
 ///     .for_slice(file)
@@ -815,6 +938,75 @@ impl Iterator for SliceQuadParser<'_> {
 }
 
 impl SliceQuadParser<'_> {
+    /// A callback to load remote documents during parsing like JSON-LD contexts.
+    ///
+    /// ```
+    /// use oxrdf::NamedNodeRef;
+    /// use oxrdf::vocab::rdf;
+    /// use oxrdfio::{JsonLdProfile, JsonLdProfileSet, LoadedDocument, RdfFormat, RdfParser};
+    ///
+    /// let file = r#"{
+    ///     "@context": "file://context.jsonld",
+    ///     "@type": "schema:Person",
+    ///     "@id": "http://example.com/foo",
+    ///     "schema:name": "Foo"
+    /// }"#;
+    ///
+    /// let schema_person = NamedNodeRef::new("http://schema.org/Person")?;
+    /// let mut count = 0;
+    /// for quad in RdfParser::from_format(RdfFormat::JsonLd {
+    ///     profile: JsonLdProfileSet::empty(),
+    /// })
+    /// .for_slice(file)
+    /// .with_document_loader(|url| {
+    ///     assert_eq!(url, "file://context.jsonld");
+    ///     Ok(LoadedDocument {
+    ///         url: "file://context.jsonld".into(),
+    ///         content: br#"{"@context":{"schema": "http://schema.org/"}}"#.to_vec(),
+    ///         format: RdfFormat::JsonLd {
+    ///             profile: JsonLdProfile::Context.into(),
+    ///         },
+    ///     })
+    /// }) {
+    ///     let quad = quad?;
+    ///     if quad.predicate == rdf::TYPE && quad.object == schema_person.into() {
+    ///         count += 1;
+    ///     }
+    /// }
+    /// assert_eq!(1, count);
+    /// # Result::<_, Box<dyn std::error::Error>>::Ok(())
+    /// ```
+    pub fn with_document_loader(
+        mut self,
+        loader: impl Fn(&str) -> Result<LoadedDocument, Box<dyn Error + Send + Sync>>
+        + Send
+        + Sync
+        + UnwindSafe
+        + RefUnwindSafe
+        + 'static,
+    ) -> Self {
+        self.inner = match self.inner {
+            SliceQuadParserKind::JsonLd(p) => {
+                SliceQuadParserKind::JsonLd(p.with_load_document_callback(move |iri, _| {
+                    let response = loader(iri)?;
+                    if !matches!(response.format, RdfFormat::JsonLd { .. }) {
+                        return Err(format!(
+                            "The JSON-LD context format must be JSON-LD, {} found",
+                            response.format
+                        )
+                        .into());
+                    }
+                    Ok(JsonLdRemoteDocument {
+                        document: response.content,
+                        document_url: response.url,
+                    })
+                }))
+            }
+            i => i,
+        };
+        self
+    }
+
     /// The list of IRI prefixes considered at the current step of the parsing.
     ///
     /// This method returns (prefix name, prefix value) tuples.
@@ -826,7 +1018,7 @@ impl SliceQuadParser<'_> {
     /// ```
     /// use oxrdfio::{RdfFormat, RdfParser};
     ///
-    /// let file = br#"@base <http://example.com/> .
+    /// let file = r#"@base <http://example.com/> .
     /// @prefix schema: <http://schema.org/> .
     /// <foo> a schema:Person ;
     ///     schema:name "Foo" ."#;
@@ -839,6 +1031,7 @@ impl SliceQuadParser<'_> {
     ///     parser.prefixes().collect::<Vec<_>>(),
     ///     [("schema", "http://schema.org/")]
     /// ); // There are now prefixes
+    /// //
     /// # Result::<_, Box<dyn std::error::Error>>::Ok(())
     /// ```
     pub fn prefixes(&self) -> PrefixesIter<'_> {
@@ -863,7 +1056,7 @@ impl SliceQuadParser<'_> {
     /// ```
     /// use oxrdfio::{RdfFormat, RdfParser};
     ///
-    /// let file = br#"@base <http://example.com/> .
+    /// let file = r#"@base <http://example.com/> .
     /// @prefix schema: <http://schema.org/> .
     /// <foo> a schema:Person ;
     ///     schema:name "Foo" ."#;
@@ -949,12 +1142,10 @@ impl QuadMapper {
         }
     }
 
-    fn map_subject(&mut self, node: Subject) -> Subject {
+    fn map_subject(&mut self, node: NamedOrBlankNode) -> NamedOrBlankNode {
         match node {
-            Subject::NamedNode(node) => node.into(),
-            Subject::BlankNode(node) => self.map_blank_node(node).into(),
-            #[cfg(feature = "rdf-star")]
-            Subject::Triple(triple) => self.map_triple(*triple).into(),
+            NamedOrBlankNode::NamedNode(node) => node.into(),
+            NamedOrBlankNode::BlankNode(node) => self.map_blank_node(node).into(),
         }
     }
 
@@ -963,7 +1154,7 @@ impl QuadMapper {
             Term::NamedNode(node) => node.into(),
             Term::BlankNode(node) => self.map_blank_node(node).into(),
             Term::Literal(literal) => literal.into(),
-            #[cfg(feature = "rdf-star")]
+            #[cfg(feature = "rdf-12")]
             Term::Triple(triple) => self.map_triple(*triple).into(),
         }
     }
@@ -1017,8 +1208,10 @@ impl QuadMapper {
                 N3Term::Literal(_) => Err(RdfSyntaxError::msg(
                     "literals are not allowed in regular RDF subjects",
                 )),
-                #[cfg(feature = "rdf-star")]
-                N3Term::Triple(s) => Ok(self.map_triple(*s).into()),
+                #[cfg(feature = "rdf-12")]
+                N3Term::Triple(_) => Err(RdfSyntaxError::msg(
+                    "triple terms are not allowed in regular RDF subjects",
+                )),
                 N3Term::Variable(_) => Err(RdfSyntaxError::msg(
                     "variables are not allowed in regular RDF subjects",
                 )),
@@ -1031,7 +1224,7 @@ impl QuadMapper {
                 N3Term::Literal(_) => Err(RdfSyntaxError::msg(
                     "literals are not allowed in regular RDF predicates",
                 )),
-                #[cfg(feature = "rdf-star")]
+                #[cfg(feature = "rdf-12")]
                 N3Term::Triple(_) => Err(RdfSyntaxError::msg(
                     "quoted triples are not allowed in regular RDF predicates",
                 )),
@@ -1043,7 +1236,7 @@ impl QuadMapper {
                 N3Term::NamedNode(o) => Ok(o.into()),
                 N3Term::BlankNode(o) => Ok(self.map_blank_node(o).into()),
                 N3Term::Literal(o) => Ok(o.into()),
-                #[cfg(feature = "rdf-star")]
+                #[cfg(feature = "rdf-12")]
                 N3Term::Triple(o) => Ok(self.map_triple(*o).into()),
                 N3Term::Variable(_) => Err(RdfSyntaxError::msg(
                     "variables are not allowed in regular RDF objects",

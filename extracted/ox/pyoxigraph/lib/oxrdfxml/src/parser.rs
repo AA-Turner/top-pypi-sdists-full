@@ -3,7 +3,7 @@ use crate::utils::*;
 use oxilangtag::LanguageTag;
 use oxiri::{Iri, IriParseError};
 use oxrdf::vocab::rdf;
-use oxrdf::{BlankNode, Literal, NamedNode, Subject, Term, Triple};
+use oxrdf::{BlankNode, Literal, NamedNode, NamedOrBlankNode, Term, Triple};
 use quick_xml::escape::{resolve_xml_entity, unescape_with};
 use quick_xml::events::attributes::Attribute;
 use quick_xml::events::*;
@@ -27,11 +27,11 @@ use tokio::io::{AsyncRead, BufReader as AsyncBufReader};
 ///
 /// Count the number of people:
 /// ```
-/// use oxrdf::vocab::rdf;
 /// use oxrdf::NamedNodeRef;
+/// use oxrdf::vocab::rdf;
 /// use oxrdfxml::RdfXmlParser;
 ///
-/// let file = br#"<?xml version="1.0"?>
+/// let file = r#"<?xml version="1.0"?>
 /// <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:schema="http://schema.org/">
 ///  <rdf:Description rdf:about="http://example.com/foo">
 ///    <rdf:type rdf:resource="http://schema.org/Person" />
@@ -42,7 +42,7 @@ use tokio::io::{AsyncRead, BufReader as AsyncBufReader};
 ///
 /// let schema_person = NamedNodeRef::new("http://schema.org/Person")?;
 /// let mut count = 0;
-/// for triple in RdfXmlParser::new().for_reader(file.as_ref()) {
+/// for triple in RdfXmlParser::new().for_reader(file.as_bytes()) {
 ///     let triple = triple?;
 ///     if triple.predicate == rdf::TYPE && triple.object == schema_person.into() {
 ///         count += 1;
@@ -54,7 +54,7 @@ use tokio::io::{AsyncRead, BufReader as AsyncBufReader};
 #[derive(Default, Clone)]
 #[must_use]
 pub struct RdfXmlParser {
-    unchecked: bool,
+    lenient: bool,
     base: Option<Iri<String>>,
 }
 
@@ -69,11 +69,17 @@ impl RdfXmlParser {
     ///
     /// It will skip some validations.
     ///
-    /// Note that if the file is actually not valid, broken RDF might be emitted by the parser.
+    /// Note that if the file is actually not valid, the parser might emit broken RDF.
     #[inline]
-    pub fn unchecked(mut self) -> Self {
-        self.unchecked = true;
+    pub fn lenient(mut self) -> Self {
+        self.lenient = true;
         self
+    }
+
+    #[deprecated(note = "Use `lenient()` instead", since = "0.2.0")]
+    #[inline]
+    pub fn unchecked(self) -> Self {
+        self.lenient()
     }
 
     #[inline]
@@ -86,11 +92,11 @@ impl RdfXmlParser {
     ///
     /// Count the number of people:
     /// ```
-    /// use oxrdf::vocab::rdf;
     /// use oxrdf::NamedNodeRef;
+    /// use oxrdf::vocab::rdf;
     /// use oxrdfxml::RdfXmlParser;
     ///
-    /// let file = br#"<?xml version="1.0"?>
+    /// let file = r#"<?xml version="1.0"?>
     /// <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:schema="http://schema.org/">
     ///  <rdf:Description rdf:about="http://example.com/foo">
     ///    <rdf:type rdf:resource="http://schema.org/Person" />
@@ -101,7 +107,7 @@ impl RdfXmlParser {
     ///
     /// let schema_person = NamedNodeRef::new("http://schema.org/Person")?;
     /// let mut count = 0;
-    /// for triple in RdfXmlParser::new().for_reader(file.as_ref()) {
+    /// for triple in RdfXmlParser::new().for_reader(file.as_bytes()) {
     ///     let triple = triple?;
     ///     if triple.predicate == rdf::TYPE && triple.object == schema_person.into() {
     ///         count += 1;
@@ -124,11 +130,11 @@ impl RdfXmlParser {
     /// ```
     /// # #[tokio::main(flavor = "current_thread")]
     /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// use oxrdf::vocab::rdf;
     /// use oxrdf::NamedNodeRef;
+    /// use oxrdf::vocab::rdf;
     /// use oxrdfxml::RdfXmlParser;
     ///
-    /// let file = br#"<?xml version="1.0"?>
+    /// let file = r#"<?xml version="1.0"?>
     /// <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:schema="http://schema.org/">
     ///   <rdf:Description rdf:about="http://example.com/foo">
     ///     <rdf:type rdf:resource="http://schema.org/Person" />
@@ -139,7 +145,7 @@ impl RdfXmlParser {
     ///
     /// let schema_person = NamedNodeRef::new("http://schema.org/Person")?;
     /// let mut count = 0;
-    /// let mut parser = RdfXmlParser::new().for_tokio_async_reader(file.as_ref());
+    /// let mut parser = RdfXmlParser::new().for_tokio_async_reader(file.as_bytes());
     /// while let Some(triple) = parser.next().await {
     ///     let triple = triple?;
     ///     if triple.predicate == rdf::TYPE && triple.object == schema_person.into() {
@@ -166,11 +172,11 @@ impl RdfXmlParser {
     ///
     /// Count the number of people:
     /// ```
-    /// use oxrdf::vocab::rdf;
     /// use oxrdf::NamedNodeRef;
+    /// use oxrdf::vocab::rdf;
     /// use oxrdfxml::RdfXmlParser;
     ///
-    /// let file = br#"<?xml version="1.0"?>
+    /// let file = r#"<?xml version="1.0"?>
     /// <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:schema="http://schema.org/">
     ///  <rdf:Description rdf:about="http://example.com/foo">
     ///    <rdf:type rdf:resource="http://schema.org/Person" />
@@ -190,11 +196,10 @@ impl RdfXmlParser {
     /// assert_eq!(2, count);
     /// # Result::<_, Box<dyn std::error::Error>>::Ok(())
     /// ```
-    pub fn for_slice(self, slice: &[u8]) -> SliceRdfXmlParser<'_> {
+    pub fn for_slice(self, slice: &(impl AsRef<[u8]> + ?Sized)) -> SliceRdfXmlParser<'_> {
         SliceRdfXmlParser {
             results: Vec::new(),
-            parser: self.into_internal(slice),
-            reader_buffer: Vec::default(),
+            parser: self.into_internal(slice.as_ref()),
         }
     }
 
@@ -210,7 +215,7 @@ impl RdfXmlParser {
             in_literal_depth: 0,
             known_rdf_id: HashSet::default(),
             is_end: false,
-            unchecked: self.unchecked,
+            lenient: self.lenient,
         }
     }
 }
@@ -221,11 +226,11 @@ impl RdfXmlParser {
 ///
 /// Count the number of people:
 /// ```
-/// use oxrdf::vocab::rdf;
 /// use oxrdf::NamedNodeRef;
+/// use oxrdf::vocab::rdf;
 /// use oxrdfxml::RdfXmlParser;
 ///
-/// let file = br#"<?xml version="1.0"?>
+/// let file = r#"<?xml version="1.0"?>
 /// <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:schema="http://schema.org/">
 ///  <rdf:Description rdf:about="http://example.com/foo">
 ///    <rdf:type rdf:resource="http://schema.org/Person" />
@@ -236,7 +241,7 @@ impl RdfXmlParser {
 ///
 /// let schema_person = NamedNodeRef::new("http://schema.org/Person")?;
 /// let mut count = 0;
-/// for triple in RdfXmlParser::new().for_reader(file.as_ref()) {
+/// for triple in RdfXmlParser::new().for_reader(file.as_bytes()) {
 ///     let triple = triple?;
 ///     if triple.predicate == rdf::TYPE && triple.object == schema_person.into() {
 ///         count += 1;
@@ -279,7 +284,7 @@ impl<R: Read> ReaderRdfXmlParser<R> {
     /// ```
     /// use oxrdfxml::RdfXmlParser;
     ///
-    /// let file = br#"<?xml version="1.0"?>
+    /// let file = r#"<?xml version="1.0"?>
     /// <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:schema="http://schema.org/">
     ///  <rdf:Description rdf:about="http://example.com/foo">
     ///    <rdf:type rdf:resource="http://schema.org/Person" />
@@ -288,7 +293,7 @@ impl<R: Read> ReaderRdfXmlParser<R> {
     ///  <schema:Person rdf:about="http://example.com/bar" schema:name="Bar" />
     /// </rdf:RDF>"#;
     ///
-    /// let mut parser = RdfXmlParser::new().for_reader(file.as_ref());
+    /// let mut parser = RdfXmlParser::new().for_reader(file.as_bytes());
     /// assert_eq!(parser.prefixes().collect::<Vec<_>>(), []); // No prefix at the beginning
     ///
     /// parser.next().unwrap()?; // We read the first triple
@@ -299,13 +304,14 @@ impl<R: Read> ReaderRdfXmlParser<R> {
     ///         ("schema", "http://schema.org/")
     ///     ]
     /// ); // There are now prefixes
+    /// //
     /// # Result::<_, Box<dyn std::error::Error>>::Ok(())
     /// ```
     pub fn prefixes(&self) -> RdfXmlPrefixesIter<'_> {
         RdfXmlPrefixesIter {
             inner: self.parser.reader.prefixes(),
             decoder: self.parser.reader.decoder(),
-            unchecked: self.parser.unchecked,
+            lenient: self.parser.lenient,
         }
     }
 
@@ -314,14 +320,14 @@ impl<R: Read> ReaderRdfXmlParser<R> {
     /// ```
     /// use oxrdfxml::RdfXmlParser;
     ///
-    /// let file = br#"<?xml version="1.0"?>
+    /// let file = r#"<?xml version="1.0"?>
     /// <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xml:base="http://example.com/">
     ///  <rdf:Description rdf:about="foo">
     ///    <rdf:type rdf:resource="http://schema.org/Person" />
     ///  </rdf:Description>
     /// </rdf:RDF>"#;
     ///
-    /// let mut parser = RdfXmlParser::new().for_reader(file.as_ref());
+    /// let mut parser = RdfXmlParser::new().for_reader(file.as_bytes());
     /// assert!(parser.base_iri().is_none()); // No base at the beginning because none has been given to the parser.
     ///
     /// parser.next().unwrap()?; // We read the first triple
@@ -355,11 +361,11 @@ impl<R: Read> ReaderRdfXmlParser<R> {
 /// ```
 /// # #[tokio::main(flavor = "current_thread")]
 /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
-/// use oxrdf::vocab::rdf;
 /// use oxrdf::NamedNodeRef;
+/// use oxrdf::vocab::rdf;
 /// use oxrdfxml::RdfXmlParser;
 ///
-/// let file = br#"<?xml version="1.0"?>
+/// let file = r#"<?xml version="1.0"?>
 /// <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:schema="http://schema.org/">
 ///   <rdf:Description rdf:about="http://example.com/foo">
 ///     <rdf:type rdf:resource="http://schema.org/Person" />
@@ -370,7 +376,7 @@ impl<R: Read> ReaderRdfXmlParser<R> {
 ///
 /// let schema_person = NamedNodeRef::new("http://schema.org/Person")?;
 /// let mut count = 0;
-/// let mut parser = RdfXmlParser::new().for_tokio_async_reader(file.as_ref());
+/// let mut parser = RdfXmlParser::new().for_tokio_async_reader(file.as_bytes());
 /// while let Some(triple) = parser.next().await {
 ///     let triple = triple?;
 ///     if triple.predicate == rdf::TYPE && triple.object == schema_person.into() {
@@ -416,7 +422,7 @@ impl<R: AsyncRead + Unpin> TokioAsyncReaderRdfXmlParser<R> {
     /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// use oxrdfxml::RdfXmlParser;
     ///
-    /// let file = br#"<?xml version="1.0"?>
+    /// let file = r#"<?xml version="1.0"?>
     /// <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:schema="http://schema.org/">
     ///  <rdf:Description rdf:about="http://example.com/foo">
     ///    <rdf:type rdf:resource="http://schema.org/Person" />
@@ -425,7 +431,7 @@ impl<R: AsyncRead + Unpin> TokioAsyncReaderRdfXmlParser<R> {
     ///  <schema:Person rdf:about="http://example.com/bar" schema:name="Bar" />
     /// </rdf:RDF>"#;
     ///
-    /// let mut parser = RdfXmlParser::new().for_tokio_async_reader(file.as_ref());
+    /// let mut parser = RdfXmlParser::new().for_tokio_async_reader(file.as_bytes());
     /// assert_eq!(parser.prefixes().collect::<Vec<_>>(), []); // No prefix at the beginning
     ///
     /// parser.next().await.unwrap()?; // We read the first triple
@@ -436,6 +442,7 @@ impl<R: AsyncRead + Unpin> TokioAsyncReaderRdfXmlParser<R> {
     ///         ("schema", "http://schema.org/")
     ///     ]
     /// ); // There are now prefixes
+    /// //
     /// # Ok(())
     /// # }
     /// ```
@@ -443,7 +450,7 @@ impl<R: AsyncRead + Unpin> TokioAsyncReaderRdfXmlParser<R> {
         RdfXmlPrefixesIter {
             inner: self.parser.reader.prefixes(),
             decoder: self.parser.reader.decoder(),
-            unchecked: self.parser.unchecked,
+            lenient: self.parser.lenient,
         }
     }
 
@@ -454,14 +461,14 @@ impl<R: AsyncRead + Unpin> TokioAsyncReaderRdfXmlParser<R> {
     /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// use oxrdfxml::RdfXmlParser;
     ///
-    /// let file = br#"<?xml version="1.0"?>
+    /// let file = r#"<?xml version="1.0"?>
     /// <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xml:base="http://example.com/">
     ///  <rdf:Description rdf:about="foo">
     ///    <rdf:type rdf:resource="http://schema.org/Person" />
     ///  </rdf:Description>
     /// </rdf:RDF>"#;
     ///
-    /// let mut parser = RdfXmlParser::new().for_tokio_async_reader(file.as_ref());
+    /// let mut parser = RdfXmlParser::new().for_tokio_async_reader(file.as_bytes());
     /// assert!(parser.base_iri().is_none()); // No base at the beginning because none has been given to the parser.
     ///
     /// parser.next().await.unwrap()?; // We read the first triple
@@ -495,11 +502,11 @@ impl<R: AsyncRead + Unpin> TokioAsyncReaderRdfXmlParser<R> {
 ///
 /// Count the number of people:
 /// ```
-/// use oxrdf::vocab::rdf;
 /// use oxrdf::NamedNodeRef;
+/// use oxrdf::vocab::rdf;
 /// use oxrdfxml::RdfXmlParser;
 ///
-/// let file = br#"<?xml version="1.0"?>
+/// let file = r#"<?xml version="1.0"?>
 /// <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:schema="http://schema.org/">
 ///  <rdf:Description rdf:about="http://example.com/foo">
 ///    <rdf:type rdf:resource="http://schema.org/Person" />
@@ -523,7 +530,6 @@ impl<R: AsyncRead + Unpin> TokioAsyncReaderRdfXmlParser<R> {
 pub struct SliceRdfXmlParser<'a> {
     results: Vec<Triple>,
     parser: InternalRdfXmlParser<&'a [u8]>,
-    reader_buffer: Vec<u8>,
 }
 
 impl Iterator for SliceRdfXmlParser<'_> {
@@ -554,7 +560,7 @@ impl SliceRdfXmlParser<'_> {
     /// ```
     /// use oxrdfxml::RdfXmlParser;
     ///
-    /// let file = br#"<?xml version="1.0"?>
+    /// let file = r#"<?xml version="1.0"?>
     /// <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:schema="http://schema.org/">
     ///  <rdf:Description rdf:about="http://example.com/foo">
     ///    <rdf:type rdf:resource="http://schema.org/Person" />
@@ -574,13 +580,14 @@ impl SliceRdfXmlParser<'_> {
     ///         ("schema", "http://schema.org/")
     ///     ]
     /// ); // There are now prefixes
+    /// //
     /// # Result::<_, Box<dyn std::error::Error>>::Ok(())
     /// ```
     pub fn prefixes(&self) -> RdfXmlPrefixesIter<'_> {
         RdfXmlPrefixesIter {
             inner: self.parser.reader.prefixes(),
             decoder: self.parser.reader.decoder(),
-            unchecked: self.parser.unchecked,
+            lenient: self.parser.lenient,
         }
     }
 
@@ -589,7 +596,7 @@ impl SliceRdfXmlParser<'_> {
     /// ```
     /// use oxrdfxml::RdfXmlParser;
     ///
-    /// let file = br#"<?xml version="1.0"?>
+    /// let file = r#"<?xml version="1.0"?>
     /// <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xml:base="http://example.com/">
     ///  <rdf:Description rdf:about="foo">
     ///    <rdf:type rdf:resource="http://schema.org/Person" />
@@ -613,11 +620,7 @@ impl SliceRdfXmlParser<'_> {
     }
 
     fn parse_step(&mut self) -> Result<(), RdfXmlParseError> {
-        self.reader_buffer.clear();
-        let event = self
-            .parser
-            .reader
-            .read_event_into(&mut self.reader_buffer)?;
+        let event = self.parser.reader.read_event()?;
         self.parser.parse_event(event, &mut self.results)
     }
 }
@@ -628,7 +631,7 @@ impl SliceRdfXmlParser<'_> {
 pub struct RdfXmlPrefixesIter<'a> {
     inner: PrefixIter<'a>,
     decoder: Decoder,
-    unchecked: bool,
+    lenient: bool,
 }
 
 impl<'a> Iterator for RdfXmlPrefixesIter<'a> {
@@ -648,7 +651,7 @@ impl<'a> Iterator for RdfXmlPrefixesIter<'a> {
                         let Ok(Cow::Borrowed(name)) = unescape_with(name, |_| None) else {
                             continue;
                         };
-                        if !self.unchecked && !is_nc_name(name) {
+                        if !self.lenient && !is_nc_name(name) {
                             continue; // We don't return invalid prefixes
                         }
                         name
@@ -661,7 +664,7 @@ impl<'a> Iterator for RdfXmlPrefixesIter<'a> {
                     let Ok(Cow::Borrowed(value)) = unescape_with(value, |_| None) else {
                         continue;
                     };
-                    if !self.unchecked && Iri::parse(value).is_err() {
+                    if !self.lenient && Iri::parse(value).is_err() {
                         continue; // We don't return invalid prefixes
                     }
                     value
@@ -712,7 +715,7 @@ const RESERVED_RDF_ATTRIBUTES: [&str; 5] = [
 
 #[derive(Clone, Debug)]
 enum NodeOrText {
-    Node(Subject),
+    Node(NamedOrBlankNode),
     Text(String),
 }
 
@@ -727,7 +730,7 @@ enum RdfXmlState {
     NodeElt {
         base_iri: Option<Iri<String>>,
         language: Option<String>,
-        subject: Subject,
+        subject: NamedOrBlankNode,
         li_counter: u64,
     },
     PropertyElt {
@@ -735,7 +738,7 @@ enum RdfXmlState {
         iri: NamedNode,
         base_iri: Option<Iri<String>>,
         language: Option<String>,
-        subject: Subject,
+        subject: NamedOrBlankNode,
         object: Option<NodeOrText>,
         id_attr: Option<NamedNode>,
         datatype_attr: Option<NamedNode>,
@@ -744,15 +747,15 @@ enum RdfXmlState {
         iri: NamedNode,
         base_iri: Option<Iri<String>>,
         language: Option<String>,
-        subject: Subject,
-        objects: Vec<Subject>,
+        subject: NamedOrBlankNode,
+        objects: Vec<NamedOrBlankNode>,
         id_attr: Option<NamedNode>,
     },
     ParseTypeLiteralPropertyElt {
         iri: NamedNode,
         base_iri: Option<Iri<String>>,
         language: Option<String>,
-        subject: Subject,
+        subject: NamedOrBlankNode,
         writer: Writer<Vec<u8>>,
         id_attr: Option<NamedNode>,
         emit: bool, // false for parseTypeOtherPropertyElt support
@@ -766,7 +769,7 @@ struct InternalRdfXmlParser<R> {
     in_literal_depth: usize,
     known_rdf_id: HashSet<String>,
     is_end: bool,
-    unchecked: bool,
+    lenient: bool,
 }
 
 impl<R> InternalRdfXmlParser<R> {
@@ -860,7 +863,7 @@ impl<R> InternalRdfXmlParser<R> {
         enum RdfXmlNextProduction {
             Rdf,
             NodeElt,
-            PropertyElt { subject: Subject },
+            PropertyElt { subject: NamedOrBlankNode },
         }
 
         // Literal case
@@ -874,6 +877,21 @@ impl<R> InternalRdfXmlParser<R> {
             );
             for attr in event.attributes() {
                 clean_event.push_attribute(attr.map_err(Error::InvalidAttr)?);
+            }
+            if self.in_literal_depth == 0 {
+                for (prefix, namespace) in self.reader.prefixes() {
+                    match prefix {
+                        PrefixDeclaration::Default => {
+                            clean_event.push_attribute(("xmlns".as_bytes(), namespace.into_inner()))
+                        }
+                        PrefixDeclaration::Named(name) => {
+                            let mut attr = Vec::with_capacity(6 + name.len());
+                            attr.extend_from_slice(b"xmlns:");
+                            attr.extend_from_slice(name);
+                            clean_event.push_attribute((attr.as_slice(), namespace.into_inner()))
+                        }
+                    }
+                }
             }
             writer.write_event(Event::Start(clean_event))?;
             self.in_literal_depth += 1;
@@ -899,7 +917,7 @@ impl<R> InternalRdfXmlParser<R> {
             if attribute.key.as_ref().starts_with(b"xml") {
                 if attribute.key.as_ref() == b"xml:lang" {
                     let tag = self.convert_attribute(&attribute)?.to_ascii_lowercase();
-                    language = Some(if self.unchecked {
+                    language = Some(if self.lenient {
                         tag
                     } else {
                         LanguageTag::parse(tag.to_ascii_lowercase())
@@ -908,7 +926,7 @@ impl<R> InternalRdfXmlParser<R> {
                     });
                 } else if attribute.key.as_ref() == b"xml:base" {
                     let iri = self.convert_attribute(&attribute)?;
-                    base_iri = Some(if self.unchecked {
+                    base_iri = Some(if self.lenient {
                         Iri::parse_unchecked(iri.clone())
                     } else {
                         Iri::parse(iri.clone())
@@ -979,7 +997,7 @@ impl<R> InternalRdfXmlParser<R> {
         let id_attr = match id_attr {
             Some(iri) => {
                 let iri = self.resolve_iri(base_iri.as_ref(), iri)?;
-                if !self.unchecked {
+                if !self.lenient {
                     if self.known_rdf_id.contains(iri.as_str()) {
                         return Err(RdfXmlSyntaxError::msg(format!(
                             "{iri} has already been used as rdf:ID value"
@@ -1105,7 +1123,7 @@ impl<R> InternalRdfXmlParser<R> {
                         {
                             let object = match (resource_attr, node_id_attr)
                             {
-                                (Some(resource_attr), None) => Subject::from(resource_attr),
+                                (Some(resource_attr), None) => NamedOrBlankNode::from(resource_attr),
                                 (None, Some(node_id_attr)) => node_id_attr.into(),
                                 (None, None) => BlankNode::default().into(),
                                 (Some(_), Some(_)) => return Err(RdfXmlSyntaxError::msg("Not both rdf:resource and rdf:nodeID could be set at the same time").into())
@@ -1269,7 +1287,6 @@ impl<R> InternalRdfXmlParser<R> {
         }
     }
 
-    #[allow(clippy::too_many_arguments)]
     fn build_node_elt(
         &self,
         iri: NamedNode,
@@ -1283,24 +1300,24 @@ impl<R> InternalRdfXmlParser<R> {
         results: &mut Vec<Triple>,
     ) -> Result<RdfXmlState, RdfXmlSyntaxError> {
         let subject = match (id_attr, node_id_attr, about_attr) {
-            (Some(id_attr), None, None) => Subject::from(id_attr),
+            (Some(id_attr), None, None) => NamedOrBlankNode::from(id_attr),
             (None, Some(node_id_attr), None) => node_id_attr.into(),
             (None, None, Some(about_attr)) => about_attr.into(),
             (None, None, None) => BlankNode::default().into(),
             (Some(_), Some(_), _) => {
                 return Err(RdfXmlSyntaxError::msg(
                     "Not both rdf:ID and rdf:nodeID could be set at the same time",
-                ))
+                ));
             }
             (_, Some(_), Some(_)) => {
                 return Err(RdfXmlSyntaxError::msg(
                     "Not both rdf:nodeID and rdf:resource could be set at the same time",
-                ))
+                ));
             }
             (Some(_), _, Some(_)) => {
                 return Err(RdfXmlSyntaxError::msg(
                     "Not both rdf:ID and rdf:resource could be set at the same time",
-                ))
+                ));
             }
         };
 
@@ -1325,7 +1342,7 @@ impl<R> InternalRdfXmlParser<R> {
         iri: NamedNode,
         base_iri: Option<Iri<String>>,
         language: Option<String>,
-        subject: Subject,
+        subject: NamedOrBlankNode,
         id_attr: Option<NamedNode>,
         results: &mut Vec<Triple>,
     ) -> RdfXmlState {
@@ -1380,9 +1397,9 @@ impl<R> InternalRdfXmlParser<R> {
                 objects,
                 ..
             } => {
-                let mut current_node = Subject::from(rdf::NIL);
+                let mut current_node = NamedOrBlankNode::from(rdf::NIL);
                 for object in objects.into_iter().rev() {
-                    let subject = Subject::from(BlankNode::default());
+                    let subject = NamedOrBlankNode::from(BlankNode::default());
                     results.push(Triple::new(subject.clone(), rdf::FIRST, object));
                     results.push(Triple::new(subject.clone(), rdf::REST, current_node));
                     current_node = subject;
@@ -1479,7 +1496,7 @@ impl<R> InternalRdfXmlParser<R> {
 
     fn emit_property_attrs(
         &self,
-        subject: &Subject,
+        subject: &NamedOrBlankNode,
         literal_attributes: Vec<(NamedNode, String)>,
         language: Option<&str>,
         results: &mut Vec<Triple>,
@@ -1518,7 +1535,7 @@ impl<R> InternalRdfXmlParser<R> {
     ) -> Result<NamedNode, RdfXmlSyntaxError> {
         if let Some(base_iri) = base_iri.or_else(|| self.current_base_iri()) {
             Ok(NamedNode::new_unchecked(
-                if self.unchecked {
+                if self.lenient {
                     base_iri.resolve_unchecked(&relative_iri)
                 } else {
                     base_iri
@@ -1533,7 +1550,7 @@ impl<R> InternalRdfXmlParser<R> {
     }
 
     fn parse_iri(&self, relative_iri: String) -> Result<NamedNode, RdfXmlSyntaxError> {
-        Ok(NamedNode::new_unchecked(if self.unchecked {
+        Ok(NamedNode::new_unchecked(if self.lenient {
             relative_iri
         } else {
             Iri::parse(relative_iri.clone())

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-seaborn
-Version: 0.13.2.20250809
+Version: 0.13.2.20250914
 Summary: Typing stubs for seaborn
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -20,8 +20,8 @@ Dynamic: license-file
 
 ## Typing stubs for seaborn
 
-This is a [PEP 561](https://peps.python.org/pep-0561/) type stub package for
-the [`seaborn`](https://github.com/mwaskom/seaborn) package. It can be used by type checkers
+This is a [type stub package](https://typing.python.org/en/latest/tutorials/external_libraries.html)
+for the [`seaborn`](https://github.com/mwaskom/seaborn) package. It can be used by type checkers
 to check code that uses `seaborn`. This version of
 `types-seaborn` aims to provide accurate annotations for
 `seaborn==0.13.2`.
@@ -34,8 +34,8 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 1.16.1
-* [pyright](https://github.com/microsoft/pyright) 1.1.403
+* [mypy](https://github.com/python/mypy/) 1.18.1
+* [pyright](https://github.com/microsoft/pyright) 1.1.405
 
 It was generated from typeshed commit
-[`91ba0da4aad754c912a82b9e052cb4f8191ce520`](https://github.com/python/typeshed/commit/91ba0da4aad754c912a82b9e052cb4f8191ce520).
+[`4b0623f4fb2c4e5a04a0244e1592b1481a26e47e`](https://github.com/python/typeshed/commit/4b0623f4fb2c4e5a04a0244e1592b1481a26e47e).

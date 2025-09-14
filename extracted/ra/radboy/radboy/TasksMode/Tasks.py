@@ -455,7 +455,7 @@ class Formulae:
                         'exec':self.findAndUse2
                     }
                 for num,i in enumerate(self.options):
-                    if str(i) not in self.options[i]['cmds']:
+                    if str(num) not in self.options[i]['cmds']:
                         self.options[i]['cmds'].append(str(num))
                 options=copy(self.options)
 
@@ -6248,6 +6248,23 @@ RATE(float value) can be used directly with td() to get gross
 `RATE(26.75)*td('8h') == Rate.Gross(value=214.0)||Gross=$(float_value) -> Gross is a generic holder-class for the display
 (a/b)*%=F - get F from a fraction times a custom percent, default %=100
 a/b=F/d - if 3.76 dollars is used every 22.32 hours, then in 1 hour F is consumed/WHAT?
+
+CD4TXT(str_code_or_id,shrt=True/False) -> Retrieves the text for an Entry(s) that is represented by CODE. 
+shrt=True/False
+    True -> get the short text for CODE
+    False -> get the long text for the CODE
+str_code_or_id
+    a string with barcode/code/desciption/name/entry id, or an integer entryId to lookup
+if results are found you will be prompted to select the one('s) you will be using.
+
+if no results are found the text will return f'"No Item Was Found for CODE!"'
+if no item was selected the text will return f'"No Item Was Selected for CODE"'
+if an exception prevents operation the text will return f"An Exception is Preventing Lookup of CODE';EXCEPTION"
+
+CD4E(str_code_or_id,shrt=True/False) -> Retrieves the Entry for an Entry(s) Code that is represented by CODE; you can access its properties via the dot(.) operator.
+if no item is found, then an un-commited Entry is returned;  Entry('NOT FOUND','ERROR 404').
+if no item is selected, then an un-commited Entry is returned; Entry('No Selection','Nothing Selected').
+if an exception prevents operation, then an un-commited Entry is returned; Entry('EXCEPTION','Exception').
 {Style.reset}'''
                 def mkValue(text,self):
                     try:

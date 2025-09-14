@@ -1,32 +1,23 @@
 use crate::io::RdfParseError;
 use crate::model::NamedNode;
-use crate::sparql::results::QueryResultsParseError as ResultsParseError;
-use crate::sparql::SparqlSyntaxError;
 use crate::store::{CorruptionError, StorageError};
+use oxrdf::{Term, Variable};
 use spareval::QueryEvaluationError;
+use spargebra::SparqlSyntaxError;
 use std::convert::Infallible;
 use std::error::Error;
 use std::io;
 
-/// A SPARQL evaluation error.
+/// An error from SPARQL UPDATE evaluation
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
-pub enum EvaluationError {
-    /// An error in SPARQL parsing.
-    #[error(transparent)]
-    Parsing(#[from] SparqlSyntaxError),
+pub enum UpdateEvaluationError {
     /// An error from the storage.
     #[error(transparent)]
     Storage(#[from] StorageError),
     /// An error while parsing an external RDF file.
     #[error(transparent)]
     GraphParsing(#[from] RdfParseError),
-    /// An error while parsing an external result file (likely from a federated query).
-    #[error(transparent)]
-    ResultsParsing(#[from] ResultsParseError),
-    /// An error returned during results serialization.
-    #[error(transparent)]
-    ResultsSerialization(io::Error),
     /// Error during `SERVICE` evaluation
     #[error("{0}")]
     Service(#[source] Box<dyn Error + Send + Sync + 'static>),
@@ -39,31 +30,31 @@ pub enum EvaluationError {
     /// The variable storing the `SERVICE` name is unbound
     #[error("The variable encoding the service name is unbound")]
     UnboundService,
+    /// Invalid service name
+    #[error("{0} is not a valid service name")]
+    InvalidServiceName(Term),
     /// The given `SERVICE` is not supported
     #[error("The service {0} is not supported")]
     UnsupportedService(NamedNode),
-    /// The given content media type returned from an HTTP response is not supported (`SERVICE` and `LOAD`)
+    /// The given content media type returned from an HTTP response is not supported (`LOAD`)
     #[error("The content media type {0} is not supported")]
     UnsupportedContentType(String),
-    /// The `SERVICE` call has not returns solutions
-    #[error("The service is not returning solutions but a boolean or a graph")]
-    ServiceDoesNotReturnSolutions,
-    /// The results are not a RDF graph
-    #[error("The query results are not a RDF graph")]
-    NotAGraph,
+    /// If a variable present in the given initial substitution is not present in the `SELECT` part of the query
+    #[error("The SPARQL query does not contains variable {0} in its SELECT projection")]
+    NotExistingSubstitutedVariable(Variable),
     #[doc(hidden)]
     #[error(transparent)]
     Unexpected(Box<dyn Error + Send + Sync>),
 }
 
-impl From<Infallible> for EvaluationError {
+impl From<Infallible> for UpdateEvaluationError {
     #[inline]
     fn from(error: Infallible) -> Self {
         match error {}
     }
 }
 
-impl From<QueryEvaluationError> for EvaluationError {
+impl From<QueryEvaluationError> for UpdateEvaluationError {
     fn from(error: QueryEvaluationError) -> Self {
         match error {
             QueryEvaluationError::Dataset(error) => match error.downcast() {
@@ -72,37 +63,56 @@ impl From<QueryEvaluationError> for EvaluationError {
             },
             QueryEvaluationError::Service(error) => Self::Service(error),
             QueryEvaluationError::UnexpectedDefaultGraph => Self::Storage(
-                CorruptionError::new("Unexpected default graph in SPARQL results").into(),
+                CorruptionError::new("Unexpected default graph returned from the storage").into(),
             ),
-            e => Self::Storage(
-                CorruptionError::new(format!("Unsupported SPARQL evaluation error: {e}")).into(),
+            QueryEvaluationError::UnboundService => Self::UnboundService,
+            QueryEvaluationError::UnsupportedService(name) => Self::UnsupportedService(name),
+            QueryEvaluationError::NotExistingSubstitutedVariable(v) => {
+                Self::NotExistingSubstitutedVariable(v)
+            }
+            QueryEvaluationError::InvalidServiceName(name) => Self::InvalidServiceName(name),
+            #[cfg(feature = "rdf-12")]
+            QueryEvaluationError::InvalidStorageTripleTerm => Self::Storage(
+                CorruptionError::new(
+                    "The storage returned a triple term that is not a valid RDF 1.2 term",
+                )
+                .into(),
             ),
+            e => Self::Unexpected(Box::new(e)),
         }
     }
 }
 
-impl From<EvaluationError> for io::Error {
+impl From<UpdateEvaluationError> for io::Error {
     #[inline]
-    fn from(error: EvaluationError) -> Self {
+    fn from(error: UpdateEvaluationError) -> Self {
         match error {
-            EvaluationError::Parsing(error) => Self::new(io::ErrorKind::InvalidData, error),
-            EvaluationError::GraphParsing(error) => error.into(),
-            EvaluationError::ResultsParsing(error) => error.into(),
-            EvaluationError::ResultsSerialization(error) => error,
-            EvaluationError::Storage(error) => error.into(),
-            EvaluationError::Service(error) | EvaluationError::Unexpected(error) => {
+            UpdateEvaluationError::Storage(error) => error.into(),
+            UpdateEvaluationError::GraphParsing(error) => error.into(),
+            UpdateEvaluationError::Service(error) | UpdateEvaluationError::Unexpected(error) => {
                 match error.downcast() {
                     Ok(error) => *error,
                     Err(error) => Self::other(error),
                 }
             }
-            EvaluationError::GraphAlreadyExists(_)
-            | EvaluationError::GraphDoesNotExist(_)
-            | EvaluationError::UnboundService
-            | EvaluationError::UnsupportedService(_)
-            | EvaluationError::UnsupportedContentType(_)
-            | EvaluationError::ServiceDoesNotReturnSolutions
-            | EvaluationError::NotAGraph => Self::new(io::ErrorKind::InvalidInput, error),
+            UpdateEvaluationError::GraphAlreadyExists(_)
+            | UpdateEvaluationError::GraphDoesNotExist(_)
+            | UpdateEvaluationError::UnboundService
+            | UpdateEvaluationError::InvalidServiceName(_)
+            | UpdateEvaluationError::UnsupportedService(_)
+            | UpdateEvaluationError::UnsupportedContentType(_)
+            | UpdateEvaluationError::NotExistingSubstitutedVariable(_) => {
+                Self::new(io::ErrorKind::InvalidInput, error)
+            }
         }
+    }
+}
+
+// TODO: remove when removing the Store::update method
+#[doc(hidden)]
+impl From<SparqlSyntaxError> for UpdateEvaluationError {
+    #[inline]
+    fn from(error: SparqlSyntaxError) -> Self {
+        Self::Unexpected(Box::new(error))
     }
 }
