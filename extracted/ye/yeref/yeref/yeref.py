@@ -15045,6 +15045,8 @@ async def page_tghp_create_for_post(ENT_TID, ENT_USERNAME, ENT_FIRSTNAME, PROJEC
     try:
         ENT_JSONTGPH = None
         PROJECT_TYPE = PROJECT_TYPE.upper()
+        print(f'page_tghp_create_for_post..')
+        print(f'{PROJECT_TYPE=}')
 
         if PROJECT_TYPE == 'BOT':
             tgph_ph = bot_logo_jpeg
@@ -15085,18 +15087,21 @@ async def page_tghp_create_for_post(ENT_TID, ENT_USERNAME, ENT_FIRSTNAME, PROJEC
         ENT_PAGETGPH = page_1['url']
         # ENT_JSONTGPH = page_2['url']
 
-        PROJECT_TYPE = "BOT"
+        print(f"{PROJECT_TYPE=}")
+        print(f"{PROJECT_TYPE.upper() == 'CHANNEL'}")
+        schema_name = "BOT"
         if PROJECT_TYPE.upper() == "USER":
-            PROJECT_TYPE = "UB"
+            schema_name = "UB"
         elif PROJECT_TYPE.upper() == "CHANNEL":
-            PROJECT_TYPE = "CHANNEL"
+            schema_name = "CHANNEL"
         elif PROJECT_TYPE.upper() == "GROUP":
-            PROJECT_TYPE = "GROUPP"
+            schema_name = "GROUPP"
 
+        print(f"{ENT_TID=}, {PROJECT_TYPE=}, {schema_name=}")
         sql = f"""
-            UPDATE "{PROJECT_TYPE}" 
-            SET {PROJECT_TYPE}_TOKENTGPH=$1, {PROJECT_TYPE}_PAGETGPH=$2, {PROJECT_TYPE}_JSONTGPH=$3 
-            WHERE {PROJECT_TYPE}_TID=$4
+            UPDATE "{schema_name}" 
+            SET {schema_name}_TOKENTGPH=$1, {schema_name}_PAGETGPH=$2, {schema_name}_JSONTGPH=$3 
+            WHERE {schema_name}_TID=$4
         """
         await db_change_pg(sql, (ENT_TOKENTGPH, ENT_PAGETGPH, ENT_JSONTGPH, int(ENT_TID),), BASE_P)
     except Exception as e:
@@ -15196,7 +15201,7 @@ async def bots_by_inline(chat_id, message, BASE_P):
     return result
 
 
-async def get_buttons_main(lz, bot_un, BASE_P, text_like=None):
+async def get_buttons_main(lz, bot_un, BASE_P):
     result = []
     try:
         url_usr = f"tg://user?id={my_tid}" if random.choice([True, False]) else 'https://t.me/ferey_support?text=hi'
@@ -15206,8 +15211,7 @@ async def get_buttons_main(lz, bot_un, BASE_P, text_like=None):
         else:
             url_share = f'https://t.me/share/url?url=https%3A%2F%2Ft.me%2F{bot_un}&text=%40{bot_un}'
         web_app_ = types.WebAppInfo(url='https://telegra.ph/Links-07-05-462')   # "ᵗᶢᴿᴬᴾᴴ"  "ᶜᵸᴬᴺᴺᴱᴸ"
-        if not text_like:
-            text_like = await read_likes(BASE_P) if random.choice([True, False]) else '⁰⁰⁰'
+        text_like = await read_likes(BASE_P) if random.choice([True, False]) else '⁰⁰⁰'
 
         result = [
             types.InlineKeyboardButton(text="👩🏽‍💼", url=url_usr),
@@ -21056,6 +21060,7 @@ async def in_ban_list(tid, username=None):
                  6126573233,  # @icticiy, en
                  5152639222,  # 彩虹代发 看我主页 None, en
                  7535872701,  # @KEDA1SIEMON
+                 7702609726,  # Wubersit Neba
                  ]
 
         if username and username.startswith('kwprod'):

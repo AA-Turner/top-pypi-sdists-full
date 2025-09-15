@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
-from numpy import copy, cos, exp, zeros_like
 from numba import njit
+from numpy import copy, cos, exp
 from pandas import Series
-from pandas_ta._typing import Array, DictLike, Int, IntFloat
+from pandas_ta._typing import DictLike, Int, IntFloat
 from pandas_ta.utils import v_bool, v_offset, v_pos_default, v_series
 
 

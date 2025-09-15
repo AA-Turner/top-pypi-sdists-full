@@ -4,9 +4,7 @@ from numpy import convolve, maximum, nan, ones, roll, where
 from pandas import Series
 from pandas_ta._typing import DictLike, Int
 from pandas_ta.maps import Imports
-from pandas_ta.overlap import hlc3
 from pandas_ta.utils import (
-    nb_nonzero_range,
     v_drift,
     v_offset,
     v_pos_default,

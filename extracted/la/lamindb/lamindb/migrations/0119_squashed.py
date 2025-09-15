@@ -219,9 +219,8 @@ class Migration(migrations.Migration):
                     "uid",
                     lamindb.base.fields.CharField(
                         blank=True,
-                        db_default="aaaaaaaaaaaa",
                         db_index=True,
-                        default="aaaaaaaaaaaaa",
+                        default=lamindb.base.uids.base62_12,
                         editable=False,
                         max_length=12,
                         unique=True,
@@ -4581,5 +4580,9 @@ class Migration(migrations.Migration):
                 fields=("storage", "hash"),
                 name="unique_artifact_storage_hash_null_key",
             ),
+        ),
+        migrations.AlterModelOptions(
+            name="user",
+            options={},
         ),
     ]

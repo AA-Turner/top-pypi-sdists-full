@@ -176,11 +176,15 @@ Root-Is-Purelib: true
 Tag: py3-none-any
 """
     metadata = """\
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: my-package
 Version: 1.2.3
 Summary: Some description.
 License: MIT
+License-File: AUTHORS
+License-File: COPYING
+License-File: LICENCE
+License-File: LICENSE
 Keywords: packaging,dependency,poetry
 Author: Sébastien Eustace
 Author-email: sebastien@eustace.io
@@ -197,6 +201,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Build Tools
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Provides-Extra: time
@@ -213,6 +218,10 @@ My Package
 ==========
 
 """
+    if project == "complete_new":
+        metadata = metadata.replace("License:", "License-Expression:").replace(
+            "Classifier: License :: OSI Approved :: MIT License\n", ""
+        )
     with temporary_directory() as tmp_dir, cwd(fixtures / project):
         dirname = api.prepare_metadata_for_build_wheel(str(tmp_dir))
 
@@ -253,11 +262,15 @@ Root-Is-Purelib: true
 Tag: py3-none-any
 """
     metadata = f"""\
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: my-package
 Version: 1.2.3+{local_version}
 Summary: Some description.
 License: MIT
+License-File: AUTHORS
+License-File: COPYING
+License-File: LICENCE
+License-File: LICENSE
 Keywords: packaging,dependency,poetry
 Author: Sébastien Eustace
 Author-email: sebastien@eustace.io
@@ -274,6 +287,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Build Tools
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Provides-Extra: time
@@ -326,7 +340,7 @@ def test_prepare_metadata_excludes_optional_without_extras() -> None:
             assert (
                 f.read()
                 == """\
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: my-packager
 Version: 0.1
 Summary: Something

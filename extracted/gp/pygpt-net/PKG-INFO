@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: pygpt-net
-Version: 2.6.45
+Version: 2.6.47
 Summary: Desktop AI Assistant powered by: OpenAI GPT-5, GPT-4, o1, o3, Gemini, Claude, Grok, DeepSeek, and other models supported by Llama Index, and Ollama. Chatbot, agents, completion, image generation, vision analysis, speech-to-text, plugins, internet access, file handling, command execution and more.
 License: MIT
 Keywords: ai,api,api key,app,assistant,bielik,chat,chatbot,chatgpt,claude,dall-e,deepseek,desktop,gemini,gpt,gpt-3.5,gpt-4,gpt-4-vision,gpt-4o,gpt-5,gpt-oss,gpt3.5,gpt4,grok,langchain,llama-index,llama3,mistral,o1,o3,ollama,openai,presets,py-gpt,py_gpt,pygpt,pyside,qt,text completion,tts,ui,vision,whisper
@@ -118,7 +118,7 @@ Description-Content-Type: text/markdown
 
 [![pygpt](https://snapcraft.io/pygpt/badge.svg)](https://snapcraft.io/pygpt)
 
-Release: **2.6.45** | build: **2025-09-13** | Python: **>=3.10, <3.14**
+Release: **2.6.47** | build: **2025-09-15** | Python: **>=3.10, <3.14**
 
 > Official website: https://pygpt.net | Documentation: https://pygpt.readthedocs.io
 > 
@@ -2287,6 +2287,8 @@ Config -> Settings...
 
 - `OpenGL hardware acceleration`: enables hardware acceleration in `WebEngine / Chromium` renderer.  Default: False.
 
+- `Proxy address`: Proxy address to be used for connection in API SDKs; supports HTTP/SOCKS, e.g. http://proxy.example.com or socks5://user:pass@host:port
+
 - `Application environment (os.environ)`: Additional environment vars to set on application start.
 
 - `Memory Limit`: Renderer memory limit; set to 0 to disable. If > 0, the app will try to free memory after the limit is reached. Accepted formats: 3.5GB, 2GB, 2048MB, 1_000_000. Minimum: 2GB.
@@ -2298,8 +2300,6 @@ Config -> Settings...
 - `OpenAI ORGANIZATION KEY`: The organization's API key, which is optional for use within the application.
 
 - `API Endpoint`: OpenAI API endpoint URL, default: https://api.openai.com/v1.
-
-- `Proxy address`: Proxy address to be used for connection; supports HTTP/SOCKS.
 
 - `Anthropic API KEY`: Required for the Anthropic API and Claude models.
 
@@ -3611,6 +3611,18 @@ may consume additional tokens that are not displayed in the main window.
 # CHANGELOG
 
 ## Recent changes:
+
+**2.6.47 (2025-09-15)**
+
+- Improved: Parsing of custom markup tags.
+- Optimized: Switching profiles.
+
+**2.6.46 (2025-09-15)**
+
+- Added: Global proxy settings for all API SDKs.
+- Fixed: xAI client configuration in Chat with Files.
+- Fixed: Top margin in streaming container.
+- Refactored: Debug workers.
 
 **2.6.45 (2025-09-13)**
 

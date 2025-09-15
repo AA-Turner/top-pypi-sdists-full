@@ -5,13 +5,26 @@ from io import StringIO
 from sys import float_info as sflt
 from webbrowser import open as webbrowser_open
 
-from numpy import argmax, argmin, float64
-from numba import njit
+from numpy import argmax, argmin
 from pandas import DataFrame, Series
 
-from pandas_ta._typing import Array, Int, IntFloat, ListStr, TextIO, Tuple
-import pandas_ta.custom as custom
-from pandas_ta.utils._validate import v_bool, v_pos_default, v_series, v_str
+from pandas_ta._typing import (
+    Array,
+    Int,
+    IntFloat,
+    ListStr,
+    TextIO,
+    Tuple
+)
+from pandas_ta.utils._validate import (
+    v_array,
+    v_bool,
+    v_dataframe,
+    v_pos_default,
+    v_series,
+    v_str
+)
+from pandas_ta.utils._study import Study
 from pandas_ta.maps import Category, Imports
 
 __all__ = [
@@ -51,6 +64,7 @@ def camelCase2Title(x: str) -> str | None:
     return None
 
 
+
 def category_files(category: str) -> list:
     """Category Files
 
@@ -68,6 +82,7 @@ def category_files(category: str) -> list:
         if x.stem != "__init__"
     ]
     return files
+
 
 
 def help(query: str = "") -> None | TextIO:
@@ -97,29 +112,32 @@ def help(query: str = "") -> None | TextIO:
         + _how2 + _studies + _categories + _mp
 
     www = "https://www.pandas-ta.dev"
+    _url = ""
+
     if s == "":
         out = f'\nSearch words:\n\t{", ".join(sorted(KEYWORDS))}\n'
         out += '\nExample: df.ta.help("usage")'
-        # print(f'\nSearch words:\n\t{", ".join(sorted(KEYWORDS))}\n\nExample: df.ta.help("usage")')
         print(out)
     elif s in _categories:
-        webbrowser_open(f"{www}/api/{s.lower()}", new=1)
+        _url = f"{www}/api/{s.lower()}"
     elif s in _dataframes:
-        webbrowser_open(f"{www}/api/ta-extension", new=1)
+        _url = f"{www}/api/ta-extension"
     elif s in _events:
-        webbrowser_open(f"{www}/api/events", new=1)
+        _url = f"{www}/api/events"
     elif s in _features:
-        webbrowser_open(f"{www}/support/bugs-and-features", new=1)
+        _url = f"{www}/support/bugs-and-features"
     elif s in _help:
-        webbrowser_open(f"{www}/support", new=1)
+        _url = f"{www}/support"
     elif s in _how2:
-        webbrowser_open(f"{www}/support/how-to", new=1)
+        _url = f"{www}/support/how-to"
     elif s in _mp:
-        webbrowser_open(f"{www}/getting-started/usage", new=1)
+        _url = f"{www}/getting-started/usage"
     elif s in _studies:
-        webbrowser_open(f"{www}/api/studies", new=1)
+        _url = f"{www}/api/studies"
     else:
-        webbrowser_open(f"{www}", new=1)
+        _url = f"{www}"
+    webbrowser_open(_url, new=1)
+
 
 
 def ms2secs(ms: IntFloat, p: Int) -> IntFloat:
@@ -135,6 +153,7 @@ def ms2secs(ms: IntFloat, p: Int) -> IntFloat:
         (IntFloat): seconds
     """
     return round(0.001 * ms, p)
+
 
 
 def non_zero_range(x: Series, y: Series) -> Series:
@@ -156,6 +175,7 @@ def non_zero_range(x: Series, y: Series) -> Series:
     return diff
 
 
+
 def recent_maximum_index(x) -> Int:
     """Recent Maximum Index
 
@@ -170,6 +190,7 @@ def recent_maximum_index(x) -> Int:
     return int(argmax(x[::-1]))
 
 
+
 def recent_minimum_index(x) -> Int:
     """Recent Minimum Index
 
@@ -182,6 +203,7 @@ def recent_minimum_index(x) -> Int:
         (int): Index of the smallest value
     """
     return int(argmin(x[::-1]))
+
 
 
 def pd_rma(x: Series, n: Int) -> Series:
@@ -201,6 +223,7 @@ def pd_rma(x: Series, n: Int) -> Series:
         return
     a = (1.0 / n) if n > 0 else 0.5
     return x.ewm(alpha=a, min_periods=n).mean()
+
 
 
 def signed_series(x: Series, initial: Int, lag: Int = None) -> Series:
@@ -228,6 +251,7 @@ def signed_series(x: Series, initial: Int, lag: Int = None) -> Series:
     return sign
 
 
+
 def simplify_columns(df: DataFrame, n: Int=3) -> ListStr:
     """Simplify Columns
 
@@ -242,6 +266,7 @@ def simplify_columns(df: DataFrame, n: Int=3) -> ListStr:
     """
     df.columns = df.columns.str.lower()
     return [c.split("_")[0][n - 1:n] for c in df.columns]
+
 
 
 def speed_test(df: DataFrame,
@@ -335,6 +360,7 @@ def speed_test(df: DataFrame,
         return tdf
 
 
+
 def tal_ma(name: str) -> Int:
     """TA Lib MA
 
@@ -370,6 +396,7 @@ def tal_ma(name: str) -> Int:
     return 0  # Default: SMA -> 0
 
 
+
 def unsigned_differences(
     x: Series, lag: Int = None, asint: bool = None
 ) -> Tuple[Series, Series]:
@@ -388,7 +415,9 @@ def unsigned_differences(
         (Series | Series): Positive Series, Negative Series
 
     Example:
+        ```py
         ta.unsigned_differences(Series([3, 2, 2, 1, 1, 5, 6, 6, 7, 5, 3]))
+        ```
     """
     asint = v_bool(asint, False)
     lag = int(lag) if lag is not None else 1
@@ -407,6 +436,7 @@ def unsigned_differences(
         negative = negative.astype(int)
 
     return positive, negative
+
 
 
 def _speed_group(

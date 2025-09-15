@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from pandas import DataFrame, concat, Series
+from pandas import DataFrame, Series, concat
 from pandas_ta._typing import DictLike, Int
 from pandas_ta.utils import (
     signals,

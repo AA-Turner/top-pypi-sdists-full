@@ -30,7 +30,9 @@ db_token_manager.set(db_token)
 def test_authentication():
     # just check that the token was setup
     with connection.cursor() as cur:
-        cur.execute("SELECT 1 in (SELECT id FROM check_access() WHERE role = 'read');")
+        cur.execute(
+            "SELECT 1 in (SELECT id FROM public.check_access() WHERE role = 'read');"
+        )
         result = cur.fetchall()[0][0]
     assert result
     # check querying without setting jwt
@@ -103,13 +105,13 @@ def test_fine_grained_permissions_account():
     assert ulabel.projects.all().count() == 2
     # check delete
     # should delete
-    ln.ULabel.get(name="full_access_ulabel").delete()
+    ln.ULabel.get(name="full_access_ulabel").delete(permanent=True)
     assert ln.ULabel.filter().count() == 2
     # should not delete, does not error for some reason
-    ln.ULabel.get(name="select_ulabel").delete()
+    ln.ULabel.get(name="select_ulabel").delete(permanent=True)
     assert ln.ULabel.filter().count() == 2
     # default space
-    ulabel.delete()
+    ulabel.delete(permanent=True)
     assert ln.ULabel.filter().count() == 2
     # check insert
     # should succeed
@@ -219,7 +221,7 @@ def test_fine_grained_permissions_single_records():
     ulabel.projects.add(project)
     assert ulabel.projects.count() == 1
 
-    ulabel.delete()
+    ulabel.delete(permanent=True)
     assert not ln.ULabel.filter(name="no_access_ulabel").exists()
 
 
@@ -266,7 +268,7 @@ def test_utility_tables():
     assert ln.User.filter().count() == 2
     # can't insert
     with pytest.raises(ProgrammingError):
-        ln.Space(name="new space", uid="00000005").save()
+        ln.Space(name="new space").save()
 
     with pytest.raises(ProgrammingError):
         hm.Account(id=uuid4().hex, uid="accntid2", role="admin").save()

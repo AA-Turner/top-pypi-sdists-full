@@ -124,6 +124,9 @@ def orderList(l,inverse=False):
             return l
     return query
 
+def limitOffset(query,limit=10,offset=0):
+    return query.limit(limit).offset(offset)
+
 def orderQuery(query,orderBy,inverse=False):
     LookUpState=db.detectGetOrSet('list maker lookup order',False,setValue=False,literal=False)
     if not isinstance(LookUpState,bool):
@@ -2453,9 +2456,13 @@ CMD's are not final until ended with {Fore.magenta}{hw_delim}{Style.reset}""")
 {Fore.grey_70}** {Fore.light_steel_blue}{generate_cmds(startcmd=['util','diff','eq'],endCmd=['text ','txt'])} {Fore.light_green}compare 2 strings/text and return True or False{Style.reset}
 {Fore.grey_70}** {Fore.light_steel_blue}{generate_cmds(startcmd=['util','diff','rules'],endCmd=['encounter-verify','ev'])} {Fore.light_green}confirm an encounter rules{Style.reset}
 {Fore.grey_70}** {Fore.light_steel_blue}['letter','message']{Fore.light_green} Generate a displayable letter from a default format, allowing to return the text as colored, or plain output; if a return is not desired, continue to the last prompt. using curly-braces you may attempt to write small python code to be evaluated and used as text in the message/letter. This includes colors from Fore,Back, and Style.{Style.reset}
+{Fore.grey_70}** {Fore.light_steel_blue}{generate_cmds(startcmd=['simple','smpl'],endCmd=['scanner','scanr','scnnr','scnr'])} {Fore.light_green}a scanner recorder that only records the text,times scanned,and dtoe, and when when time permits, comment.{Style.reset}
 '''
                         print(extra)
                         print(helpText)
+                        continue
+                    elif cmd.lower() in generate_cmds(startcmd=['simple','smpl'],endCmd=['scanner','scanr','scnnr','scnr']):
+                        TM.Tasks.TasksMode(parent=self,engine=db.ENGINE,init_only=True).simple_scanner()
                         continue
                     elif cmd.lower() in generate_cmds(startcmd=['util','checksum','cksm'],endCmd=['sha512 ','sha512']):
                         text=Control(func=FormBuilderMkText,ptext="Text: ",helpText="text for a checksum",data="str")

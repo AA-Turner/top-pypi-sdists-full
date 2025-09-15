@@ -23,7 +23,7 @@ from asyncio import Future
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Coroutine, Sequence
+    from collections.abc import Callable, Sequence
     from typing import Any, Optional, Union
 
     DbusBasicTypes = Union[str, int, bytes, float, Any]
@@ -63,7 +63,7 @@ class SdBusInterface:
         signature: str, input_args_names: Sequence[str],
         result_signature: str, result_args_names: Sequence[str],
         flags: int,
-        callback: Callable[[SdBusMessage], Coroutine[Any, Any, None]], /
+        callback: Callable[[SdBusMessage], None], /
     ) -> None:
         raise NotImplementedError(__STUB_ERROR)
 
@@ -256,7 +256,7 @@ def map_exception_to_dbus_error(exc: type[Exception],
     ...  # We want to be able to generate docs without module
 
 
-def add_exception_mapping(exc: Exception, /) -> None:
+def add_exception_mapping(exc: type[Exception], /) -> None:
     ...  # We want to be able to generate docs without module
 
 

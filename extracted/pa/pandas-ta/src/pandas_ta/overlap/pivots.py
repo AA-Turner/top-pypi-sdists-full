@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-from numpy import greater, nan, zeros_like
 from numba import njit
+from numpy import greater, nan, zeros_like
 from pandas import DataFrame, DateOffset, Series, infer_freq
 from pandas_ta._typing import DictLike
 from pandas_ta.utils import (

@@ -1,8 +1,8 @@
 # coding: utf-8
 
-VERSION = (1, 19, 8)
+VERSION = (1, 19, 9)
 CODENAME = "usernames"
-BUILD_DT = (2025, 9, 7)
+BUILD_DT = (2025, 9, 15)
 
 S_VERSION = ".".join(map(str, VERSION))
 S_BUILD_DT = "{0:04d}-{1:02d}-{2:02d}".format(*BUILD_DT)

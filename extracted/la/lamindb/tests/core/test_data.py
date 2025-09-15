@@ -21,7 +21,7 @@ def test_rename():
         }
     )
 
-    curator = ln.Curator.from_df(
+    curator = ln.Curator.from_dataframe(
         df,
         categoricals={
             "feature_to_rename": ln.ULabel.name,
@@ -72,6 +72,6 @@ def test_rename():
 
     # clean up
     artifact.delete(permanent=True)
-    ln.Schema.filter().delete()
-    ln.ULabel.filter().delete()
-    ln.Feature.filter().delete()
+    ln.Schema.filter().delete(permanent=True)
+    ln.ULabel.filter().delete(permanent=True)
+    ln.Feature.filter().delete(permanent=True)

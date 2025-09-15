@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: assisted-service-client
-Version: 2.45.0.post16
+Version: 2.45.0.post20
 Summary: AssistedInstall
 Home-page: https://github.com/openshift/assisted-service
 Author: RedHat
@@ -171,6 +171,7 @@ Class | Method | HTTP request | Description
 *InstallerApi* | [**v2_list_of_cluster_operators**](docs/InstallerApi.md#v2_list_of_cluster_operators) | **GET** /v2/clusters/{cluster_id}/monitored-operators | 
 *InstallerApi* | [**v2_post_step_reply**](docs/InstallerApi.md#v2_post_step_reply) | **POST** /v2/infra-envs/{infra_env_id}/hosts/{host_id}/instructions | 
 *InstallerApi* | [**v2_register_cluster**](docs/InstallerApi.md#v2_register_cluster) | **POST** /v2/clusters | 
+*InstallerApi* | [**v2_register_disconnected_cluster**](docs/InstallerApi.md#v2_register_disconnected_cluster) | **POST** /v2/clusters/disconnected | 
 *InstallerApi* | [**v2_register_host**](docs/InstallerApi.md#v2_register_host) | **POST** /v2/infra-envs/{infra_env_id}/hosts | 
 *InstallerApi* | [**v2_report_monitored_operator_status**](docs/InstallerApi.md#v2_report_monitored_operator_status) | **PUT** /v2/clusters/{cluster_id}/monitored-operators | 
 *InstallerApi* | [**v2_reset_cluster**](docs/InstallerApi.md#v2_reset_cluster) | **POST** /v2/clusters/{cluster_id}/actions/reset | 
@@ -242,6 +243,7 @@ Class | Method | HTTP request | Description
  - [Credentials](docs/Credentials.md)
  - [DhcpAllocationRequest](docs/DhcpAllocationRequest.md)
  - [DhcpAllocationResponse](docs/DhcpAllocationResponse.md)
+ - [DisconnectedClusterCreateParams](docs/DisconnectedClusterCreateParams.md)
  - [Disk](docs/Disk.md)
  - [DiskConfigParams](docs/DiskConfigParams.md)
  - [DiskEncryption](docs/DiskEncryption.md)

@@ -5680,6 +5680,16 @@ l_chn_detach = {
     'ar': "🌏 <b>اختر</b> إحدى اللغات المتاحة",
 }
 # endregion
+
+
+l_chn_err_transfer_rights = {
+    'ru': "👩🏽‍💻 <b>Ошибка</b> передачи прав: оба участника должны быть администраторами канла и запустить @{0}",
+    'en': "🌏 <b>Select</b> one of the available languages",
+    'es': "🌏 <b>Seleccione</b> uno de los idiomas disponibles",
+    'fr': "🌏 <b>Sélectionnez</b> une des langues disponibles",
+    'zh': "🌏<b>选择</b>一种可用语言",
+    'ar': "🌏 <b>اختر</b> إحدى اللغات المتاحة",
+}
 # endregion
 
 

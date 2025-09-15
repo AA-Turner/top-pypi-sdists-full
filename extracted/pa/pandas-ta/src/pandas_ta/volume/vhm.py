@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-from statistics import pstdev
 from pandas import Series
+from statistics import pstdev
 from pandas_ta._typing import DictLike, Int
 from pandas_ta.ma import ma
 from pandas_ta.utils import (

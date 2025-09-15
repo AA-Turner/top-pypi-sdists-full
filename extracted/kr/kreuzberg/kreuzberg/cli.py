@@ -122,32 +122,37 @@ def _build_cli_args(params: dict[str, Any]) -> dict[str, Any]:
         "force_ocr": params["force_ocr"] if params["force_ocr"] else None,
         "chunk_content": params["chunk_content"] if params["chunk_content"] else None,
         "extract_tables": params["extract_tables"] if params["extract_tables"] else None,
+        "extract_entities": params["extract_entities"] if params["extract_entities"] else None,
+        "extract_keywords": params["extract_keywords"] if params["extract_keywords"] else None,
+        "auto_detect_language": params["auto_detect_language"] if params["auto_detect_language"] else None,
+        "keyword_count": params["keyword_count"] if params["keyword_count"] != 10 else None,
         "max_chars": params["max_chars"] if params["max_chars"] != DEFAULT_MAX_CHARACTERS else None,
         "max_overlap": params["max_overlap"] if params["max_overlap"] != DEFAULT_MAX_OVERLAP else None,
         "ocr_backend": params["ocr_backend"],
     }
 
     ocr_backend = params["ocr_backend"]
-    if ocr_backend == "tesseract" and (
-        params["tesseract_lang"]
-        or params["tesseract_psm"] is not None
-        or params["tesseract_output_format"]
-        or params["enable_table_detection"]
-    ):
-        tesseract_config = {}
-        if params["tesseract_lang"]:
-            tesseract_config["language"] = params["tesseract_lang"]
-        if params["tesseract_psm"] is not None:
-            tesseract_config["psm"] = params["tesseract_psm"]
-        if params["tesseract_output_format"]:
-            tesseract_config["output_format"] = params["tesseract_output_format"]
-        if params["enable_table_detection"]:
-            tesseract_config["enable_table_detection"] = True
-        cli_args["tesseract_config"] = tesseract_config
-    elif ocr_backend == "easyocr" and params["easyocr_languages"]:
-        cli_args["easyocr_config"] = {"languages": params["easyocr_languages"].split(",")}
-    elif ocr_backend == "paddleocr" and params["paddleocr_languages"]:
-        cli_args["paddleocr_config"] = {"languages": params["paddleocr_languages"].split(",")}
+    match ocr_backend:
+        case "tesseract" if (
+            params["tesseract_lang"]
+            or params["tesseract_psm"] is not None
+            or params["tesseract_output_format"]
+            or params["enable_table_detection"]
+        ):
+            tesseract_config = {}
+            if params["tesseract_lang"]:
+                tesseract_config["language"] = params["tesseract_lang"]
+            if params["tesseract_psm"] is not None:
+                tesseract_config["psm"] = params["tesseract_psm"]
+            if params["tesseract_output_format"]:
+                tesseract_config["output_format"] = params["tesseract_output_format"]
+            if params["enable_table_detection"]:
+                tesseract_config["enable_table_detection"] = True
+            cli_args["tesseract_config"] = tesseract_config
+        case "easyocr" if params["easyocr_languages"]:
+            cli_args["easyocr_config"] = {"languages": params["easyocr_languages"].split(",")}
+        case "paddleocr" if params["paddleocr_languages"]:
+            cli_args["paddleocr_config"] = {"languages": params["paddleocr_languages"].split(",")}
 
     return cli_args
 
@@ -250,6 +255,9 @@ def cli(ctx: click.Context) -> None:
 @click.option("--force-ocr", is_flag=True, help="Force OCR processing")
 @click.option("--chunk-content", is_flag=True, help="Enable content chunking")
 @click.option("--extract-tables", is_flag=True, help="Enable table extraction")
+@click.option("--extract-entities", is_flag=True, help="Enable entity extraction")
+@click.option("--extract-keywords", is_flag=True, help="Enable keyword extraction")
+@click.option("--auto-detect-language", is_flag=True, help="Enable automatic language detection")
 @click.option(
     "--max-chars",
     type=int,
@@ -261,6 +269,12 @@ def cli(ctx: click.Context) -> None:
     type=int,
     default=DEFAULT_MAX_OVERLAP,
     help=f"Maximum overlap between chunks (default: {DEFAULT_MAX_OVERLAP})",
+)
+@click.option(
+    "--keyword-count",
+    type=int,
+    default=10,
+    help="Number of keywords to extract (default: 10)",
 )
 @click.option(
     "--ocr-backend", type=OcrBackendParamType(), help="OCR backend to use (tesseract, easyocr, paddleocr, none)"

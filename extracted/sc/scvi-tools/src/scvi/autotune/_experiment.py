@@ -14,7 +14,7 @@ from mudata import MuData
 from ray.tune import Tuner
 from ray.util.annotations import PublicAPI
 
-from scvi.utils import is_package_installed
+from scvi.utils import dependencies, is_package_installed
 
 if TYPE_CHECKING:
     from typing import Any, Literal
@@ -44,7 +44,7 @@ _allowed_hooks = {
 }
 
 
-if is_package_installed("ray"):
+if is_package_installed("ray") and is_package_installed("scib_metrics"):
     from ray.tune.integration.pytorch_lightning import TuneReportCheckpointCallback
 
     @PublicAPI
@@ -73,7 +73,11 @@ if is_package_installed("ray"):
                 This is important to save Scib computation time
             indices_list: If not empty will be used to select the indices to calc the scib metric
                 on, otherwise will use the random indices selection in size of scib_subsample_rows
-
+            n_jobs
+                Number of jobs to use for parallelization of neighbor search.
+            solver
+                SVD solver to use during PCA. can help stability issues. Choose from: "arpack",
+                "randomized" or "auto"
         """
 
         from scib_metrics.benchmark import BatchCorrection, BioConservation
@@ -88,6 +92,8 @@ if is_package_installed("ray"):
             batch_correction_metrics: BatchCorrection | None = BatchCorrection(),
             num_rows_to_select: int = 5000,
             indices_list: list | None = None,
+            n_jobs: int = 1,
+            solver: str = "arpack",
         ):
             super().__init__(
                 on=on, metrics=metrics, filename=filename, save_checkpoints=save_checkpoints
@@ -101,6 +107,8 @@ if is_package_installed("ray"):
             self.batch_correction_metrics = batch_correction_metrics
             self.on = on
             self.indices_list = indices_list
+            self.solver = solver
+            self.n_jobs = n_jobs
 
         def _get_report_dict(self, trainer: pl.Trainer, pl_module: pl.LightningModule):
             # Don't report if just doing initial validation sanity checks.
@@ -220,6 +228,8 @@ if is_package_installed("ray"):
                     embedding_obsm_keys=["z"],
                     bio_conservation_metrics=self.bio_conservation_metrics,
                     batch_correction_metrics=self.batch_correction_metrics,
+                    solver=self.solver,
+                    n_jobs=self.n_jobs,
                 )
                 benchmarker.benchmark()
                 results = benchmarker.get_results(min_max_scale=False).to_dict()
@@ -275,8 +285,8 @@ class AutotuneExperiment:
 
         Configured with reasonable defaults, which can be overridden with ``searcher_kwargs``.
     seed
-        Random seed to use for the experiment. Propagated to :attr:`~scvi.settings.seed` and search
-        algorithms. If not provided, defaults to :attr:`~scvi.settings.seed`.
+        Random seed to use for the experiment. Propagated to `scvi.settings.seed`
+        and search algorithms. If not provided, defaults to `scvi.settings.seed`.
     resources
         Dictionary of resources to allocate per trial in the experiment. Available keys include:
 
@@ -289,6 +299,8 @@ class AutotuneExperiment:
         Name of the experiment, used for logging purposes. Defaults to a unique ID.
     logging_dir
         Base directory to store experiment logs. Defaults to :attr:`~scvi.settings.logging_dir`.
+    save_checkpoints
+        If True, checkpoints will be saved and reported to Ray. Default False.
     scheduler_kwargs
         Additional keyword arguments to pass to the scheduler.
     searcher_kwargs
@@ -302,6 +314,11 @@ class AutotuneExperiment:
     scib_indices_list
         If not empty will be used to select the indices to calc the scib metric on, otherwise will
         use the random indices selection in size of scib_subsample_rows
+    n_jobs
+        Number of jobs to use for parallelization of neighbor search.
+    solver
+        SVD solver to use during PCA. can help stability issues. Choose from: "arpack",
+        "randomized" or "auto"
 
     Notes
     -----
@@ -326,11 +343,14 @@ class AutotuneExperiment:
         resources: dict[Literal["cpu", "gpu", "memory"], float] | None = None,
         name: str | None = None,
         logging_dir: str | None = None,
+        save_checkpoints: bool = False,
         scheduler_kwargs: dict | None = None,
         searcher_kwargs: dict | None = None,
         scib_stage: str | None = "train_end",
         scib_subsample_rows: int | None = 5000,
         scib_indices_list: list | None = None,
+        n_jobs: int = 1,
+        solver: str = "arpack",
     ) -> None:
         self.model_cls = model_cls
         self.data = data
@@ -346,9 +366,12 @@ class AutotuneExperiment:
         self.resources = resources
         self.name = name
         self.logging_dir = logging_dir
+        self.save_checkpoints = save_checkpoints
         self.scib_stage = scib_stage
         self.scib_subsample_rows = scib_subsample_rows
         self.scib_indices_list = scib_indices_list
+        self.n_jobs = n_jobs
+        self.solver = solver
 
     @property
     def id(self) -> str:
@@ -667,7 +690,9 @@ class AutotuneExperiment:
             {},
         )
 
-        return callback_cls(metrics=self.metrics, on="validation_end", save_checkpoints=False)
+        return callback_cls(
+            metrics=self.metrics, on="validation_end", save_checkpoints=self.save_checkpoints
+        )
 
     @property
     def scib_metrics_callback(self) -> Callback:
@@ -684,9 +709,11 @@ class AutotuneExperiment:
         return callback_cls(
             metrics=self.metrics,
             on=self.scib_stage,
-            save_checkpoints=False,
+            save_checkpoints=self.save_checkpoints,
             num_rows_to_select=self.scib_subsample_rows,
             indices_list=self.scib_indices_list,
+            n_jobs=self.n_jobs,
+            solver=self.solver,
         )
 
     @property
@@ -737,6 +764,7 @@ class AutotuneExperiment:
         return TensorBoardLogger(join(self.logging_dir, f"{trial_name}_tensorboard"))
 
 
+@dependencies("scib_metrics")
 def _trainable(
     param_sample: dict[str, dict[Literal["model_params", "train_params"], dict[str, Any]]],
     experiment: AutotuneExperiment,

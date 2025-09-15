@@ -1,16 +1,10 @@
 # -*- coding: utf-8 -*-
-from numpy import arctan, copy, isnan, nan, rad2deg, zeros_like, zeros
 from numba import njit
+from numpy import arctan, isnan, nan, rad2deg, zeros_like
 from pandas import Series
-from pandas_ta._typing import DictLike, Int, IntFloat
+from pandas_ta._typing import DictLike, Int
 from pandas_ta.maps import Imports
-from pandas_ta.utils import (
-    v_bool,
-    v_offset,
-    v_pos_default,
-    v_series,
-    v_talib
-)
+from pandas_ta.utils import v_offset, v_pos_default, v_series, v_talib
 
 
 

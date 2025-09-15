@@ -395,7 +395,7 @@ class Cluster(object):
     def kind(self):
         """Gets the kind of this Cluster.  # noqa: E501
 
-        Indicates the type of this object. Will be 'Cluster' if this is a complete object, 'AddHostsCluster' for cluster that add hosts to existing OCP cluster,   # noqa: E501
+        Indicates the type of this object. Will be 'Cluster' if this is a complete object, 'AddHostsCluster' for cluster that add hosts to existing OCP cluster, 'DisconnectedCluster' for clusters with embedded ignition for offline installation,   # noqa: E501
 
         :return: The kind of this Cluster.  # noqa: E501
         :rtype: str
@@ -406,14 +406,14 @@ class Cluster(object):
     def kind(self, kind):
         """Sets the kind of this Cluster.
 
-        Indicates the type of this object. Will be 'Cluster' if this is a complete object, 'AddHostsCluster' for cluster that add hosts to existing OCP cluster,   # noqa: E501
+        Indicates the type of this object. Will be 'Cluster' if this is a complete object, 'AddHostsCluster' for cluster that add hosts to existing OCP cluster, 'DisconnectedCluster' for clusters with embedded ignition for offline installation,   # noqa: E501
 
         :param kind: The kind of this Cluster.  # noqa: E501
         :type: str
         """
         if kind is None:
             raise ValueError("Invalid value for `kind`, must not be `None`")  # noqa: E501
-        allowed_values = ["Cluster", "AddHostsCluster"]  # noqa: E501
+        allowed_values = ["Cluster", "AddHostsCluster", "DisconnectedCluster"]  # noqa: E501
         if kind not in allowed_values:
             raise ValueError(
                 "Invalid value for `kind` ({0}), must be one of {1}"  # noqa: E501
@@ -1002,7 +1002,7 @@ class Cluster(object):
         """
         if status is None:
             raise ValueError("Invalid value for `status`, must not be `None`")  # noqa: E501
-        allowed_values = ["insufficient", "ready", "error", "preparing-for-installation", "pending-for-input", "installing", "finalizing", "installed", "adding-hosts", "cancelled", "installing-pending-user-action"]  # noqa: E501
+        allowed_values = ["insufficient", "ready", "error", "preparing-for-installation", "pending-for-input", "installing", "finalizing", "installed", "adding-hosts", "cancelled", "installing-pending-user-action", "unmonitored"]  # noqa: E501
         if status not in allowed_values:
             raise ValueError(
                 "Invalid value for `status` ({0}), must be one of {1}"  # noqa: E501

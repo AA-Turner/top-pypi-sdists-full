@@ -331,6 +331,7 @@ class PaymentEntryWindow(NextGenWindow):
             with contextlib.suppress(_ctypes.COMError):
                 pane.click_input()
                 send_keys("{TAB}")
+                send_keys("+{TAB}")
 
     @retry(ElementNotFoundError, tries=3, delay=1)
     def open_status_dropdown_in_service_row(self, status_field: EditWrapper, row: ListItemWrapper) -> EditWrapper:
@@ -344,11 +345,10 @@ class PaymentEntryWindow(NextGenWindow):
             WindowSpecification: Represents the pane element of the status field
         """
         self.logger.debug("Opening status dropdown in service row")
-        with contextlib.suppress(_ctypes.COMError):
-            status_field.click_input()
+        for i in range(3):
             row = self.revalidate_service_row(row)
             status_field = self.get_status_field(row)
-            status_field.double_click_input()
+            status_field.click_input()
         pane = self.desktop_app.dialog.child_window(title="_cboInput_0", control_type="Pane")
         return pane
 

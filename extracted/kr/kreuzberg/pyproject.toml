@@ -5,7 +5,7 @@ requires = [ "hatchling" ]
 
 [project]
 name = "kreuzberg"
-version = "3.14.1"
+version = "3.15.0"
 description = "Document intelligence framework for Python - Extract text, metadata, and structured data from diverse file formats"
 readme = "README.md"
 keywords = [
@@ -165,18 +165,9 @@ lint.ignore = [
 lint.per-file-ignores."benchmarks/**/*.*" = [
   "BLE001",  # Allow broad exception catching in benchmarks
   "C901",    # Allow complex functions in benchmarks
+  "D",
   "PLR0912", # Allow many branches in benchmarks
   "PLR0915", # Allow many statements in benchmarks
-  "S112",    # Allow try-except-continue in benchmarks
-  "T201",    # Allow print statements in benchmarks
-]
-lint.per-file-ignores."python-text-extraction-libs-benchmarks/**/*.*" = [
-  "BLE001",  # Allow broad exception catching in benchmarks
-  "C901",    # Allow complex functions in benchmarks
-  "PLR0912", # Allow many branches in benchmarks
-  "PLR0915", # Allow many statements in benchmarks
-  "S112",    # Allow try-except-continue in benchmarks
-  "T201",    # Allow print statements in benchmarks
 ]
 lint.per-file-ignores."tests/**/*.*" = [
   "A005",    # Module shadows standard library
@@ -263,7 +254,7 @@ exclude_lines = [
 fail_under = 85
 
 [tool.mypy]
-packages = [ "kreuzberg", "tests", "benchmarks.src.kreuzberg_benchmarks" ]
+packages = [ "kreuzberg", "tests", "benchmarks" ]
 python_version = "3.10"
 disable_error_code = 'import-untyped'
 implicit_reexport = false
@@ -295,24 +286,17 @@ module = [
   "keybert.*",
   "mailparse.*",
   "deep_translator.*",
+  "msgpack.*",
 ]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = "benchmarks.src.kreuzberg_benchmarks.*"
-disable_error_code = [ "misc" ]
-
-[[tool.mypy.overrides]]
-module = "kreuzberg.docker.main"
+module = "benchmarks.*"
 disable_error_code = [ "misc" ]
 
 [[tool.mypy.overrides]]
 module = [ "kreuzberg._gmft" ]
 disable_error_code = [ "unused-ignore" ]
-
-[[tool.mypy.overrides]]
-module = "kreuzberg._api.main"
-disable_error_code = [ "misc" ]
 
 [tool.uv.sources]
 uv-bump = { git = "https://github.com/Goldziher/uv-bump" }

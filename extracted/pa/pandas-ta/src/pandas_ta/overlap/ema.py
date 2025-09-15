@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 from numpy import nan
-from numba import njit
 from pandas import Series
 from pandas_ta._typing import DictLike, Int
 from pandas_ta.maps import Imports

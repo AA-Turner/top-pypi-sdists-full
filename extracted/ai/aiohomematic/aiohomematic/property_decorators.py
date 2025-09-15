@@ -1,22 +1,39 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2021-2025 Daniel Perna, SukramJ
-"""Decorators for data points used within aiohomematic."""
+"""
+Decorators and helpers for declaring public attributes on data point classes.
+
+This module provides four decorator factories that behave like the built-in
+@property, but additionally annotate properties with a semantic category so they
+can be automatically collected to build payloads and log contexts:
+- cached_property: computed once per instance and cached until the value is
+  invalidated by a setter/deleter on the same descriptor.
+- config_property: configuration-related properties.
+- info_property: informational/metadata properties.
+- state_property: dynamic state properties.
+
+All decorators accept an optional keyword-only argument log_context. If set to
+True, the property will be included in the LogContextMixin.log_context mapping.
+
+Notes on caching
+- cached_property always caches on first access and invalidates on set/delete.
+- The other decorators can be created with cached=True to enable the same
+  behavior when desired.
+"""
 
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 from datetime import datetime
-from enum import Enum
-from typing import Any, ParamSpec, TypeVar, cast, overload
+from enum import Enum, StrEnum
+from typing import Any, Final, ParamSpec, TypeVar, cast, overload
 from weakref import WeakKeyDictionary
 
 from aiohomematic import support as hms
 
 __all__ = [
     "config_property",
-    "get_attributes_for_config_property",
-    "get_attributes_for_info_property",
-    "get_attributes_for_state_property",
+    "get_hm_property_by_kind",
     "info_property",
     "state_property",
 ]
@@ -26,8 +43,30 @@ T = TypeVar("T")
 R = TypeVar("R")
 
 
+class Kind(StrEnum):
+    """Enum for property feature flags."""
+
+    CONFIG = "config"
+    INFO = "info"
+    SIMPLE = "simple"
+    STATE = "state"
+
+
 class _GenericProperty[GETTER, SETTER](property):
-    """Generic property implementation."""
+    """
+    Base descriptor used by all property decorators in this module.
+
+    Extends the built-in property to optionally cache the computed value on the
+    instance and to carry a log_context flag.
+
+    Args:
+    - fget/fset/fdel: Standard property callables.
+    - doc: Optional docstring of the property.
+    - cached: If True, the computed value is cached per instance and
+      invalidated when the descriptor receives a set/delete.
+    - log_context: If True, the property is included in get_attributes_for_log_context().
+
+    """
 
     fget: Callable[[Any], GETTER] | None
     fset: Callable[[Any, SETTER], None] | None
@@ -39,210 +78,377 @@ class _GenericProperty[GETTER, SETTER](property):
         fset: Callable[[Any, SETTER], None] | None = None,
         fdel: Callable[[Any], None] | None = None,
         doc: str | None = None,
+        kind: Kind = Kind.SIMPLE,
+        cached: bool = False,
         log_context: bool = False,
     ) -> None:
-        """Init the generic property."""
+        """
+        Initialize the descriptor.
+
+        Mirrors the standard property signature and adds two options:
+        - kind: specify the kind of property (e.g. simple, cached, config, info, state).
+        - cached: enable per-instance caching of the computed value.
+        - log_context: mark this property as relevant for structured logging.
+        """
         super().__init__(fget, fset, fdel, doc)
         if doc is None and fget is not None:
             doc = fget.__doc__
         self.__doc__ = doc
+        self.kind: Final = kind
+        self._cached: Final = cached
         self.log_context = log_context
+        if cached:
+            if fget is not None:
+                func_name = fget.__name__
+            elif fset is not None:
+                func_name = fset.__name__
+            elif fdel is not None:
+                func_name = fdel.__name__
+            else:
+                func_name = "prop"
+            self._cache_attr = f"_cached_{func_name}"  # Default name of the cache attribute
 
     def getter(self, fget: Callable[[Any], GETTER], /) -> _GenericProperty:
         """Return generic getter."""
-        return type(self)(fget, self.fset, self.fdel, self.__doc__)  # pragma: no cover
+        return type(self)(
+            fget=fget,
+            fset=self.fset,
+            fdel=self.fdel,
+            doc=self.__doc__,
+            kind=self.kind,
+            cached=self._cached,
+            log_context=self.log_context,
+        )  # pragma: no cover
 
     def setter(self, fset: Callable[[Any, SETTER], None], /) -> _GenericProperty:
         """Return generic setter."""
-        return type(self)(self.fget, fset, self.fdel, self.__doc__)
+        return type(self)(
+            fget=self.fget,
+            fset=fset,
+            fdel=self.fdel,
+            doc=self.__doc__,
+            kind=self.kind,
+            cached=self._cached,
+            log_context=self.log_context,
+        )
 
     def deleter(self, fdel: Callable[[Any], None], /) -> _GenericProperty:
         """Return generic deleter."""
-        return type(self)(self.fget, self.fset, fdel, self.__doc__)
+        return type(self)(
+            fget=self.fget,
+            fset=self.fset,
+            fdel=fdel,
+            doc=self.__doc__,
+            kind=self.kind,
+            cached=self._cached,
+            log_context=self.log_context,
+        )
 
-    def __get__(self, obj: Any, gtype: type | None = None, /) -> GETTER:  # type: ignore[override]
-        """Return the attribute."""
-        if obj is None:
-            return self  # type: ignore[return-value]
+    def __get__(self, instance: Any, gtype: type | None = None, /) -> GETTER:  # type: ignore[override]
+        """
+        Return the attribute value.
+
+        If caching is enabled, compute on first access and return the per-instance
+        cached value on subsequent accesses.
+        """
+        if instance is None:
+            # Accessed from class, return the descriptor itself
+            return cast(GETTER, self)
         if self.fget is None:
             raise AttributeError("unreadable attribute")  # pragma: no cover
-        return self.fget(obj)
 
-    def __set__(self, obj: Any, value: Any, /) -> None:
-        """Set the attribute."""
+        if not self._cached:
+            return self.fget(instance)
+
+        # If the cached value is not set yet, compute and store it
+        if not hasattr(instance, self._cache_attr):
+            value = self.fget(instance)
+            setattr(instance, self._cache_attr, value)
+
+        # Return the cached value
+        return cast(GETTER, getattr(instance, self._cache_attr))
+
+    def __set__(self, instance: Any, value: Any, /) -> None:
+        """Set the attribute value and invalidate cache if enabled."""
+        # Delete the cached value so it can be recomputed on next access.
+        if self._cached and hasattr(instance, self._cache_attr):
+            delattr(instance, self._cache_attr)
+
         if self.fset is None:
             raise AttributeError("can't set attribute")  # pragma: no cover
-        self.fset(obj, value)
+        self.fset(instance, value)
 
-    def __delete__(self, obj: Any, /) -> None:
-        """Delete the attribute."""
+    def __delete__(self, instance: Any, /) -> None:
+        """Delete the attribute and invalidate cache if enabled."""
+
+        # Delete the cached value so it can be recomputed on next access.
+        if self._cached and hasattr(instance, self._cache_attr):
+            delattr(instance, self._cache_attr)
+
         if self.fdel is None:
             raise AttributeError("can't delete attribute")  # pragma: no cover
-        self.fdel(obj)
+        self.fdel(instance)
+
+
+# ----- hm_property -----
+
+
+@overload
+def hm_property[PR](func: Callable[[Any], PR], /) -> _GenericProperty[PR, Any]: ...
+
+
+@overload
+def hm_property(
+    *, kind: Kind = ..., cached: bool = ..., log_context: bool = ...
+) -> Callable[[Callable[[Any], R]], _GenericProperty[R, Any]]: ...
+
+
+def hm_property[PR](
+    func: Callable[[Any], PR] | None = None,
+    *,
+    kind: Kind = Kind.SIMPLE,
+    cached: bool = False,
+    log_context: bool = False,
+) -> _GenericProperty[PR, Any] | Callable[[Callable[[Any], PR]], _GenericProperty[PR, Any]]:
+    """
+    Decorate a method as a computed attribute.
+
+    Supports both usages:
+    - @hm_property
+    - @hm_property(kind=..., cached=True, log_context=True)
+
+    Args:
+        func: The function being decorated when used as @hm_property without
+            parentheses. When used as a factory (i.e., @hm_property(...)), this
+            is None and the returned callable expects the function to decorate.
+        kind: Specify the kind of property (e.g. simple, config, info, state).
+        cached: Optionally enable per-instance caching for this property.
+        log_context: Include this property in structured log context if True.
+
+    """
+    if func is None:
+
+        def wrapper(f: Callable[[Any], PR]) -> _GenericProperty[PR, Any]:
+            return _GenericProperty(f, kind=kind, cached=cached, log_context=log_context)
+
+        return wrapper
+    return _GenericProperty(func, kind=kind, cached=cached, log_context=log_context)
+
+
+# ----- cached_property -----
+
+
+@overload
+def cached_property[PR](func: Callable[[Any], PR], /) -> _GenericProperty[PR, Any]: ...
+
+
+@overload
+def cached_property(*, log_context: bool = ...) -> Callable[[Callable[[Any], R]], _GenericProperty[R, Any]]: ...
+
+
+def cached_property[PR](
+    func: Callable[[Any], PR] | None = None,
+    *,
+    log_context: bool = False,
+) -> _GenericProperty[PR, Any] | Callable[[Callable[[Any], PR]], _GenericProperty[PR, Any]]:
+    """
+    Decorate a method as a computed attribute with per-instance caching.
+
+    Supports both usages:
+    - @cached_property
+    - @cached_property(log_context=True)
+
+    Args:
+        func: The function being decorated when used as @cached_property without
+            parentheses. When used as a factory (i.e., @cached_property(...)), this
+            is None and the returned callable expects the function to decorate.
+        log_context: Include this property in structured log context if True.
+
+    """
+    if func is None:
+
+        def wrapper(f: Callable[[Any], PR]) -> _GenericProperty[PR, Any]:
+            return _GenericProperty(f, kind=Kind.SIMPLE, cached=True, log_context=log_context)
+
+        return wrapper
+    return _GenericProperty(func, kind=Kind.SIMPLE, cached=True, log_context=log_context)
 
 
 # ----- config_property -----
 
 
-class _ConfigProperty[GETTER, SETTER](_GenericProperty[GETTER, SETTER]):
-    """Decorate to mark own config properties."""
+@overload
+def config_property[PR](func: Callable[[Any], PR], /) -> _GenericProperty[PR, Any]: ...
 
 
 @overload
-def config_property[PR](func: Callable[[Any], PR], /) -> _ConfigProperty[PR, Any]: ...
-
-
-@overload
-def config_property(*, log_context: bool = ...) -> Callable[[Callable[[Any], R]], _ConfigProperty[R, Any]]: ...
+def config_property(
+    *, cached: bool = ..., log_context: bool = ...
+) -> Callable[[Callable[[Any], R]], _GenericProperty[R, Any]]: ...
 
 
 def config_property[PR](
     func: Callable[[Any], PR] | None = None,
     *,
+    cached: bool = False,
     log_context: bool = False,
-) -> _ConfigProperty[PR, Any] | Callable[[Callable[[Any], PR]], _ConfigProperty[PR, Any]]:
+) -> _GenericProperty[PR, Any] | Callable[[Callable[[Any], PR]], _GenericProperty[PR, Any]]:
     """
-    Return an instance of _ConfigProperty wrapping the given function.
+    Decorate a method as a configuration property.
 
-    Decorator for config properties supporting both usages:
+    Supports both usages:
     - @config_property
-    - @config_property(log_context=True)
+    - @config_property(cached=True, log_context=True)
+
+    Args:
+        func: The function being decorated when used as @config_property without
+            parentheses. When used as a factory (i.e., @config_property(...)), this is
+            None and the returned callable expects the function to decorate.
+        cached: Enable per-instance caching for this property when True.
+        log_context: Include this property in structured log context if True.
+
     """
     if func is None:
 
-        def wrapper(f: Callable[[Any], PR]) -> _ConfigProperty[PR, Any]:
-            return _ConfigProperty(f, log_context=log_context)
+        def wrapper(f: Callable[[Any], PR]) -> _GenericProperty[PR, Any]:
+            return _GenericProperty(f, kind=Kind.CONFIG, cached=cached, log_context=log_context)
 
         return wrapper
-    return _ConfigProperty(func, log_context=log_context)
-
-
-# Expose the underlying property class for discovery
-setattr(config_property, "__property_class__", _ConfigProperty)
+    return _GenericProperty(func, kind=Kind.CONFIG, cached=cached, log_context=log_context)
 
 
 # ----- info_property -----
 
 
-class _InfoProperty[GETTER, SETTER](_GenericProperty[GETTER, SETTER]):
-    """Decorate to mark own info properties."""
+@overload
+def info_property[PR](func: Callable[[Any], PR], /) -> _GenericProperty[PR, Any]: ...
 
 
 @overload
-def info_property[PR](func: Callable[[Any], PR], /) -> _InfoProperty[PR, Any]: ...
-
-
-@overload
-def info_property(*, log_context: bool = ...) -> Callable[[Callable[[Any], R]], _InfoProperty[R, Any]]: ...
+def info_property(
+    *, cached: bool = ..., log_context: bool = ...
+) -> Callable[[Callable[[Any], R]], _GenericProperty[R, Any]]: ...
 
 
 def info_property[PR](
     func: Callable[[Any], PR] | None = None,
     *,
+    cached: bool = False,
     log_context: bool = False,
-) -> _InfoProperty[PR, Any] | Callable[[Callable[[Any], PR]], _InfoProperty[PR, Any]]:
+) -> _GenericProperty[PR, Any] | Callable[[Callable[[Any], PR]], _GenericProperty[PR, Any]]:
     """
-    Return an instance of _InfoProperty wrapping the given function.
+    Decorate a method as an informational/metadata property.
 
-    Decorator for info properties supporting both usages:
+    Supports both usages:
     - @info_property
-    - @info_property(log_context=True)
+    - @info_property(cached=True, log_context=True)
+
+    Args:
+        func: The function being decorated when used as @info_property without
+            parentheses. When used as a factory (i.e., @info_property(...)), this is
+            None and the returned callable expects the function to decorate.
+        cached: Enable per-instance caching for this property when True.
+        log_context: Include this property in structured log context if True.
+
     """
     if func is None:
 
-        def wrapper(f: Callable[[Any], PR]) -> _InfoProperty[PR, Any]:
-            return _InfoProperty(f, log_context=log_context)
+        def wrapper(f: Callable[[Any], PR]) -> _GenericProperty[PR, Any]:
+            return _GenericProperty(f, kind=Kind.INFO, cached=cached, log_context=log_context)
 
         return wrapper
-    return _InfoProperty(func, log_context=log_context)
-
-
-# Expose the underlying property class for discovery
-setattr(info_property, "__property_class__", _InfoProperty)
+    return _GenericProperty(func, kind=Kind.INFO, cached=cached, log_context=log_context)
 
 
 # ----- state_property -----
 
 
-class _StateProperty[GETTER, SETTER](_GenericProperty[GETTER, SETTER]):
-    """Decorate to mark own config properties."""
+@overload
+def state_property[PR](func: Callable[[Any], PR], /) -> _GenericProperty[PR, Any]: ...
 
 
 @overload
-def state_property[PR](func: Callable[[Any], PR], /) -> _StateProperty[PR, Any]: ...
-
-
-@overload
-def state_property(*, log_context: bool = ...) -> Callable[[Callable[[Any], R]], _StateProperty[R, Any]]: ...
+def state_property(
+    *, cached: bool = ..., log_context: bool = ...
+) -> Callable[[Callable[[Any], R]], _GenericProperty[R, Any]]: ...
 
 
 def state_property[PR](
     func: Callable[[Any], PR] | None = None,
     *,
+    cached: bool = False,
     log_context: bool = False,
-) -> _StateProperty[PR, Any] | Callable[[Callable[[Any], PR]], _StateProperty[PR, Any]]:
+) -> _GenericProperty[PR, Any] | Callable[[Callable[[Any], PR]], _GenericProperty[PR, Any]]:
     """
-    Return an instance of _StateProperty wrapping the given function.
+    Decorate a method as a dynamic state property.
 
-    Decorator for state properties supporting both usages:
+    Supports both usages:
     - @state_property
-    - @state_property(log_context=True)
+    - @state_property(cached=True, log_context=True)
+
+    Args:
+        func: The function being decorated when used as @state_property without
+            parentheses. When used as a factory (i.e., @state_property(...)), this is
+            None and the returned callable expects the function to decorate.
+        cached: Enable per-instance caching for this property when True.
+        log_context: Include this property in structured log context if True.
+
     """
     if func is None:
 
-        def wrapper(f: Callable[[Any], PR]) -> _StateProperty[PR, Any]:
-            return _StateProperty(f, log_context=log_context)
+        def wrapper(f: Callable[[Any], PR]) -> _GenericProperty[PR, Any]:
+            return _GenericProperty(f, kind=Kind.STATE, cached=cached, log_context=log_context)
 
         return wrapper
-    return _StateProperty(func, log_context=log_context)
+    return _GenericProperty(func, kind=Kind.STATE, cached=cached, log_context=log_context)
 
-
-# Expose the underlying property class for discovery
-setattr(state_property, "__property_class__", _StateProperty)
 
 # ----------
+
 
 # Cache for per-class attribute names by decorator to avoid repeated dir() scans
 # Use WeakKeyDictionary to allow classes to be garbage-collected without leaking cache entries.
 # Structure: {cls: {decorator_class: (attr_name1, attr_name2, ...)}}
-_PUBLIC_ATTR_CACHE: WeakKeyDictionary[type, dict[type, tuple[str, ...]]] = WeakKeyDictionary()
+_PUBLIC_ATTR_CACHE: WeakKeyDictionary[type, dict[Kind, tuple[str, ...]]] = WeakKeyDictionary()
 
 
-def _get_attributes_by_decorator(
-    data_object: Any, decorator: Callable, context: bool = False, only_names: bool = False
-) -> Mapping[str, Any]:
+def get_hm_property_by_kind(data_object: Any, kind: Kind, context: bool = False) -> Mapping[str, Any]:
     """
-    Return the object attributes by decorator.
+    Collect properties from an object that are defined using a specific decorator.
 
-    This caches the attribute names per (class, decorator) to reduce overhead
-    from repeated dir()/getattr() scans. Values are not cached as they are
-    instance-dependent and may change over time.
+    Args:
+        data_object: The instance to inspect.
+        kind: The decorator class to use for filtering.
+        context: If True, only include properties where the descriptor has
+            log_context=True. When such a property's value is a LogContextMixin, its
+            items are flattened into the result using a short prefix of the property
+            name (e.g. "p.key").
 
-    To minimize side effects, exceptions raised by property getters are caught
-    and the corresponding value is set to None. This ensures that payload
-    construction and attribute introspection do not fail due to individual
-    properties with transient errors or expensive side effects.
+    Returns:
+        Mapping[str, Any]: A mapping of attribute name to normalized value. Values are converted via
+        _get_text_value() to provide stable JSON/log-friendly types.
+
+    Notes:
+        Attribute NAMES are cached per (class, decorator) to avoid repeated dir()
+        scans. Values are never cached here since they are instance-dependent.
+        Getter exceptions are swallowed and represented as None so payload building
+        remains robust and side-effect free.
+
     """
     cls = data_object.__class__
-
-    # Resolve function-based decorators to their underlying property class, if provided
-    resolved_decorator: Any = decorator
-    if not isinstance(decorator, type):
-        resolved_decorator = getattr(decorator, "__property_class__", decorator)
 
     # Get or create the per-class cache dict
     if (decorator_cache := _PUBLIC_ATTR_CACHE.get(cls)) is None:
         decorator_cache = {}
         _PUBLIC_ATTR_CACHE[cls] = decorator_cache
 
-    # Get or compute the attribute names for this decorator
-    if (names := decorator_cache.get(resolved_decorator)) is None:
-        names = tuple(y for y in dir(cls) if isinstance(getattr(cls, y), resolved_decorator))
-        decorator_cache[resolved_decorator] = names
+    if (names := decorator_cache.get(kind)) is None:
+        names = tuple(
+            y for y in dir(cls) if (gp := getattr(cls, y)) and isinstance(gp, _GenericProperty) and gp.kind == kind
+        )
+        decorator_cache[kind] = names
 
     result: dict[str, Any] = {}
-    if only_names:
-        return dict.fromkeys(names)
     for name in names:
         if context and getattr(cls, name).log_context is False:
             continue
@@ -259,7 +465,21 @@ def _get_attributes_by_decorator(
 
 
 def _get_text_value(value: Any) -> Any:
-    """Convert value to text."""
+    """
+    Normalize values for payload/logging purposes.
+
+    - list/tuple/set are converted to tuples and their items normalized recursively
+    - Enum values are converted to their string representation
+    - datetime objects are converted to unix timestamps (float)
+    - all other types are returned unchanged
+
+    Args:
+        value: The input value to normalize into a log-/JSON-friendly representation.
+
+    Returns:
+        Any: The normalized value, potentially converted as described above.
+
+    """
     if isinstance(value, list | tuple | set):
         return tuple(_get_text_value(v) for v in value)
     if isinstance(value, Enum):
@@ -269,59 +489,23 @@ def _get_text_value(value: Any) -> Any:
     return value
 
 
-def get_attributes_for_config_property(data_object: Any) -> Mapping[str, Any]:
-    """Return the object attributes by decorator config_property."""
-    return _get_attributes_by_decorator(data_object=data_object, decorator=config_property)
+def get_hm_property_by_log_context(data_object: Any) -> Mapping[str, Any]:
+    """
+    Return combined log context attributes across all property categories.
 
+    Includes only properties declared with log_context=True and flattens
+    values that implement LogContextMixin by prefixing with a short key.
 
-def get_attributes_for_info_property(data_object: Any) -> Mapping[str, Any]:
-    """Return the object attributes by decorator info_property."""
-    return _get_attributes_by_decorator(data_object=data_object, decorator=info_property)
+    Args:
+        data_object: The instance from which to collect attributes marked for
+            log context across all property categories.
 
+    Returns:
+        Mapping[str, Any]: A mapping of attribute name to normalized value for logging.
 
-def get_attributes_for_log_context(data_object: Any) -> Mapping[str, Any]:
-    """Return the object attributes by decorator info_property."""
-    return (
-        dict(_get_attributes_by_decorator(data_object=data_object, decorator=config_property, context=True))
-        | dict(_get_attributes_by_decorator(data_object=data_object, decorator=info_property, context=True))
-        | dict(_get_attributes_by_decorator(data_object=data_object, decorator=state_property, context=True))
-    )
+    """
+    result: dict[str, Any] = {}
+    for kind in Kind:
+        result.update(get_hm_property_by_kind(data_object=data_object, kind=kind, context=True))
 
-
-def get_attributes_for_state_property(data_object: Any) -> Mapping[str, Any]:
-    """Return the object attributes by decorator state_property."""
-    return _get_attributes_by_decorator(data_object=data_object, decorator=state_property)
-
-
-# pylint: disable=invalid-name
-class cached_slot_property[T, R]:
-    """A property-like descriptor that caches the computed value in a slot attribute. Designed to work with classes that use __slots__ and do not define __dict__."""
-
-    def __init__(self, func: Callable[[T], R]) -> None:
-        """Init the cached property."""
-        self._func = func  # The function to compute the value
-        self._cache_attr = f"_cached_{func.__name__}"  # Default name of the cache attribute
-        self._name = func.__name__
-
-    def __get__(self, instance: T | None, owner: type | None = None) -> R:
-        """Return the cached value if it exists. Otherwise, compute it using the function and cache it."""
-        if instance is None:
-            # Accessed from class, return the descriptor itself
-            return cast(R, self)
-
-        # If the cached value is not set yet, compute and store it
-        if not hasattr(instance, self._cache_attr):
-            value = self._func(instance)
-            setattr(instance, self._cache_attr, value)
-
-        # Return the cached value
-        return cast(R, getattr(instance, self._cache_attr))
-
-    def __set__(self, instance: T, value: Any) -> None:
-        """Raise an error to prevent manual assignment to the property."""
-        raise AttributeError(f"Can't set read-only cached property '{self._name}'")
-
-    def __delete__(self, instance: T) -> None:
-        """Delete the cached value so it can be recomputed on next access."""
-        if hasattr(instance, self._cache_attr):
-            delattr(instance, self._cache_attr)
+    return result

@@ -469,6 +469,7 @@ class LightRAG:
         self.embedding_func = priority_limit_async_func_call(
             self.embedding_func_max_async,
             llm_timeout=self.default_embedding_timeout,
+            queue_name="Embedding func",
         )(self.embedding_func)
 
         # Initialize all storages
@@ -565,6 +566,7 @@ class LightRAG:
         self.llm_model_func = priority_limit_async_func_call(
             self.llm_model_max_async,
             llm_timeout=self.default_llm_timeout,
+            queue_name="LLM func",
         )(
             partial(
                 self.llm_model_func,  # type: ignore
@@ -991,7 +993,7 @@ class LightRAG:
 
             tasks = [
                 self.chunks_vdb.upsert(inserting_chunks),
-                self._process_entity_relation_graph(inserting_chunks),
+                self._process_extract_entities(inserting_chunks),
                 self.full_docs.upsert(new_docs),
                 self.text_chunks.upsert(inserting_chunks),
             ]
@@ -1502,6 +1504,15 @@ class LightRAG:
                                 pipeline_status["latest_message"] = log_message
                                 pipeline_status["history_messages"].append(log_message)
 
+                                # Prevent memory growth: keep only latest 5000 messages when exceeding 10000
+                                if len(pipeline_status["history_messages"]) > 10000:
+                                    logger.info(
+                                        f"Trimming pipeline history from {len(pipeline_status['history_messages'])} to 5000 messages"
+                                    )
+                                    pipeline_status["history_messages"] = (
+                                        pipeline_status["history_messages"][-5000:]
+                                    )
+
                             # Get document content from full_docs
                             content_data = await self.full_docs.get_by_id(doc_id)
                             if not content_data:
@@ -1580,7 +1591,7 @@ class LightRAG:
 
                             # Stage 2: Process entity relation graph (after text_chunks are saved)
                             entity_relation_task = asyncio.create_task(
-                                self._process_entity_relation_graph(
+                                self._process_extract_entities(
                                     chunks, pipeline_status, pipeline_status_lock
                                 )
                             )
@@ -1790,7 +1801,7 @@ class LightRAG:
                 pipeline_status["latest_message"] = log_message
                 pipeline_status["history_messages"].append(log_message)
 
-    async def _process_entity_relation_graph(
+    async def _process_extract_entities(
         self, chunk: dict[str, Any], pipeline_status=None, pipeline_status_lock=None
     ) -> list:
         try:
@@ -2096,12 +2107,85 @@ class LightRAG:
                 query.strip(),
                 system_prompt=system_prompt,
                 history_messages=param.conversation_history,
+                enable_cot=True,
                 stream=param.stream,
             )
         else:
             raise ValueError(f"Unknown mode {param.mode}")
         await self._query_done()
         return response
+
+    async def aquery_data(
+        self,
+        query: str,
+        param: QueryParam = QueryParam(),
+    ) -> dict[str, Any]:
+        """
+        Asynchronous data retrieval API: returns structured retrieval results without LLM generation.
+
+        This function reuses the same logic as aquery but stops before LLM generation,
+        returning the final processed entities, relationships, and chunks data that would be sent to LLM.
+
+        Args:
+            query: Query text.
+            param: Query parameters (same as aquery).
+
+        Returns:
+            dict[str, Any]: Structured data result with entities, relationships, chunks, and metadata
+        """
+        global_config = asdict(self)
+
+        if param.mode in ["local", "global", "hybrid", "mix"]:
+            logger.debug(f"[aquery_data] Using kg_query for mode: {param.mode}")
+            final_data = await kg_query(
+                query.strip(),
+                self.chunk_entity_relation_graph,
+                self.entities_vdb,
+                self.relationships_vdb,
+                self.text_chunks,
+                param,
+                global_config,
+                hashing_kv=self.llm_response_cache,
+                system_prompt=None,
+                chunks_vdb=self.chunks_vdb,
+                return_raw_data=True,  # Get final processed data
+            )
+        elif param.mode == "naive":
+            logger.debug(f"[aquery_data] Using naive_query for mode: {param.mode}")
+            final_data = await naive_query(
+                query.strip(),
+                self.chunks_vdb,
+                param,
+                global_config,
+                hashing_kv=self.llm_response_cache,
+                system_prompt=None,
+                return_raw_data=True,  # Get final processed data
+            )
+        elif param.mode == "bypass":
+            logger.debug("[aquery_data] Using bypass mode")
+            # bypass mode returns empty data
+            final_data = {
+                "entities": [],
+                "relationships": [],
+                "chunks": [],
+                "metadata": {
+                    "query_mode": "bypass",
+                    "keywords": {"high_level": [], "low_level": []},
+                },
+            }
+        else:
+            raise ValueError(f"Unknown mode {param.mode}")
+
+        # Log final result counts
+        entities_count = len(final_data.get("entities", []))
+        relationships_count = len(final_data.get("relationships", []))
+        chunks_count = len(final_data.get("chunks", []))
+        logger.debug(
+            f"[aquery_data] Final result: {entities_count} entities, {relationships_count} relationships, {chunks_count} chunks"
+        )
+
+        await self._query_done()
+        return final_data
 
     async def _query_done(self):
         await self.llm_response_cache.index_done_callback()

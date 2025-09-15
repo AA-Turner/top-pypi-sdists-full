@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 
 
 METADATA_BASE = """\
-Metadata-Version: 2.3
+Metadata-Version: {metadata_version}
 Name: {name}
 Version: {version}
 Summary: {summary}
@@ -100,20 +100,26 @@ class Builder:
             vcs = get_vcs(self._path)
             vcs_ignored_files = set(vcs.get_ignored_files()) if vcs else set()
 
-            explicitly_excluded = set()
+            def add_all_files(path: Path, target: set[str]) -> None:
+                all_files = (
+                    [f for f in path.glob("**/*") if f.is_file()]
+                    if path.is_dir()
+                    else [path]
+                )
+                target.update(f.relative_to(self._path).as_posix() for f in all_files)
+
+            explicitly_excluded: set[str] = set()
             for excluded_glob in self._package.exclude:
                 for excluded in self._path.glob(str(excluded_glob)):
-                    explicitly_excluded.add(
-                        Path(excluded).relative_to(self._path).as_posix()
-                    )
+                    add_all_files(excluded, explicitly_excluded)
 
-            explicitly_included = set()
+            explicitly_included: set[str] = set()
             for inc in self._module.explicit_includes:
                 if fmt and fmt not in inc.formats:
                     continue
 
                 for included in inc.elements:
-                    explicitly_included.add(included.relative_to(self._path).as_posix())
+                    add_all_files(included, explicitly_included)
 
             ignored = (vcs_ignored_files | explicitly_excluded) - explicitly_included
             for ignored_file in ignored:
@@ -223,12 +229,14 @@ class Builder:
 
     def get_metadata_content(self) -> str:
         content = METADATA_BASE.format(
+            metadata_version=self._meta.metadata_version,
             name=self._meta.name,
             version=self._meta.version,
             summary=str(self._meta.summary),
         )
 
         if self._meta.license:
+            assert self._meta.license_expression is None
             license_field = "License: "
             # Indentation is not only for readability, but required
             # so that the line break is not treated as end of field.
@@ -238,6 +246,11 @@ class Builder:
                 self._meta.license, " " * len(license_field), lambda line: True
             ).strip()
             content += f"{license_field}{escaped_license}\n"
+        elif self._meta.license_expression:
+            content += f"License-Expression: {self._meta.license_expression}\n"
+
+        for license_file in self._meta.license_files:
+            content += f"License-File: {license_file}\n"
 
         if self._meta.keywords:
             content += f"Keywords: {self._meta.keywords}\n"
@@ -324,14 +337,7 @@ class Builder:
         return script_files
 
     def _get_legal_files(self) -> set[Path]:
-        include_files_patterns = {"COPYING*", "LICEN[SC]E*", "AUTHORS*", "NOTICE*"}
-        files: set[Path] = set()
-
-        for pattern in include_files_patterns:
-            files.update(self._path.glob(pattern))
-
-        files.update(self._path.joinpath("LICENSES").glob("**/*"))
-        return files
+        return {self._path / f for f in self._meta.license_files}
 
 
 class BuildIncludeFile:

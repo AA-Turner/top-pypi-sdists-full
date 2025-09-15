@@ -13,6 +13,7 @@ from decimal import Decimal
 from typing import Any
 from typing import Iterator
 from typing import NamedTuple
+from typing import Optional
 from typing import Protocol
 from typing import Union
 from typing import overload
@@ -111,7 +112,7 @@ class Open(NamedTuple):
     date: datetime.date
     account: Account
     currencies: list[Currency]
-    booking: Booking | None
+    booking: Optional[Booking]
 
 
 class Close(NamedTuple):
@@ -198,8 +199,8 @@ class Balance(NamedTuple):
     date: datetime.date
     account: Account
     amount: Amount
-    tolerance: Decimal | None
-    diff_amount: Amount | None
+    tolerance: Optional[Decimal]
+    diff_amount: Optional[Amount]
 
 
 class Posting(NamedTuple):
@@ -228,11 +229,11 @@ class Posting(NamedTuple):
     """
 
     account: Account
-    units: Amount | None
-    cost: Cost | CostSpec | None
-    price: Amount | None
-    flag: Flag | None
-    meta: Meta | None
+    units: Optional[Amount]
+    cost: Optional[Union[Cost, CostSpec]]
+    price: Optional[Amount]
+    flag: Optional[Flag]
+    meta: Optional[Meta]
 
 
 class Transaction(NamedTuple):
@@ -260,9 +261,9 @@ class Transaction(NamedTuple):
 
     meta: Meta
     date: datetime.date
-    flag: Flag
-    payee: str | None
-    narration: str | None
+    flag: Optional[Flag]
+    payee: Optional[str]
+    narration: Optional[str]
     tags: frozenset[str]
     links: frozenset[str]
     postings: list[Posting]
@@ -305,8 +306,8 @@ class Note(NamedTuple):
     date: datetime.date
     account: Account
     comment: str
-    tags: frozenset[str] | None
-    links: frozenset[str] | None
+    tags: Optional[frozenset[str]]
+    links: Optional[frozenset[str]]
 
 
 class Event(NamedTuple):
@@ -419,8 +420,8 @@ class Document(NamedTuple):
     date: datetime.date
     account: Account
     filename: str
-    tags: frozenset[str] | None
-    links: frozenset[str] | None
+    tags: Optional[frozenset[str]]
+    links: Optional[frozenset[str]]
 
 
 class Custom(NamedTuple):
@@ -589,7 +590,7 @@ def create_simple_posting_with_cost(
     if cost_number is not None and not isinstance(cost_number, Decimal):
         cost_number = D(cost_number)
     units = Amount(number, currency)
-    cost = Cost(cost_number, cost_currency, datetime.date(1, 1, 1), None)
+    cost = Cost(cost_number, cost_currency, entry.date, None)
     posting = Posting(account, units, cost, None, None, None)
     if entry is not None:
         entry.postings.append(posting)
@@ -667,9 +668,9 @@ def transaction_has_conversion(transaction: Transaction) -> bool:
       A boolean, true if this transaction contains at least one posting with a
       price conversion.
     """
-    assert isinstance(
-        transaction, Transaction
-    ), "Invalid type of entry for transaction: {}".format(transaction)
+    assert isinstance(transaction, Transaction), (
+        "Invalid type of entry for transaction: {}".format(transaction)
+    )
     for posting in transaction.postings:
         if posting_has_conversion(posting):
             return True

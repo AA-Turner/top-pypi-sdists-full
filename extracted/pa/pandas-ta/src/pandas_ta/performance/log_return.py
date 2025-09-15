@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-from pandas import Series
 from numpy import log, nan, roll
+from pandas import Series
 from pandas_ta._typing import DictLike, Int
 from pandas_ta.utils import v_bool, v_offset, v_pos_default, v_series
 

@@ -61,8 +61,9 @@ def zlma(
 
     mamode = v_mamode(mamode, "ema")
     supported_mas = [
-        "dema", "ema", "fwma", "hma", "linreg", "midpoint", "pwma", "rma",
-        "sinwma", "sma", "ssf", "swma", "t3", "tema", "trima", "vidya", "wma"
+        "dema", "ema", "fwma", "hma", "linreg",
+        "midpoint", "pwma", "rma", "sinwma", "sma",
+        "ssf", "swma", "t3", "tema", "trima", "vidya", "wma"
     ]
 
     if mamode not in supported_mas:

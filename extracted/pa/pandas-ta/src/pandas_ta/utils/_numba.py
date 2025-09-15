@@ -1,22 +1,17 @@
 # -*- coding: utf-8 -*-
 from numpy import (
     append,
-    arange,
     array,
-    concatenate,
     empty_like,
     finfo,
     float64,
     int64,
     isnan,
-    maximum,
     nan,
     roll,
-    where,
     zeros_like
 )
 from numba import njit
-
 from pandas_ta._typing import Array, Int, IntFloat
 
 __all__ = [

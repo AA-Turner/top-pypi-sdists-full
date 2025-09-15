@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-mysqlclient
-Version: 2.2.0.20250516
+Version: 2.2.0.20250915
 Summary: Typing stubs for mysqlclient
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -17,14 +17,9 @@ Dynamic: license-file
 
 ## Typing stubs for mysqlclient
 
-This is a [PEP 561](https://peps.python.org/pep-0561/)
-type stub package for the [`mysqlclient`](https://github.com/PyMySQL/mysqlclient) package.
-It can be used by type-checking tools like
-[mypy](https://github.com/python/mypy/),
-[pyright](https://github.com/microsoft/pyright),
-[pytype](https://github.com/google/pytype/),
-[Pyre](https://pyre-check.org/),
-PyCharm, etc. to check code that uses `mysqlclient`. This version of
+This is a [type stub package](https://typing.python.org/en/latest/tutorials/external_libraries.html)
+for the [`mysqlclient`](https://github.com/PyMySQL/mysqlclient) package. It can be used by type checkers
+to check code that uses `mysqlclient`. This version of
 `types-mysqlclient` aims to provide accurate annotations for
 `mysqlclient==2.2.*`.
 
@@ -35,9 +30,9 @@ for more details. The source for this package can be found in the
 [`stubs/mysqlclient`](https://github.com/python/typeshed/tree/main/stubs/mysqlclient)
 directory.
 
-This package was tested with
-mypy 1.15.0,
-pyright 1.1.400,
-and pytype 2024.10.11.
+This package was tested with the following type checkers:
+* [mypy](https://github.com/python/mypy/) 1.18.1
+* [pyright](https://github.com/microsoft/pyright) 1.1.405
+
 It was generated from typeshed commit
-[`126768408a69b7a3a09b7d3992970b289f92937e`](https://github.com/python/typeshed/commit/126768408a69b7a3a09b7d3992970b289f92937e).
+[`703f7d074ccd3776f20c77eaeb4563a197948ed9`](https://github.com/python/typeshed/commit/703f7d074ccd3776f20c77eaeb4563a197948ed9).

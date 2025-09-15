@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
 from functools import partial
+from numpy import ndarray, zeros
 from pandas import DataFrame, Series, isnull
 from pandas.api.types import is_datetime64_any_dtype
 from pandas_ta._typing import (
+    Array,
     Float,
     Int,
     IntFloat,
@@ -15,6 +17,7 @@ from pandas_ta._typing import (
 )
 
 __all__ = [
+    "v_array",
     "v_ascending",
     "v_bool",
     "v_dataframe",
@@ -38,6 +41,12 @@ __all__ = [
 ]
 
 
+def v_array(var: Array, default: Array = zeros(0)) -> Array:
+    """Returns zeros(0) if not a valid Array"""
+    if isinstance(var, ndarray) and var.size > 0:
+        return var
+    return default
+
 
 def v_ascending(var: bool) -> bool:
     """Returns True by default"""
@@ -51,9 +60,12 @@ def v_bool(var: bool, default: bool = True) -> bool:
     return default
 
 
-def v_dataframe(obj: MaybeSeriesFrame) -> None:
-    if not isinstance(obj, (DataFrame, Series)):
-        print("[X] Requires a Pandas Series or DataFrame.")
+def v_dataframe(df: MaybeSeriesFrame) -> None:
+    """Returns None if df is not a DataFrame."""
+    if isinstance(df, DataFrame) and df.size > 0:
+        return df
+    return None
+
 
 
 def v_datetime_ordered(df: SeriesFrame) -> bool:

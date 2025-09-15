@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 from sys import float_info as sflt
-from numpy import isnan, maximum, minimum, nan
+from numpy import maximum, minimum
 from pandas import DataFrame, Series
 from pandas_ta._typing import DictLike, Int, IntFloat
 from pandas_ta.ma import ma

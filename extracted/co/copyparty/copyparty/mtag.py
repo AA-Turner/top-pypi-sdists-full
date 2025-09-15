@@ -504,7 +504,6 @@ class MTag(object):
                 "album-artist",
                 "tpe2",
                 "aart",
-                "conductor",
                 "organization",
                 "band",
             ],

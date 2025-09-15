@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 from pandas import Series
-from pandas_ta._typing import Array, DictLike, Int, IntFloat
+from pandas_ta._typing import DictLike, Int, IntFloat
 from pandas_ta.maps import Imports
 from pandas_ta.momentum.rsi import rsi
 from pandas_ta.utils import (
@@ -18,8 +18,9 @@ from pandas_ta.utils import (
 
 def crsi(
     close: Series, rsi_length: Int = None, streak_length: Int = None,
-    rank_length: Int = None, scalar: IntFloat = None, talib: bool = None,
-    drift: Int = None, offset: Int = None, **kwargs: DictLike,
+    rank_length: Int = None, scalar: IntFloat = None,
+    talib: bool = None, drift: Int = None,
+    offset: Int = None, **kwargs: DictLike,
 ) -> Series:
     """Connors Relative Strength Index
 

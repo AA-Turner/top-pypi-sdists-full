@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
-from numpy import isnan, nan, zeros_like
 from numba import njit
+from numpy import isnan, nan, zeros_like
 from pandas import DataFrame, Series
-from pandas_ta._typing import Array, DictLike, Int, IntFloat
+from pandas_ta._typing import DictLike, Int, IntFloat
 from pandas_ta.momentum import rsi
 from pandas_ta.volatility import atr
 from pandas_ta.volume.mfi import mfi

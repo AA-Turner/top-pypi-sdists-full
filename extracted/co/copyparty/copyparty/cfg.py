@@ -81,6 +81,7 @@ def vf_vmap()   :
     }
     for k in (
         "bup_ck",
+        "casechk",
         "chmod_d",
         "chmod_f",
         "dbd",
@@ -244,6 +245,7 @@ flagcats = {
         "no_db_ip": "never store uploader-IP in the db; disables unpost",
         "fat32": "avoid excessive reindexing on android sdcardfs",
         "dbd=[acid|swal|wal|yolo]": "database speed-durability tradeoff",
+        "casechk=auto": "actively prevent case-insensitive filesystem? y/n",
         "xlink": "cross-volume dupe detection / linking (dangerous)",
         "xdev": "do not descend into other filesystems",
         "xvol": "do not follow symlinks leaving the volume root",

@@ -1,6 +1,6 @@
 [project]
 name = "pandas-ta"
-version = "0.4.67b"
+version = "0.4.71b"
 description = "A Comprehensive Python 3 Technical Analysis Library with Pandas Dataframe Extension for Quantitative Researchers, Traders, and Investors."
 authors = [{ name = "Pandas TA Support", email = "support@pandas-ta.dev" }]
 requires-python = ">=3.12"

@@ -6,9 +6,9 @@ from operator import mul
 from sys import float_info as sflt
 
 from numpy import (
-    all, append, array, broadcast_to, concatenate, corrcoef, diff, dot, exp,
-    fabs, float64, full, isnan, log, logical_and, nan, nanmean,
-    nansum, ndarray, newaxis, ones, pad, seterr, sign, sqrt, sum, triu, zeros
+    all, array, broadcast_to, concatenate, diff, dot, exp,
+    fabs, full, isnan, log, logical_and, nan, nanmean, nansum,
+    ndarray, newaxis, ones, pad, sign, sqrt, sum, triu, zeros
 )
 from numpy import max as np_max
 from numpy import min as np_min
@@ -22,11 +22,12 @@ from pandas_ta._typing import (
     Float,
     Int,
     IntFloat,
-    List,
-    Optional
+    List
 )
 from pandas_ta.maps import Imports
 from pandas_ta.utils._validate import (
+    v_array,
+    v_dataframe,
     v_float,
     v_int,
     v_lowerbound,
@@ -124,10 +125,10 @@ def consecutive_streak(x: Array) -> Array:
 
     Example:
         ```py
-        prices = np.array([100, 101, 102, 100, 100, 101, 102, 103])
-        result = consecutive_streak(prices)
-        expected_result = np.array([0, 1, 1, -1, 0, 1, 1, 1])
-        np.array_equal(result, expected_result)
+        x = np.array([100, 101, 102, 100, 100, 101, 102, 103])
+        result = consecutive_streak(x)
+        expected = np.array([0, 1, 1, -1, 0, 1, 1, 1])
+        np.array_equal(result, expected)
         ```
     """
     return concatenate(([0], sign(diff(x))))
@@ -691,7 +692,7 @@ def symmetric_triangle(
 ) -> List[IntFloat]:
     """Symmetric Triangle
 
-    Symmetric Triangle creation
+    Creates a Symmetric Triangle of given length.
 
     Parameters:
         n (Int): Array return size

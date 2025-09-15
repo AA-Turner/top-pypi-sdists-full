@@ -47,7 +47,7 @@ from radboy.Comm2Common import *
 import radboy.DB.OrderedAndRxd as OAR
 import radboy.DB.LetterWriter as LW
 from scipy.io.wavfile import write
-
+from radboy.DB.SimpleScanner import SimpleScanner
 
 def today():
     dt=datetime.now()
@@ -1160,6 +1160,8 @@ def generateWhiteNoise():
 
 
 class TasksMode:
+    def simple_scanner(self):
+        SimpleScanner.SimpleScanUi()
     def white_noise(self):
         generateWhiteNoise()
 

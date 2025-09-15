@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 from numpy import isnan, nan
-from pandas import concat, Series
+from pandas import Series, concat
 from pandas_ta._typing import DictLike, Int
 from pandas_ta.maps import Imports
 from pandas_ta.utils import (

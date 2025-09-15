@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vespacli
-Version: 8.578.22
+Version: 8.579.17
 Summary: A Python wrapper for Vespa CLI tools, supporting multiple platforms.
 Author-email: Thomas Thoresen <thomas@vespa.ai>
 License:                                  Apache License

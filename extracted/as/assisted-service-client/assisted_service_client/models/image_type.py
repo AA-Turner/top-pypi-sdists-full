@@ -28,6 +28,7 @@ class ImageType(object):
     """
     FULL_ISO = "full-iso"
     MINIMAL_ISO = "minimal-iso"
+    DISCONNECTED_ISO = "disconnected-iso"
 
     """
     Attributes:

@@ -4,15 +4,15 @@ requires = ["setuptools>=77.0.3"]
 
 [project]
 name = "types-gdb"
-version = "16.3.0.20250812"
+version = "16.3.0.20250915"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for gdb"
 readme = { text = """\
 ## Typing stubs for gdb
 
-This is a [PEP 561](https://peps.python.org/pep-0561/) type stub package for
-the [`gdb`](https://sourceware.org/git/gitweb.cgi?p=binutils-gdb.git;a=tree) package. It can be used by type checkers
+This is a [type stub package](https://typing.python.org/en/latest/tutorials/external_libraries.html)
+for the [`gdb`](https://sourceware.org/git/gitweb.cgi?p=binutils-gdb.git;a=tree) package. It can be used by type checkers
 to check code that uses `gdb`. This version of
 `types-gdb` aims to provide accurate annotations for
 `gdb==16.3.*`.
@@ -27,11 +27,11 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 1.16.1
-* [pyright](https://github.com/microsoft/pyright) 1.1.403
+* [mypy](https://github.com/python/mypy/) 1.18.1
+* [pyright](https://github.com/microsoft/pyright) 1.1.405
 
 It was generated from typeshed commit
-[`ea39410142352293438a60312c17c80afe191659`](https://github.com/python/typeshed/commit/ea39410142352293438a60312c17c80afe191659).
+[`703f7d074ccd3776f20c77eaeb4563a197948ed9`](https://github.com/python/typeshed/commit/703f7d074ccd3776f20c77eaeb4563a197948ed9).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",

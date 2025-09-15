@@ -1307,6 +1307,7 @@ def test_scvi_batch_embeddings(
         _ = model.get_batch_representation()
 
 
+@pytest.mark.dataloader
 @pytest.mark.parametrize("n_latent", [5])
 def test_scvi_inference_custom_dataloader(n_latent: int):
     adata = synthetic_iid()
@@ -1354,3 +1355,23 @@ def test_scvi_num_workers():
     model.get_reconstruction_error()
     model.get_normalized_expression(transform_batch="batch_1")
     model.get_normalized_expression(n_samples=2)
+
+
+def test_scvi_log_on_step():
+    adata = synthetic_iid()
+    SCVI.setup_anndata(
+        adata,
+        batch_key="batch",
+        labels_key="labels",
+    )
+    model = SCVI(adata)
+    model.train(
+        2,
+        check_val_every_n_epoch=1,
+        train_size=0.5,
+        plan_kwargs={"on_step": True, "on_epoch": True},
+    )
+    assert "train_loss_step" in model.history
+    assert "validation_loss_step" in model.history
+    assert "train_loss_epoch" in model.history
+    assert "validation_loss_epoch" in model.history

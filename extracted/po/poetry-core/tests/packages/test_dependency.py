@@ -308,14 +308,14 @@ def test_dependency_string_representation(
 def test_set_constraint_sets_pretty_constraint() -> None:
     dependency = Dependency("A", "^1.0")
     assert dependency.pretty_constraint == "^1.0"
-    dependency.constraint = "^2.0"  # type: ignore[assignment]
+    dependency.constraint = "^2.0"
     assert dependency.pretty_constraint == "^2.0"
 
 
 def test_set_bogus_constraint_raises_exception() -> None:
     dependency = Dependency("A", "^1.0")
     with pytest.raises(ParseConstraintError):
-        dependency.constraint = "^=4.5"  # type: ignore[assignment]
+        dependency.constraint = "^=4.5"
 
 
 def test_with_constraint() -> None:
@@ -323,7 +323,7 @@ def test_with_constraint() -> None:
         "foo",
         "^1.2.3",
         optional=True,
-        groups=["dev"],
+        groups=["DEV"],
         allows_prereleases=True,
         extras=["bar", "baz"],
     )
@@ -339,6 +339,7 @@ def test_with_constraint() -> None:
 
     assert new.name == dependency.name
     assert str(new.constraint) == ">=1.2.6,<2.0.0"
+    assert str(dependency.constraint) == ">=1.2.3,<2.0.0"
     assert new.is_optional()
     assert new.groups == frozenset(["dev"])
     assert new.allows_prereleases()
@@ -346,6 +347,17 @@ def test_with_constraint() -> None:
     assert new.marker == dependency.marker
     assert new.transitive_marker == dependency.transitive_marker
     assert new.python_constraint == dependency.python_constraint
+
+
+def test_with_groups() -> None:
+    dependency = Dependency("foo", "^1.2.3", groups=["DEV"])
+
+    new = dependency.with_groups(["DOC", "test"])
+
+    assert new.name == dependency.name
+    assert str(dependency.constraint) == ">=1.2.3,<2.0.0"
+    assert new.groups == frozenset(["doc", "test"])
+    assert dependency.groups == frozenset(["dev"])
 
 
 @pytest.mark.parametrize(
@@ -359,7 +371,7 @@ def test_with_constraint() -> None:
 )
 def test_marker_properly_sets_python_constraint(marker: str, expected: str) -> None:
     dependency = Dependency("foo", "^1.2.3")
-    dependency.marker = marker  # type: ignore[assignment]
+    dependency.marker = marker
     assert str(dependency.python_constraint) == expected
 
 
@@ -373,10 +385,10 @@ def test_dependency_markers_are_the_same_as_markers() -> None:
 def test_marker_properly_unsets_python_constraint() -> None:
     dependency = Dependency("foo", "^1.2.3")
 
-    dependency.marker = 'python_version >= "3.6"'  # type: ignore[assignment]
+    dependency.marker = 'python_version >= "3.6"'
     assert str(dependency.python_constraint) == ">=3.6"
 
-    dependency.marker = "*"  # type: ignore[assignment]
+    dependency.marker = "*"
     assert str(dependency.python_constraint) == "*"
 
 

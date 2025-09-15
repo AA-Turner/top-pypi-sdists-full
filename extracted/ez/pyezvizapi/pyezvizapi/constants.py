@@ -1,4 +1,9 @@
-"""Device switch types relationship."""
+"""Constants and enums used by the Ezviz Cloud API wrapper.
+
+Includes default timeouts, request headers used to emulate the mobile
+client, and a large collection of enums that map integers/strings from
+the Ezviz API to descriptive names.
+"""
 
 from enum import Enum, unique
 
@@ -459,3 +464,4 @@ class DeviceCatagories(Enum):
     BASE_STATION_DEVICE_CATEGORY = "XVR"
     CAT_EYE_CATEGORY = "CatEye"
     LIGHTING = "lighting"
+    W2H_BASE_STATION_DEVICE_CATEGORY = "IGateWay" # @emeric699 Adding support for W2H Base Station

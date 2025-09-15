@@ -624,6 +624,54 @@ class FilingHeader:
             subject_companies=subject_companies
         )
 
+    @staticmethod
+    def _is_valid_sgml_tag(line: str) -> bool:
+        """
+        Check if line contains a valid SGML header tag (not HTML/XBRL content).
+        
+        SGML header tags are uppercase with no namespace prefixes.
+        HTML/XBRL tags often have lowercase letters or namespace prefixes like 'ix:'.
+        
+        Args:
+            line: The line to check
+            
+        Returns:
+            bool: True if line contains a valid SGML tag, False otherwise
+        """
+        stripped = line.strip()
+        if not stripped.startswith('<'):
+            return False
+        
+        # Find the end of the tag
+        tag_end = stripped.find('>')
+        if tag_end == -1:
+            return False
+            
+        # Extract tag name (without the < >)
+        tag = stripped[1:tag_end]
+        
+        # Skip closing tags
+        if tag.startswith('/'):
+            return False
+        
+        # SGML header tags characteristics:
+        # 1. No namespace prefixes (no ':' character)
+        # 2. Uppercase letters, numbers, and hyphens only
+        # 3. Should not contain attributes or spaces
+        if ':' in tag or ' ' in tag:
+            return False
+            
+        # Check if tag is uppercase (SGML convention)
+        if tag != tag.upper():
+            return False
+            
+        # Additional check: Should contain only letters, numbers, and hyphens
+        import re
+        if not re.match(r'^[A-Z0-9\-]+$', tag):
+            return False
+            
+        return True
+
     @classmethod
     def parse_from_sgml_text(cls, header_text: str, preprocess=False):
         """
@@ -677,10 +725,20 @@ class FilingHeader:
                         data[current_header].append({})
             else:
                 if line.strip().startswith("<"):
+                    # Only process valid SGML header tags, skip HTML/XBRL content
+                    if not cls._is_valid_sgml_tag(line):
+                        continue
+                        
                     # The line looks like this <KEY>VALUE
-                    key, value = line.split('>')
-                    # Strip the leading '<' from the key
-                    key = key[1:]
+                    # Handle lines with multiple '>' characters (e.g., XBRL inline content)
+                    split_parts = line.split('>', 1)  # Split only on first '>' character
+                    if len(split_parts) >= 2:
+                        key, value = split_parts[0], split_parts[1]
+                        # Strip the leading '<' from the key
+                        key = key[1:]
+                    else:
+                        # Skip malformed lines that don't have a '>' character
+                        continue
 
                     # If the key already exists, we should convert it to a list
                     if key in data:

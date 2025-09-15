@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: InvokeAI
-Version: 6.6.0
+Version: 6.7.0
 Summary: An implementation of Stable Diffusion which provides various new features and options to aid the image generation process
 Author-email: Invoke <support@invoke.ai>
 License:                                  Apache License
@@ -225,7 +225,7 @@ Requires-Dist: spandrel
 Requires-Dist: torch~=2.7.0
 Requires-Dist: torchsde
 Requires-Dist: torchvision
-Requires-Dist: transformers
+Requires-Dist: transformers>=4.56.0
 Requires-Dist: fastapi-events
 Requires-Dist: fastapi
 Requires-Dist: huggingface-hub

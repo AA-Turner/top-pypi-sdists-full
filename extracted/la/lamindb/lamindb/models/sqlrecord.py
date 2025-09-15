@@ -319,6 +319,43 @@ def suggest_records_with_similar_names(
     return None
 
 
+def delete_record(record: BaseSQLRecord, is_soft: bool = True):
+    def delete():
+        if is_soft:
+            record.branch_id = -1
+            record.save()
+        else:
+            super(BaseSQLRecord, record).delete()
+
+    # deal with versioned records
+    # if _ovewrite_version = True, there is only a single version and
+    # no need to set the new latest version because all versions are deleted
+    # when deleting the latest version
+    if (
+        isinstance(record, IsVersioned)
+        and record.is_latest
+        and not getattr(record, "_overwrite_versions", False)
+    ):
+        new_latest = (
+            record.__class__.objects.using(record._state.db)
+            .filter(is_latest=False, uid__startswith=record.stem_uid)
+            .exclude(branch_id=-1)  # exclude candidates in the trash
+            .order_by("-created_at")
+            .first()
+        )
+        if new_latest is not None:
+            new_latest.is_latest = True
+            if is_soft:
+                record.is_latest = False
+            with transaction.atomic():
+                new_latest.save()
+                delete()
+            logger.warning(f"new latest version is: {new_latest}")
+            return None
+    # deal with all other cases of the nested if condition now
+    delete()
+
+
 RECORD_REGISTRY_EXAMPLE = """Example::
 
         from lamindb import SQLRecord, fields
@@ -334,7 +371,7 @@ RECORD_REGISTRY_EXAMPLE = """Example::
         experiment.save()
 
         # `Experiment` refers to the registry, which you can query
-        df = Experiment.filter(name__startswith="my ").df()
+        df = Experiment.filter(name__startswith="my ").to_dataframe()
 """
 
 
@@ -425,7 +462,7 @@ class Registry(ModelBase):
 
         Examples:
             >>> ln.ULabel(name="my label").save()
-            >>> ln.ULabel.filter(name__startswith="my").df()
+            >>> ln.ULabel.filter(name__startswith="my").to_dataframe()
         """
         from .query_set import QuerySet
 
@@ -464,7 +501,7 @@ class Registry(ModelBase):
 
         return QuerySet(model=cls).get(idlike, **expressions)
 
-    def df(
+    def to_dataframe(
         cls,
         include: str | list[str] | None = None,
         features: bool | list[str] | str = False,
@@ -492,21 +529,30 @@ class Registry(ModelBase):
 
             Include the name of the creator in the `DataFrame`:
 
-            >>> ln.ULabel.df(include="created_by__name"])
+            >>> ln.ULabel.to_dataframe(include="created_by__name"])
 
             Include display of features for `Artifact`:
 
-            >>> df = ln.Artifact.df(features=True)
+            >>> df = ln.Artifact.to_dataframe(features=True)
             >>> ln.view(df)  # visualize with type annotations
 
             Only include select features:
 
-            >>> df = ln.Artifact.df(features=["cell_type_by_expert", "cell_type_by_model"])
+            >>> df = ln.Artifact.to_dataframe(features=["cell_type_by_expert", "cell_type_by_model"])
         """
         query_set = cls.filter()
         if hasattr(cls, "updated_at"):
             query_set = query_set.order_by("-updated_at")
-        return query_set[:limit].df(include=include, features=features)
+        return query_set[:limit].to_dataframe(include=include, features=features)
+
+    @deprecated(new_name="to_dataframe")
+    def df(
+        cls,
+        include: str | list[str] | None = None,
+        features: bool | list[str] | str = False,
+        limit: int = 100,
+    ) -> pd.DataFrame:
+        return cls.to_dataframe(include, features, limit)
 
     @doc_args(_search.__doc__)
     def search(
@@ -580,7 +626,7 @@ class Registry(ModelBase):
             # this just retrives the full connection string from iresult
             db = update_db_using_local(iresult, settings_file)
             cache_using_filepath.write_text(
-                f"{iresult['lnid']}\n{iresult['schema_str']}"
+                f"{iresult['lnid']}\n{iresult['schema_str']}", encoding="utf-8"
             )
             # need to set the token if it is a fine_grained_access and the user is jwt (not public)
             is_fine_grained_access = (
@@ -593,7 +639,7 @@ class Registry(ModelBase):
             source_modules = isettings.modules
             db = isettings.db
             cache_using_filepath.write_text(
-                f"{isettings.uid}\n{','.join(source_modules)}"
+                f"{isettings.uid}\n{','.join(source_modules)}", encoding="utf-8"
             )
             # need to set the token if it is a fine_grained_access and the user is jwt (not public)
             is_fine_grained_access = (
@@ -795,7 +841,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
         artifacts: list = []
         if self.__class__.__name__ == "Collection" and self.id is not None:
             # when creating a new collection without being able to access artifacts
-            artifacts = self.ordered_artifacts.list()
+            artifacts = self.ordered_artifacts.to_list()
         pre_existing_record = None
         # consider records that are being transferred from other databases
         transfer_logs: dict[str, list[str]] = {
@@ -920,27 +966,7 @@ class BaseSQLRecord(models.Model, metaclass=Registry):
 
     def delete(self) -> None:
         """Delete."""
-        # note that the logic below does not fire if a record is moved to the trash
-        # the idea is that moving a record to the trash should move its entire version family
-        # to the trash, whereas permanently deleting should default to only deleting a single record
-        # of a version family
-        # we can consider making it easy to permanently delete entire version families as well,
-        # but that's for another time
-        if isinstance(self, IsVersioned) and self.is_latest:
-            new_latest = (
-                self.__class__.objects.using(self._state.db)
-                .filter(is_latest=False, uid__startswith=self.stem_uid)
-                .order_by("-created_at")
-                .first()
-            )
-            if new_latest is not None:
-                new_latest.is_latest = True
-                with transaction.atomic():
-                    new_latest.save()
-                    super().delete()  # type: ignore
-                logger.warning(f"new latest version is {new_latest}")
-                return None
-        super().delete()
+        delete_record(self, is_soft=False)
 
 
 class Space(BaseSQLRecord):
@@ -952,6 +978,7 @@ class Space(BaseSQLRecord):
     """
 
     class Meta:
+        app_label = "lamindb"
         constraints = [
             models.UniqueConstraint(Lower("name"), name="unique_space_name_lower")
         ]
@@ -964,8 +991,7 @@ class Space(BaseSQLRecord):
         editable=False,
         unique=True,
         max_length=12,
-        default="aaaaaaaaaaaaa",
-        db_default="aaaaaaaaaaaa",
+        default=base62_12,
         db_index=True,
     )
     """Universal id."""
@@ -998,6 +1024,21 @@ class Space(BaseSQLRecord):
         *args,
         **kwargs,
     ):
+        if not args and "uid" not in kwargs:
+            warn = False
+            msg = ""
+            isettings = setup_settings.instance
+            if (dialect := isettings.dialect) != "postgresql":
+                warn = True
+                msg = f"on {dialect} databases"
+            elif not isettings.is_on_hub:
+                warn = True
+                msg = "on local instances"
+            if warn:
+                logger.warning(
+                    f"creating spaces manually {msg} is possible for demo purposes, "
+                    "but does *not* affect access permissions"
+                )
         super().__init__(*args, **kwargs)
 
 
@@ -1006,6 +1047,12 @@ class Branch(BaseSQLRecord):
 
     Every `SQLRecord` has a `branch` field, which dictates where a record appears in queries & searches.
     """
+
+    class Meta:
+        app_label = "lamindb"
+        constraints = [
+            models.UniqueConstraint(Lower("name"), name="unique_branch_name_lower")
+        ]
 
     # below isn't fully implemented but a roadmap
     # - 3: template (hidden in queries & searches)
@@ -1017,11 +1064,6 @@ class Branch(BaseSQLRecord):
     # An integer higher than >3 codes a branch that can be used for collaborators to create drafts
     # that can be merged onto the main branch in an experience akin to a Pull Request. The mapping
     # onto a semantic branch name is handled through LaminHub.
-
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(Lower("name"), name="unique_branch_name_lower")
-        ]
 
     id: int = models.AutoField(primary_key=True)
     """An integer id that's synchronized for a family of coupled database instances.
@@ -1118,6 +1160,75 @@ class SQLRecord(BaseSQLRecord, metaclass=Registry):
     @_branch_code.setter
     def _branch_code(self, value: int):
         self.branch_id = value
+
+    def delete(self, permanent: bool | None = None, **kwargs) -> None:
+        """Delete record.
+
+        Args:
+            permanent: Whether to permanently delete the record (skips trash).
+
+        Examples:
+
+            For any `SQLRecord` object `record`, call:
+
+            >>> record.delete()
+        """
+        if self._state.adding:
+            logger.warning("record is not yet saved, delete has no effect")
+            return
+        name_with_module = self.__class__.__get_name_with_module__()
+
+        if name_with_module == "Artifact":
+            # this first check means an invalid delete fails fast rather than cascading through
+            # database and storage permission errors
+            isettings = setup_settings.instance
+            if self.storage.instance_uid != isettings.uid and (
+                kwargs["storage"] or kwargs["storage"] is None
+            ):
+                from ..errors import IntegrityError
+                from .storage import Storage
+
+                raise IntegrityError(
+                    "Cannot simply delete artifacts outside of this instance's managed storage locations."
+                    "\n(1) If you only want to delete the metadata record in this instance, pass `storage=False`"
+                    f"\n(2) If you want to delete the artifact in storage, please load the managing lamindb instance (uid={self.storage.instance_uid})."
+                    f"\nThese are all managed storage locations of this instance:\n{Storage.filter(instance_uid=isettings.uid).to_dataframe()}"
+                )
+
+        # change branch_id to trash
+        trash_branch_id = -1
+        if self.branch_id > trash_branch_id and permanent is not True:
+            delete_record(self, is_soft=True)
+            logger.warning(f"moved record to trash (branch_id = -1): {self}")
+            return
+
+        # permanent delete
+        if permanent is None:
+            response = input(
+                f"Record {self.uid} is already in trash! Are you sure you want to delete it from your"
+                " database? You can't undo this action. (y/n) "
+            )
+            confirm_delete = response == "y"
+        else:
+            confirm_delete = permanent
+
+        if confirm_delete:
+            if name_with_module == "Run":
+                from .run import delete_run_artifacts
+
+                delete_run_artifacts(self)
+            elif name_with_module == "Transform":
+                from .transform import delete_transform_relations
+
+                delete_transform_relations(self)
+            elif name_with_module == "Artifact":
+                from .artifact import delete_permanently
+
+                delete_permanently(
+                    self, storage=kwargs["storage"], using_key=kwargs["using_key"]
+                )
+            if name_with_module != "Artifact":
+                super().delete()
 
 
 def _format_django_validation_error(record: SQLRecord, e: DjangoValidationError):
@@ -1464,7 +1575,7 @@ def check_name_change(record: SQLRecord):
                 .exclude(feature_id=None)  # must have a feature
                 .distinct()
             )
-            artifact_ids = linked_records.list("artifact__uid")
+            artifact_ids = linked_records.to_list("artifact__uid")
             n = len(artifact_ids)
             if n > 0:
                 s = "s" if n > 1 else ""
@@ -1482,7 +1593,7 @@ def check_name_change(record: SQLRecord):
         # when a feature is renamed
         elif isinstance(record, Feature):
             # only internal features are associated with schemas
-            linked_artifacts = Artifact.filter(feature_sets__features=record).list(
+            linked_artifacts = Artifact.filter(feature_sets__features=record).to_list(
                 "uid"
             )
             n = len(linked_artifacts)
@@ -1806,6 +1917,7 @@ class Migration(BaseSQLRecord):
 
     class Meta:
         db_table = "django_migrations"
+        app_label = "lamindb"
         managed = False
 
 

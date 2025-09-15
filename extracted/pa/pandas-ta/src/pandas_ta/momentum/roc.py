@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 from numba import njit
 from pandas import Series
-from pandas_ta._typing import Array, DictLike, Int, IntFloat
+from pandas_ta._typing import DictLike, Int, IntFloat
 from pandas_ta.maps import Imports
 from pandas_ta.utils import (
     nb_idiff,
@@ -12,7 +12,7 @@ from pandas_ta.utils import (
     v_series,
     v_talib
 )
-from .mom import mom
+# from .mom import mom
 
 
 

@@ -31,23 +31,27 @@
 #
 """
 
-    enchant.checker.wxSpellCheckerDialog: wxPython spellchecker interface
+enchant.checker.wxSpellCheckerDialog: wxPython spellchecker interface
 
-    This module provides the class wxSpellCheckerDialog, which provides
-    a wxPython dialog that can be used as an interface to a spell checking
-    session.  Currently it is intended as a proof-of-concept and demonstration
-    class, but it should be suitable for general-purpose use in a program.
+This module provides the class :py:class:`wxSpellCheckerDialog`, which provides
+a wxPython dialog that can be used as an interface to a spell checking
+session.  Currently it is intended as a proof-of-concept and demonstration
+class, but it should be suitable for general-purpose use in a program.
 
-    The class must be given an enchant.checker.SpellChecker object with
-    which to operate.  It can (in theory...) be used in modal and non-modal
-    modes.  Use Show() when operating on an array of characters as it will
-    modify the array in place, meaning other work can be done at the same
-    time.  Use ShowModal() when operating on a static string.
+The class must be given an :py:class:`enchant.checker.SpellChecker` object with
+which to operate.  It can (in theory...) be used in modal and non-modal
+modes.  Use `Show()` when operating on an array of characters as it will
+modify the array in place, meaning other work can be done at the same
+time.  Use `ShowModal()` when operating on a static string.
 
 """
 _DOC_ERRORS = ["ShowModal"]
 
+from typing import Any, Optional
+
 import wx
+
+from enchant.checker import SpellChecker
 
 
 class wxSpellCheckerDialog(wx.Dialog):
@@ -58,24 +62,22 @@ class wxSpellCheckerDialog(wx.Dialog):
     how to do this, although it should be useful for applications that
     just need a simple graphical spellchecker.
 
-    To use, a SpellChecker instance must be created and passed to the
+    To use, a :py:class:`SpellChecker` instance must be created and passed to the
     dialog before it is shown:
 
-        >>> dlg = wxSpellCheckerDialog(None,-1,"")
         >>> chkr = SpellChecker("en_AU",text)
-        >>> dlg.SetSpellChecker(chkr)
+        >>> dlg = wxSpellCheckerDialog(chkr,None,-1,"")
         >>> dlg.Show()
 
     This is most useful when the text to be checked is in the form of
     a character array, as it will be modified in place as the user
     interacts with the dialog.  For checking strings, the final result
-    will need to be obtained from the SpellChecker object:
+    will need to be obtained from the `SpellChecker` object:
 
-        >>> dlg = wxSpellCheckerDialog(None,-1,"")
         >>> chkr = SpellChecker("en_AU",text)
-        >>> dlg.SetSpellChecker(chkr)
+        >>> dlg = wxSpellCheckerDialog(chkr,None,-1,"")
         >>> dlg.ShowModal()
-        >>> text = dlg.GetSpellChecker().get_text()
+        >>> text = chkr.get_text()
 
     Currently the checker must deal with strings of the same type as
     returned by wxPython - unicode or normal string depending on the
@@ -86,33 +88,31 @@ class wxSpellCheckerDialog(wx.Dialog):
         "dlg",
         "chkr",
         "dlg",
-        "SetSpellChecker",
         "chkr",
         "dlg",
         "dlg",
         "chkr",
         "dlg",
-        "SetSpellChecker",
         "chkr",
         "dlg",
         "ShowModal",
         "dlg",
-        "GetSpellChecker",
     ]
 
     # Remember dialog size across invocations by storing it on the class
     sz = (300, 70)
 
-    def __init__(self, parent=None, id=-1, title="Checking Spelling..."):
-        super().__init__(
-            parent,
-            id,
-            title,
-            size=wxSpellCheckerDialog.sz,
-            style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER,
-        )
+    def __init__(
+        self,
+        checker: SpellChecker,
+        parent: Optional[Any] = None,
+        id: int = -1,
+        title: str = "Checking Spelling...",
+        size=wxSpellCheckerDialog.sz,
+        style=wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER,
+    ) -> None:
         self._numContext = 40
-        self._checker = None
+        self._checker = checker
         self._buttonsEnabled = True
         self.error_text = wx.TextCtrl(
             self, -1, "", style=wx.TE_MULTILINE | wx.TE_READONLY | wx.TE_RICH
@@ -123,7 +123,7 @@ class wxSpellCheckerDialog(wx.Dialog):
         wx.EVT_LISTBOX(self, self.replace_list.GetId(), self.OnReplSelect)
         wx.EVT_LISTBOX_DCLICK(self, self.replace_list.GetId(), self.OnReplace)
 
-    def InitLayout(self):
+    def InitLayout(self) -> None:
         """Lay out controls and add buttons."""
         sizer = wx.BoxSizer(wx.HORIZONTAL)
         txtSizer = wx.BoxSizer(wx.VERTICAL)
@@ -166,17 +166,13 @@ class wxSpellCheckerDialog(wx.Dialog):
         self.SetSizer(sizer)
         sizer.Fit(self)
 
-    def Advance(self):
+    def Advance(self) -> bool:
         """Advance to the next error.
 
         This method advances the SpellChecker to the next error, if
         any.  It then displays the error and some surrounding context,
         and well as listing the suggested replacements.
         """
-        # Disable interaction if no checker
-        if self._checker is None:
-            self.EnableButtons(False)
-            return False
         # Advance to next error, disable if not available
         try:
             self._checker.next()
@@ -208,24 +204,24 @@ class wxSpellCheckerDialog(wx.Dialog):
         self.replace_text.SetValue(suggs and suggs[0] or "")
         return True
 
-    def EnableButtons(self, state=True):
+    def EnableButtons(self, state: bool = True) -> None:
         """Enable the checking-related buttons"""
         if state != self._buttonsEnabled:
             for btn in self.buttons[:-1]:
                 btn.Enable(state)
             self._buttonsEnabled = state
 
-    def GetRepl(self):
+    def GetRepl(self) -> str:
         """Get the chosen replacement string."""
         repl = self.replace_text.GetValue()
         return repl
 
-    def OnAdd(self, evt):
+    def OnAdd(self, evt: Any) -> None:
         """Callback for the "add" button."""
         self._checker.add()
         self.Advance()
 
-    def OnDone(self, evt):
+    def OnDone(self, evt: Any) -> None:
         """Callback for the "close" button."""
         wxSpellCheckerDialog.sz = self.error_text.GetSizeTuple()
         if self.IsModal():
@@ -233,47 +229,37 @@ class wxSpellCheckerDialog(wx.Dialog):
         else:
             self.Close()
 
-    def OnIgnore(self, evt):
+    def OnIgnore(self, evt: Any) -> None:
         """Callback for the "ignore" button.
         This simply advances to the next error.
         """
         self.Advance()
 
-    def OnIgnoreAll(self, evt):
+    def OnIgnoreAll(self, evt: Any) -> None:
         """Callback for the "ignore all" button."""
         self._checker.ignore_always()
         self.Advance()
 
-    def OnReplace(self, evt):
+    def OnReplace(self, evt: Any) -> None:
         """Callback for the "replace" button."""
         repl = self.GetRepl()
         if repl:
             self._checker.replace(repl)
         self.Advance()
 
-    def OnReplaceAll(self, evt):
+    def OnReplaceAll(self, evt: Any) -> None:
         """Callback for the "replace all" button."""
         repl = self.GetRepl()
         self._checker.replace_always(repl)
         self.Advance()
 
-    def OnReplSelect(self, evt):
+    def OnReplSelect(self, evt: Any) -> None:
         """Callback when a new replacement option is selected."""
         sel = self.replace_list.GetSelection()
         if sel == -1:
             return
         opt = self.replace_list.GetString(sel)
         self.replace_text.SetValue(opt)
-
-    def GetSpellChecker(self):
-        """Get the spell checker object."""
-        return self._checker
-
-    def SetSpellChecker(self, chkr):
-        """Set the spell checker, advancing to the first error.
-        Return True if error(s) to correct, else False."""
-        self._checker = chkr
-        return self.Advance()
 
 
 def _test():
@@ -283,19 +269,17 @@ def _test():
             wx.EVT_CLOSE(self, self.OnClose)
 
         def OnClose(self, evnt):
-            chkr = dlg.GetSpellChecker()
-            if chkr is not None:
-                print(["AFTER:", chkr.get_text()])
+            print(["AFTER:", dlg._checker.get_text()])
             self.Destroy()
 
     from enchant.checker import SpellChecker
 
     text = "This is sme text with a fw speling errors in it. Here are a fw more to tst it ut."
     print(["BEFORE:", text])
-    app = wx.App(False)
-    dlg = TestDialog()
     chkr = SpellChecker("en_US", text)
-    dlg.SetSpellChecker(chkr)
+
+    app = wx.App(False)
+    dlg = TestDialog(chkr)
     dlg.Show()
     app.MainLoop()
 

@@ -10,18 +10,20 @@
 # License: MIT
 #
 
+from typing import Optional
 import icecream
 
-
-try:
-    builtins = __import__('__builtin__')
-except ImportError:
-    builtins = __import__('builtins')
+builtins = __import__('builtins')
 
 
-def install(ic='ic'):
-    setattr(builtins, ic, icecream.ic)
+def install(
+    ic: str = 'ic',
+    configured_ic: Optional[icecream.IceCreamDebugger] = None
+) -> None:
+    if configured_ic is None:
+        configured_ic = icecream.ic
+    setattr(builtins, ic, configured_ic)
 
 
-def uninstall(ic='ic'):
+def uninstall(ic: str = 'ic') -> None:
     delattr(builtins, ic)

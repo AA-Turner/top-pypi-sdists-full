@@ -80,7 +80,7 @@ from aiohomematic.model.support import (
     get_device_name,
 )
 from aiohomematic.model.update import DpUpdate
-from aiohomematic.property_decorators import cached_slot_property, info_property, state_property
+from aiohomematic.property_decorators import cached_property, hm_property, info_property, state_property
 from aiohomematic.support import (
     CacheEntry,
     LogContextMixin,
@@ -327,7 +327,7 @@ class Device(LogContextMixin, PayloadMixin):
         """Return the interface of the device."""
         return self._interface
 
-    @info_property(log_context=True)
+    @hm_property(log_context=True)
     def interface_id(self) -> str:
         """Return the interface_id of the device."""
         return self._interface_id
@@ -441,7 +441,7 @@ class Device(LogContextMixin, PayloadMixin):
             for channel in self._channels.values():
                 await channel.remove_central_link()
 
-    @cached_slot_property
+    @cached_property
     def relevant_for_central_link_management(self) -> bool:
         """Return if channel is relevant for central link management."""
         return (
@@ -762,7 +762,7 @@ class Channel(LogContextMixin, PayloadMixin):
         """Return the device description for the channel."""
         return self._description
 
-    @info_property(log_context=True)
+    @hm_property(log_context=True)
     def device(self) -> Device:
         """Return the device of the channel."""
         return self._device
@@ -832,7 +832,7 @@ class Channel(LogContextMixin, PayloadMixin):
         """Return the name data of the channel."""
         return self._name_data
 
-    @info_property(log_context=True)
+    @hm_property(log_context=True)
     def no(self) -> int | None:
         """Return the channel_no of the channel."""
         return self._no

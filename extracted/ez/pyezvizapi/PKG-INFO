@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: pyezvizapi
-Version: 1.0.1.7
+Version: 1.0.2.1
 Summary: Pilot your Ezviz cameras
 Home-page: https://github.com/RenierM26/pyEzvizApi/
 Author: Renier Moorcroft
 Author-email: RenierM26@users.github.com
 License: Apache Software License 2.0
-Requires-Python: >=3.6
+Requires-Python: >=3.11
 License-File: LICENSE
 License-File: LICENSE.md
 Requires-Dist: requests

@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
-from numpy import empty_like, maximum, minimum
 from numba import njit
+from numpy import empty_like, maximum, minimum
 from pandas import DataFrame, Series
-from pandas_ta._typing import Array, DictLike, Int
+from pandas_ta._typing import DictLike, Int
 from pandas_ta.utils import v_offset, v_series
 
 

@@ -130,3 +130,26 @@ def custom_study_e():
         cores=0,
         description="AMAT Log Returns"
     )
+
+
+@pytest.fixture(scope="function")
+def custom_study_f():
+    """
+    Scaling Study. Chained Indicators are unsupported.
+    """
+    _ta = [
+        {"kind": "ichimoku"},
+        {"kind": "sma", "close": "volume", "length": 20, "prefix": "VOLUME"},
+        {"kind": "sma", "length": 10},
+        {"kind": "rsi"},
+        {"kind": "macd"},
+        {"kind": "bbands", "length": 20},
+        {"kind": "cci"},
+        {"kind": "uo"},
+    ]
+    return ta.Study(
+        name="Scaling Study",
+        ta=_ta,
+        cores=0,
+        description="Example Scaling Group"
+    )

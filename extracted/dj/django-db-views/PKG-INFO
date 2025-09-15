@@ -1,14 +1,13 @@
 Metadata-Version: 2.4
 Name: django-db-views
-Version: 0.1.11
+Version: 0.1.12
 Summary:     Handle database views.     Allow to create migrations for database views.     View migrations using django code.     They can be reversed.     Changes in model view definition are detected automatically.     Support almost all options as regular makemigrations command
 Project-URL: Homepage, https://github.com/BezBartek/django-db-views
 Project-URL: Documentation, https://github.com/BezBartek/django-db-views/blob/master/README.md
 Project-URL: Repository, https://github.com/BezBartek/django-db-views
 Project-URL: Issues, https://github.com/BezBartek/django-db-views/issues
 Project-URL: Changelog, https://github.com/BezBartek/django-db-views/blob/master/CHANGELOG.md
-Author: Mariusz Okulanis
-Author-email: Bartłomiej Nowak <n.bartek3762@gmail.com>
+Author-email: Bartłomiej Nowak <n.bartek3762@gmail.com>, Mariusz Okulanis <maniek2332@gmail.com>
 Maintainer-email: Bartłomiej Nowak <n.bartek3762@gmail.com>
 License: MIT License
 License-File: LICENSE

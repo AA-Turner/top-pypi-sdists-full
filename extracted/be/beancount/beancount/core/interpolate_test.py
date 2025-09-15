@@ -23,10 +23,17 @@ from beancount.utils import defdict
 # A default options map just to provide the tolerances.
 OPTIONS_MAP = {
     "inferred_tolerance_default": {},
-    "inferred_tolerance_multiplier": D("0.5"),
+    "tolerance_multiplier": D("0.5"),
     "account_rounding": None,
     "infer_tolerance_from_cost": False,
 }
+
+
+def create_some_test_transaction() -> data.Transaction:
+    meta = data.new_metadata("___test__", 0)
+    return data.Transaction(
+        meta, datetime.date(2017, 12, 16), "?", None, "", data.EMPTY_SET, data.EMPTY_SET, []
+    )
 
 
 class TestBalance(cmptest.TestCase):
@@ -40,7 +47,8 @@ class TestBalance(cmptest.TestCase):
         self.assertTrue(interpolate.has_nontrivial_balance(posting))
 
         # Entry with cost, without price.
-        posting = PCost(None, "Assets:Bank:Checking", "105.50", "USD", "0.80", "EUR")
+        txn = create_some_test_transaction()
+        posting = PCost(txn, "Assets:Bank:Checking", "105.50", "USD", "0.80", "EUR")
         self.assertTrue(interpolate.has_nontrivial_balance(posting))
 
         # Entry with cost, and with price (the price should be ignored).
@@ -434,7 +442,7 @@ class TestInferTolerances(cmptest.TestCase):
     @loader.load_doc(expect_errors=True)
     def test_tolerances__multiplier(self, entries, errors, options_map):
         """
-        option "inferred_tolerance_multiplier" "1.1"
+        option "tolerance_multiplier" "1.1"
 
         1970-01-01 open Assets:B1
         1970-01-01 open Assets:B2

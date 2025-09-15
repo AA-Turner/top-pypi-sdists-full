@@ -311,6 +311,12 @@ class TestInstallerApi(unittest.TestCase):
         """
         pass
 
+    def test_v2_register_disconnected_cluster(self):
+        """Test case for v2_register_disconnected_cluster
+
+        """
+        pass
+
     def test_v2_register_host(self):
         """Test case for v2_register_host
 

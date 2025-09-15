@@ -38,7 +38,7 @@ dependencies = [
 dynamic = ["version"]
 
 [project.urls]
-Homepage = "https://github.com/tlocke/pg8000"
+Homepage = "https://codeberg.org/tlocke/pg8000"
 
 [tool.hatch.version]
 source = "versioningit"

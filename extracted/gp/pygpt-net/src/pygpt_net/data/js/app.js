@@ -461,147 +461,151 @@
   // ==========================================================================
 
   class Config {
-    constructor() {
-      // Process identifier (passed from host).
-      this.PID = Utils.g('PID', 0);
+      constructor() {
+        // Process identifier (passed from host).
+        this.PID = Utils.g('PID', 0);
 
-      // UI: scroll behavior and busy/zoom signalling thresholds (milliseconds / pixels).
-      this.UI = {
-        AUTO_FOLLOW_REENABLE_PX: Utils.g('AUTO_FOLLOW_REENABLE_PX', 8),     // Enable auto-follow when near bottom
-        SCROLL_NEAR_MARGIN_PX: Utils.g('SCROLL_NEAR_MARGIN_PX', 450),      // How close to bottom is considered "near"
-        INTERACTION_BUSY_MS: Utils.g('UI_INTERACTION_BUSY_MS', 140),       // Minimum busy time for interactions
-        ZOOM_BUSY_MS: Utils.g('UI_ZOOM_BUSY_MS', 300)                      // Minimum busy time for zoom
-      };
+        // UI: scroll behavior and busy/zoom signalling thresholds (milliseconds / pixels).
+        this.UI = {
+          AUTO_FOLLOW_REENABLE_PX: Utils.g('AUTO_FOLLOW_REENABLE_PX', 8),
+          SCROLL_NEAR_MARGIN_PX: Utils.g('SCROLL_NEAR_MARGIN_PX', 450),
+          INTERACTION_BUSY_MS: Utils.g('UI_INTERACTION_BUSY_MS', 140),
+          ZOOM_BUSY_MS: Utils.g('UI_ZOOM_BUSY_MS', 300)
+        };
 
-      // FAB (floating action button) visibility and debounce.
-      this.FAB = {
-        SHOW_DOWN_THRESHOLD_PX: Utils.g('SHOW_DOWN_THRESHOLD_PX', 0),      // Show "down" arrow when scroll distance is large
-        TOGGLE_DEBOUNCE_MS: Utils.g('FAB_TOGGLE_DEBOUNCE_MS', 100)         // Debounce for icon/text toggles
-      };
+        // FAB (floating action button) visibility and debounce.
+        this.FAB = {
+          SHOW_DOWN_THRESHOLD_PX: Utils.g('SHOW_DOWN_THRESHOLD_PX', 0),
+          TOGGLE_DEBOUNCE_MS: Utils.g('FAB_TOGGLE_DEBOUNCE_MS', 100)
+        };
 
-      // Highlighting controls and per-frame budget.
-      this.HL = {
-        PER_FRAME: Utils.g('HL_PER_FRAME', 2),                             // How many code blocks to highlight per frame
-        DISABLE_ALL: Utils.g('DISABLE_SYNTAX_HIGHLIGHT', false)            // Global off switch for hljs
-      };
+        // Highlighting controls and per-frame budget.
+        this.HL = {
+          PER_FRAME: Utils.g('HL_PER_FRAME', 2),
+          DISABLE_ALL: Utils.g('DISABLE_SYNTAX_HIGHLIGHT', false)
+        };
 
-      // Intersection-like margins (we do our own scan, but these guide budgets).
-      this.OBSERVER = {
-        CODE_ROOT_MARGIN: Utils.g('CODE_ROOT_MARGIN', '1000px 0px 1000px 0px'),
-        BOX_ROOT_MARGIN: Utils.g('BOX_ROOT_MARGIN', '1500px 0px 1500px 0px'),
-        CODE_THRESHOLD: [0, 0.001], BOX_THRESHOLD: 0
-      };
+        // Intersection-like margins (we do our own scan, but these guide budgets).
+        this.OBSERVER = {
+          CODE_ROOT_MARGIN: Utils.g('CODE_ROOT_MARGIN', '1000px 0px 1000px 0px'),
+          BOX_ROOT_MARGIN: Utils.g('BOX_ROOT_MARGIN', '1500px 0px 1500px 0px'),
+          CODE_THRESHOLD: [0, 0.001], BOX_THRESHOLD: 0
+        };
 
-      // Viewport scan preload distance (in pixels).
-      this.SCAN = { PRELOAD_PX: Utils.g('SCAN_PRELOAD_PX', 1000) };
+        // Viewport scan preload distance (in pixels).
+        this.SCAN = { PRELOAD_PX: Utils.g('SCAN_PRELOAD_PX', 1000) };
 
-      // Code scroll behavior (auto-follow re-enable margin and near-bottom margin).
-      this.CODE_SCROLL = {
-        AUTO_FOLLOW_REENABLE_PX: Utils.g('CODE_AUTO_FOLLOW_REENABLE_PX', 8),
-        NEAR_MARGIN_PX: Utils.g('CODE_SCROLL_NEAR_MARGIN_PX', 48)
-      };
+        // Code scroll behavior (auto-follow re-enable margin and near-bottom margin).
+        this.CODE_SCROLL = {
+          AUTO_FOLLOW_REENABLE_PX: Utils.g('CODE_AUTO_FOLLOW_REENABLE_PX', 8),
+          NEAR_MARGIN_PX: Utils.g('CODE_SCROLL_NEAR_MARGIN_PX', 48)
+        };
 
-      // Stream (snapshot) budgets and queue limits.
-      this.STREAM = {
-        MAX_PER_FRAME: Utils.g('STREAM_MAX_PER_FRAME', 8),                 // How many chunks to process per frame
-        EMERGENCY_COALESCE_LEN: Utils.g('STREAM_EMERGENCY_COALESCE_LEN', 300), // If queue grows beyond, coalesce
-        COALESCE_MODE: Utils.g('STREAM_COALESCE_MODE', 'fixed'),           // fixed | adaptive
-        SNAPSHOT_MAX_STEP: Utils.g('STREAM_SNAPSHOT_MAX_STEP', 8000),      // Upper bound for adaptive step
-        // Bounds for queue to prevent memory growth on bursty streams
-        QUEUE_MAX_ITEMS: Utils.g('STREAM_QUEUE_MAX_ITEMS', 1200),
-        PRESERVE_CODES_MAX: Utils.g('STREAM_PRESERVE_CODES_MAX', 120)      // Max code blocks to attempt reuse
-      };
+        // Stream (snapshot) budgets and queue limits.
+        this.STREAM = {
+          MAX_PER_FRAME: Utils.g('STREAM_MAX_PER_FRAME', 8),
+          EMERGENCY_COALESCE_LEN: Utils.g('STREAM_EMERGENCY_COALESCE_LEN', 300),
+          COALESCE_MODE: Utils.g('STREAM_COALESCE_MODE', 'fixed'),
+          SNAPSHOT_MAX_STEP: Utils.g('STREAM_SNAPSHOT_MAX_STEP', 8000),
+          QUEUE_MAX_ITEMS: Utils.g('STREAM_QUEUE_MAX_ITEMS', 1200),
+          PRESERVE_CODES_MAX: Utils.g('STREAM_PRESERVE_CODES_MAX', 120)
+        };
 
-      // Math (KaTeX) idle batching and per-batch hint.
-      this.MATH = {
-        IDLE_TIMEOUT_MS: Utils.g('MATH_IDLE_TIMEOUT_MS', 800),
-        BATCH_HINT: Utils.g('MATH_BATCH_HINT', 24)
-      };
+        // Math (KaTeX) idle batching and per-batch hint.
+        this.MATH = {
+          IDLE_TIMEOUT_MS: Utils.g('MATH_IDLE_TIMEOUT_MS', 800),
+          BATCH_HINT: Utils.g('MATH_BATCH_HINT', 24)
+        };
 
-      // Icon URLs (provided by host app).
-      this.ICONS = {
-        EXPAND: Utils.g('ICON_EXPAND', ''), COLLAPSE: Utils.g('ICON_COLLAPSE', ''),
-        CODE_MENU: Utils.g('ICON_CODE_MENU', ''), CODE_COPY: Utils.g('ICON_CODE_COPY', ''),
-        CODE_RUN: Utils.g('ICON_CODE_RUN', ''), CODE_PREVIEW: Utils.g('ICON_CODE_PREVIEW', '')
-      };
+        // Icon URLs (provided by host app).
+        this.ICONS = {
+          EXPAND: Utils.g('ICON_EXPAND', ''), COLLAPSE: Utils.g('ICON_COLLAPSE', ''),
+          CODE_MENU: Utils.g('ICON_CODE_MENU', ''), CODE_COPY: Utils.g('ICON_CODE_COPY', ''),
+          CODE_RUN: Utils.g('ICON_CODE_RUN', ''), CODE_PREVIEW: Utils.g('ICON_CODE_PREVIEW', '')
+        };
 
-      // Localized UI strings.
-      this.LOCALE = {
-        PREVIEW: Utils.g('LOCALE_PREVIEW', 'Preview'),
-        RUN: Utils.g('LOCALE_RUN', 'Run'),
-        COLLAPSE: Utils.g('LOCALE_COLLAPSE', 'Collapse'),
-        EXPAND: Utils.g('LOCALE_EXPAND', 'Expand'),
-        COPY: Utils.g('LOCALE_COPY', 'Copy'),
-        COPIED: Utils.g('LOCALE_COPIED', 'Copied')
-      };
+        // Localized UI strings.
+        this.LOCALE = {
+          PREVIEW: Utils.g('LOCALE_PREVIEW', 'Preview'),
+          RUN: Utils.g('LOCALE_RUN', 'Run'),
+          COLLAPSE: Utils.g('LOCALE_COLLAPSE', 'Collapse'),
+          EXPAND: Utils.g('LOCALE_EXPAND', 'Expand'),
+          COPY: Utils.g('LOCALE_COPY', 'Copy'),
+          COPIED: Utils.g('LOCALE_COPIED', 'Copied')
+        };
 
-      // Code block styling theme (hljs theme key or custom).
-      this.CODE_STYLE = Utils.g('CODE_SYNTAX_STYLE', 'default');
+        // Code block styling theme (hljs theme key or custom).
+        this.CODE_STYLE = Utils.g('CODE_SYNTAX_STYLE', 'default');
 
-      // Adaptive snapshot profile for plain text.
-      this.PROFILE_TEXT = {
-        base: Utils.g('PROFILE_TEXT_BASE', 4),                 // Base step (chars) between snapshots
-        growth: Utils.g('PROFILE_TEXT_GROWTH', 1.28),          // Growth factor for adaptive
-        minInterval: Utils.g('PROFILE_TEXT_MIN_INTERVAL', 4),  // Minimum time between snapshots (ms)
-        softLatency: Utils.g('PROFILE_TEXT_SOFT_LATENCY', 60), // If idle for this long, force a snapshot
-        adaptiveStep: Utils.g('PROFILE_TEXT_ADAPTIVE_STEP', false)
-      };
+        // Adaptive snapshot profile for plain text.
+        this.PROFILE_TEXT = {
+          base: Utils.g('PROFILE_TEXT_BASE', 4),
+          growth: Utils.g('PROFILE_TEXT_GROWTH', 1.28),
+          minInterval: Utils.g('PROFILE_TEXT_MIN_INTERVAL', 4),
+          softLatency: Utils.g('PROFILE_TEXT_SOFT_LATENCY', 60),
+          adaptiveStep: Utils.g('PROFILE_TEXT_ADAPTIVE_STEP', false)
+        };
 
-      // Adaptive snapshot profile for code (line-aware).
-      this.PROFILE_CODE = {
-        base: 2048,                 // Fewer snapshots during fence-open warm-up (reduce transient fragments)
-        growth: 2.6,                // Ramp step quickly if adaptive is enabled
-        minInterval: 500,           // Minimum time between snapshots (ms) to avoid churn
-        softLatency: 1200,          // Force snapshot only after a noticeable idle (ms)
-        minLinesForHL: Utils.g('PROFILE_CODE_HL_N_LINE', 25),
-        minCharsForHL: Utils.g('PROFILE_CODE_HL_N_CHARS', 5000),
-        promoteMinInterval: 300, promoteMaxLatency: 800, promoteMinLines: Utils.g('PROFILE_CODE_HL_N_LINE', 25),
-        adaptiveStep: Utils.g('PROFILE_CODE_ADAPTIVE_STEP', true),
-        // Hard switches to plain streaming (no incremental hljs, minimal DOM churn)
-        stopAfterLines: Utils.g('PROFILE_CODE_STOP_HL_AFTER_LINES', 300),   // Stop incremental hljs after this many lines
-        streamPlainAfterLines: 0,   // Belt-and-suspenders: enforce plain mode soon after
-        streamPlainAfterChars: 0,   // Also guard huge single-line code (chars cap)
-        maxFrozenChars: 32000,      // If promotions slipped through, cap before spans grow too large
-        finalHighlightMaxLines: Utils.g('PROFILE_CODE_FINAL_HL_MAX_LINES', 1500),
-        finalHighlightMaxChars: Utils.g('PROFILE_CODE_FINAL_HL_MAX_CHARS', 350000)
-      };
+        // Adaptive snapshot profile for code (line-aware).
+        this.PROFILE_CODE = {
+          base: 2048,
+          growth: 2.6,
+          minInterval: 500,
+          softLatency: 1200,
+          minLinesForHL: Utils.g('PROFILE_CODE_HL_N_LINE', 25),
+          minCharsForHL: Utils.g('PROFILE_CODE_HL_N_CHARS', 5000),
+          promoteMinInterval: 300, promoteMaxLatency: 800, promoteMinLines: Utils.g('PROFILE_CODE_HL_N_LINE', 25),
+          adaptiveStep: Utils.g('PROFILE_CODE_ADAPTIVE_STEP', true),
+          stopAfterLines: Utils.g('PROFILE_CODE_STOP_HL_AFTER_LINES', 300),
+          streamPlainAfterLines: 0,
+          streamPlainAfterChars: 0,
+          maxFrozenChars: 32000,
+          finalHighlightMaxLines: Utils.g('PROFILE_CODE_FINAL_HL_MAX_LINES', 1500),
+          finalHighlightMaxChars: Utils.g('PROFILE_CODE_FINAL_HL_MAX_CHARS', 350000)
+        };
 
-      // Debounce for heavy resets (ms).
-      this.RESET = {
-        HEAVY_DEBOUNCE_MS: Utils.g('RESET_HEAVY_DEBOUNCE_MS', 24)
-      };
+        // Debounce for heavy resets (ms).
+        this.RESET = {
+          HEAVY_DEBOUNCE_MS: Utils.g('RESET_HEAVY_DEBOUNCE_MS', 24)
+        };
 
-      // Logging caps (used by Logger).
-      this.LOG = {
-        MAX_QUEUE: Utils.g('LOG_MAX_QUEUE', 400),
-        MAX_BYTES: Utils.g('LOG_MAX_BYTES', 256 * 1024),
-        BATCH_MAX: Utils.g('LOG_BATCH_MAX', 64),
-        RATE_LIMIT_PER_SEC: Utils.g('LOG_RATE_LIMIT_PER_SEC', 0)
-      };
+        // Logging caps (used by Logger).
+        this.LOG = {
+          MAX_QUEUE: Utils.g('LOG_MAX_QUEUE', 400),
+          MAX_BYTES: Utils.g('LOG_MAX_BYTES', 256 * 1024),
+          BATCH_MAX: Utils.g('LOG_BATCH_MAX', 64),
+          RATE_LIMIT_PER_SEC: Utils.g('LOG_RATE_LIMIT_PER_SEC', 0)
+        };
 
-      // Async tuning for background work.
-      this.ASYNC = {
-        SLICE_MS: Utils.g('ASYNC_SLICE_MS', 12),
-        MIN_YIELD_MS: Utils.g('ASYNC_MIN_YIELD_MS', 0),
-        MD_NODES_PER_SLICE: Utils.g('ASYNC_MD_NODES_PER_SLICE', 12)
-      };
+        // Async tuning for background work.
+        this.ASYNC = {
+          SLICE_MS: Utils.g('ASYNC_SLICE_MS', 12),
+          MIN_YIELD_MS: Utils.g('ASYNC_MIN_YIELD_MS', 0),
+          MD_NODES_PER_SLICE: Utils.g('ASYNC_MD_NODES_PER_SLICE', 12)
+        };
 
-      // RAF pump tuning (budget per frame).
-      this.RAF = {
-        FLUSH_BUDGET_MS: Utils.g('RAF_FLUSH_BUDGET_MS', 7),
-        MAX_TASKS_PER_FLUSH: Utils.g('RAF_MAX_TASKS_PER_FLUSH', 120)
-      };
+        // RAF pump tuning (budget per frame).
+        this.RAF = {
+          FLUSH_BUDGET_MS: Utils.g('RAF_FLUSH_BUDGET_MS', 7),
+          MAX_TASKS_PER_FLUSH: Utils.g('RAF_MAX_TASKS_PER_FLUSH', 120)
+        };
 
-      // Markdown tuning – allow/disallow indented code blocks.
-      this.MD = {
-        ALLOW_INDENTED_CODE: Utils.g('MD_ALLOW_INDENTED_CODE', false)
-      };
+        // Markdown tuning – allow/disallow indented code blocks.
+        this.MD = {
+          ALLOW_INDENTED_CODE: Utils.g('MD_ALLOW_INDENTED_CODE', false)
+        };
 
-      // Custom markup rules for simple tags in text.
-      this.CUSTOM_MARKUP_RULES = Utils.g('CUSTOM_MARKUP_RULES', [
+        // Custom markup rules for simple tags in text.
+        // NOTE: added nl2br + allowBr for think rules; rest unchanged.
+        this.CUSTOM_MARKUP_RULES = Utils.g('CUSTOM_MARKUP_RULES', [
           { name: 'cmd',        open: '[!cmd]',     close: '[/!cmd]',     tag: 'div',   className: 'cmd', innerMode: 'text' },
-          { name: 'think_md',   open: '[!think]',   close: '[/!think]',   tag: 'think', className: '',    innerMode: 'text' },
-          { name: 'think_html', open: '<think>',    close: '</think>',    tag: 'think', className: '',    innerMode: 'text', stream: true },
+
+          // Think (Markdown-style) – convert newlines to <br>, allow real <br> tokens; safe-escape everything else.
+          { name: 'think_md',   open: '[!think]',   close: '[/!think]',   tag: 'think', className: '',    innerMode: 'text', nl2br: true, allowBr: true },
+
+          // Think (HTML-style, streaming-friendly)
+          { name: 'think_html', open: '<think>',    close: '</think>',    tag: 'think', className: '',    innerMode: 'text', stream: true, nl2br: true, allowBr: true },
+
           { name: 'tool', open: '<tool>',    close: '</tool>',    tag: 'div', className: 'cmd',    innerMode: 'text', stream: true },
 
           // Streams+final: convert [!exec]... into fenced python code BEFORE markdown-it
@@ -612,8 +616,8 @@
           { name: 'exec_html',  open: '<execute>',  close: '</execute>',  innerMode: 'text', stream: true,
             openReplace: '```python\n', closeReplace: '\n```', phase: 'source' }
         ]);
+      }
     }
-  }
 
   // ==========================================================================
   // 1) DOM references
@@ -1206,643 +1210,793 @@
       this.hlQueueSet.clear(); this.hlQueue.length = 0;
     }
   }
-
-     // ==========================================================================
-     // 4) Custom Markup Processor
-     // ==========================================================================
-
-     class CustomMarkup {
-       constructor(cfg, logger) {
-         this.cfg = cfg || { CUSTOM_MARKUP_RULES: [] };
-         this.logger = logger || new Logger(cfg);
-         this.__compiled = null;
-         this.__hasStreamRules = false; // Fast flag to skip stream work if not needed
-       }
-       _d(line, ctx) { try { this.logger.debug('CM', line, ctx); } catch (_) {} }
-
-       // Decode HTML entities once (safe)
-       // This addresses cases when linkify/full markdown path leaves literal "&quot;" etc. in text nodes.
-       // We decode only for rules that explicitly opt-in (see compile()) to avoid changing semantics globally.
-       decodeEntitiesOnce(s) {
-         if (!s || s.indexOf('&') === -1) return String(s || '');
-         const ta = CustomMarkup._decTA || (CustomMarkup._decTA = document.createElement('textarea'));
-         ta.innerHTML = s;
-         return ta.value;
-       }
-
-       // Small helper: escape text to safe HTML (shared Utils or fallback)
-       _escHtml(s) {
-         try { return Utils.escapeHtml(s); } catch (_) {
-           return String(s || '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
-         }
-       }
-
-       // quick check if any rule's open token is present in text (used to skip expensive work early)
-       hasAnyOpenToken(text, rules) {
-         if (!text || !rules || !rules.length) return false;
-         for (let i = 0; i < rules.length; i++) {
-           const r = rules[i];
-           if (!r || !r.open) continue;
-           if (text.indexOf(r.open) !== -1) return true;
-         }
-         return false;
-       }
-
-       // Build inner HTML from text according to rule's mode (markdown-inline | text) with optional entity decode.
-       _materializeInnerHTML(rule, text, MD) {
-         let payload = String(text || '');
-         if (rule && rule.decodeEntities && payload && payload.indexOf('&') !== -1) {
-           try { payload = this.decodeEntitiesOnce(payload); } catch (_) { /* keep original */ }
-         }
-         if (rule && rule.innerMode === 'markdown-inline' && MD && typeof MD.renderInline === 'function') {
-           try { return MD.renderInline(payload); } catch (_) { return this._escHtml(payload); }
-         }
-         return this._escHtml(payload);
-       }
-
-       // Make a DOM Fragment from HTML string (robust across contexts).
-       _fragmentFromHTML(html, ctxNode) {
-         let frag = null;
-         try {
-           const range = document.createRange();
-           const ctx = (ctxNode && ctxNode.parentNode) ? ctxNode.parentNode : (document.body || document.documentElement);
-           range.selectNode(ctx);
-           frag = range.createContextualFragment(String(html || ''));
-           return frag;
-         } catch (_) {
-           const tmp = document.createElement('div');
-           tmp.innerHTML = String(html || '');
-           frag = document.createDocumentFragment();
-           while (tmp.firstChild) frag.appendChild(tmp.firstChild);
-           return frag;
-         }
-       }
-
-       // Replace one element in DOM with HTML string (keeps siblings intact).
-       _replaceElementWithHTML(el, html) {
-         if (!el || !el.parentNode) return;
-         const parent = el.parentNode;
-         const frag = this._fragmentFromHTML(html, el);
-         try {
-           // Insert new nodes before the old element, then remove the old element (widely supported).
-           parent.insertBefore(frag, el);
-           parent.removeChild(el);
-         } catch (_) {
-           // Conservative fallback: wrap in a span if direct fragment insertion failed for some reason.
-           const tmp = document.createElement('span');
-           tmp.innerHTML = String(html || '');
-           while (tmp.firstChild) parent.insertBefore(tmp.firstChild, el);
-           parent.removeChild(el);
-         }
-       }
-
-       // Compile rules once; also precompile strict and whitespace-tolerant "full match" regexes.
-       compile(rules) {
-         const src = Array.isArray(rules) ? rules : (window.CUSTOM_MARKUP_RULES || this.cfg.CUSTOM_MARKUP_RULES || []);
-         const compiled = [];
-         let hasStream = false;
-
-         for (const r of src) {
-           if (!r || typeof r.open !== 'string' || typeof r.close !== 'string') continue;
-
-           const tag = (r.tag || 'span').toLowerCase();
-           const className = (r.className || r.class || '').trim();
-           const innerMode = (r.innerMode === 'markdown-inline' || r.innerMode === 'text') ? r.innerMode : 'text';
-
-           const stream = !!(r.stream === true);
-           const openReplace = String((r.openReplace != null ? r.openReplace : (r.openReplace || '')) || '');
-           const closeReplace = String((r.closeReplace != null ? r.closeReplace : (r.closeReplace || '')) || '');
-
-           // Back-compat: decode entities default true for cmd-like
-           const decodeEntities = (typeof r.decodeEntities === 'boolean')
-             ? r.decodeEntities
-             : ((r.name || '').toLowerCase() === 'cmd' || className === 'cmd');
-
-           // Optional application phase (where replacement should happen)
-           // - 'source' => before markdown-it
-           // - 'html'   => after markdown-it (DOM fragment)
-           // - 'both'
-           let phaseRaw = (typeof r.phase === 'string') ? r.phase.toLowerCase() : '';
-           if (phaseRaw !== 'source' && phaseRaw !== 'html' && phaseRaw !== 'both') phaseRaw = '';
-           // Heuristic: if replacement contains fenced code backticks, default to 'source'
-           const looksLikeFence = (openReplace.indexOf('```') !== -1) || (closeReplace.indexOf('```') !== -1);
-           const phase = phaseRaw || (looksLikeFence ? 'source' : 'html');
-
-           const re = new RegExp(Utils.reEscape(r.open) + '([\\s\\S]*?)' + Utils.reEscape(r.close), 'g');
-           const reFull = new RegExp('^' + Utils.reEscape(r.open) + '([\\s\\S]*?)' + Utils.reEscape(r.close) + '$');
-           const reFullTrim = new RegExp('^\\s*' + Utils.reEscape(r.open) + '([\\s\\S]*?)' + Utils.reEscape(r.close) + '\\s*$');
-
-           const item = {
-             name: r.name || tag,
-             tag, className, innerMode,
-             open: r.open, close: r.close,
-             decodeEntities,
-             re, reFull, reFullTrim,
-             stream,
-             openReplace, closeReplace,
-             phase,                 // NEW: where this rule should be applied
-             isSourceFence: looksLikeFence // NEW: hints StreamEngine to treat as custom fence
-           };
-           compiled.push(item);
-           if (stream) hasStream = true;
-           this._d('COMPILE_RULE', { name: item.name, phase: item.phase, stream: item.stream });
-         }
-
-         if (compiled.length === 0) {
-           const open = '[!cmd]', close = '[/!cmd]';
-           const item = {
-             name: 'cmd', tag: 'p', className: 'cmd', innerMode: 'text', open, close,
-             decodeEntities: true,
-             re: new RegExp(Utils.reEscape(open) + '([\\s\\S]*?)' + Utils.reEscape(close), 'g'),
-             reFull: new RegExp('^' + Utils.reEscape(open) + '([\\s\\S]*?)' + Utils.reEscape(close) + '$'),
-             reFullTrim: new RegExp('^\\s*' + Utils.reEscape(open) + '([\\s\\S]*?)' + Utils.reEscape(close) + '\\s*$'),
-             stream: false,
-             openReplace: '', closeReplace: '',
-             phase: 'html', isSourceFence: false
-           };
-           compiled.push(item);
-           this._d('COMPILE_RULE_FALLBACK', { name: item.name });
-         }
-
-         this.__hasStreamRules = hasStream;
-         return compiled;
-       }
-
-       // pre-markdown source transformer – applies only rules for 'source'/'both' with replacements
-       // IMPORTANT CHANGE:
-       // - Skips replacements inside fenced code blocks (``` / ~~~).
-       // - Applies only when the rule opener is at top-level of the line (no list markers/blockquote).
-       transformSource(src, opts) {
-         let s = String(src || '');
-         this.ensureCompiled();
-         const rules = this.__compiled;
-         if (!rules || !rules.length) return s;
-
-         // Pick only source-phase rules with explicit replacements
-         const candidates = [];
-         for (let i = 0; i < rules.length; i++) {
-           const r = rules[i];
-           if (!r) continue;
-           if ((r.phase === 'source' || r.phase === 'both') && (r.openReplace || r.closeReplace)) candidates.push(r);
-         }
-         if (!candidates.length) return s;
-
-         // Compute fenced-code ranges once to exclude them from replacements (production-safe).
-         const fences = this._findFenceRanges(s);
-         if (!fences.length) {
-           // No code fences in source; apply top-level guarded replacements globally.
-           return this._applySourceReplacementsInChunk(s, s, 0, candidates);
-         }
-
-         // Apply replacements only in segments outside fenced code.
-         let out = '';
-         let last = 0;
-         for (let k = 0; k < fences.length; k++) {
-           const [a, b] = fences[k];
-           if (a > last) {
-             const chunk = s.slice(last, a);
-             out += this._applySourceReplacementsInChunk(s, chunk, last, candidates);
-           }
-           out += s.slice(a, b); // pass fenced code verbatim
-           last = b;
-         }
-         if (last < s.length) {
-           const tail = s.slice(last);
-           out += this._applySourceReplacementsInChunk(s, tail, last, candidates);
-         }
-         return out;
-       }
-
-       // expose custom fence specs (to StreamEngine)
-       getSourceFenceSpecs() {
-         this.ensureCompiled();
-         const rules = this.__compiled || [];
-         const out = [];
-         for (let i = 0; i < rules.length; i++) {
-           const r = rules[i];
-           if (!r || !r.isSourceFence) continue;
-           // Only expose when they actually look like fences in source phase
-           if (r.phase !== 'source' && r.phase !== 'both') continue;
-           out.push({ open: r.open, close: r.close });
-         }
-         return out;
-       }
-
-       // Ensure rules are compiled and cached.
-       ensureCompiled() {
-         if (!this.__compiled) {
-           this.__compiled = this.compile(window.CUSTOM_MARKUP_RULES || this.cfg.CUSTOM_MARKUP_RULES);
-           this._d('ENSURE_COMPILED', { count: this.__compiled.length, hasStream: this.__hasStreamRules });
-         }
-         return this.__compiled;
-       }
-
-       // Replace rules set (also exposes rules on window).
-       setRules(rules) {
-         this.__compiled = this.compile(rules);
-         window.CUSTOM_MARKUP_RULES = Array.isArray(rules) ? rules.slice() : (this.cfg.CUSTOM_MARKUP_RULES || []).slice();
-         this._d('SET_RULES', { count: this.__compiled.length, hasStream: this.__hasStreamRules });
-       }
-
-       // Return current rules as array.
-       getRules() {
-         const list = (window.CUSTOM_MARKUP_RULES ? window.CUSTOM_MARKUP_RULES.slice()
-                                                  : (this.cfg.CUSTOM_MARKUP_RULES || []).slice());
-         this._d('GET_RULES', { count: list.length });
-         return list;
-       }
-
-       // Fast switch: do we have any rules that want streaming parsing?
-       hasStreamRules() {
-         this.ensureCompiled();
-         return !!this.__hasStreamRules;
-       }
-
-       // Context guards
-       isInsideForbiddenContext(node) {
-         const p = node.parentElement; if (!p) return true;
-         // IMPORTANT: exclude code/math/hljs/wrappers AND list contexts (ul/ol/li/dl/dt/dd)
-         return !!p.closest('pre, code, kbd, samp, var, script, style, textarea, .math-pending, .hljs, .code-wrapper, ul, ol, li, dl, dt, dd');
-       }
-       isInsideForbiddenElement(el) {
-         if (!el) return true;
-         // IMPORTANT: exclude code/math/hljs/wrappers AND list contexts (ul/ol/li/dl/dt/dd)
-         return !!el.closest('pre, code, kbd, samp, var, script, style, textarea, .math-pending, .hljs, .code-wrapper, ul, ol, li, dl, dt, dd');
-       }
-
-       // Global finder on a single text blob (original per-text-node logic).
-       findNextMatch(text, from, rules) {
-         let best = null;
-         for (const rule of rules) {
-           rule.re.lastIndex = from;
-           const m = rule.re.exec(text);
-           if (m) {
-             const start = m.index, end = rule.re.lastIndex;
-             if (!best || start < best.start) best = { rule, start, end, inner: m[1] || '' };
-           }
-         }
-         return best;
-       }
-
-       // Strict full match of a pure text node (legacy path).
-       findFullMatch(text, rules) {
-         for (const rule of rules) {
-           if (rule.reFull) {
-             const m = rule.reFull.exec(text);
-             if (m) return { rule, inner: m[1] || '' };
-           } else {
-             rule.re.lastIndex = 0;
-             const m = rule.re.exec(text);
-             if (m && m.index === 0 && (rule.re.lastIndex === text.length)) {
-               const m2 = rule.re.exec(text);
-               if (!m2) return { rule, inner: m[1] || '' };
-             }
-           }
-         }
-         return null;
-       }
-
-       // Set inner content according to the rule's mode, with optional entity decode (element mode).
-       setInnerByMode(el, mode, text, MD, decodeEntities = false) {
-         let payload = String(text || '');
-         if (decodeEntities && payload && payload.indexOf('&') !== -1) {
-           try { payload = this.decodeEntitiesOnce(payload); } catch (_) {}
-         }
-
-         if (mode === 'markdown-inline' && typeof window.markdownit !== 'undefined') {
-           try {
-             if (MD && typeof MD.renderInline === 'function') { el.innerHTML = MD.renderInline(payload); return; }
-             const tempMD = window.markdownit({ html: false, linkify: true, breaks: true, highlight: () => '' });
-             el.innerHTML = tempMD.renderInline(payload); return;
-           } catch (_) {}
-         }
-         el.textContent = payload;
-       }
-
-       // Try to replace an entire <p> that is a full custom markup match.
-       _tryReplaceFullParagraph(el, rules, MD) {
-         if (!el || el.tagName !== 'P') return false;
-         if (this.isInsideForbiddenElement(el)) {
-           this._d('P_SKIP_FORBIDDEN', { tag: el.tagName });
-           return false;
-         }
-         const t = el.textContent || '';
-         if (!this.hasAnyOpenToken(t, rules)) return false;
-
-         for (const rule of rules) {
-           if (!rule) continue;
-           const m = rule.reFullTrim ? rule.reFullTrim.exec(t) : null;
-           if (!m) continue;
-
-           const innerText = m[1] || '';
-
-           if (rule.phase !== 'html' && rule.phase !== 'both') continue; // element materialization is html-phase only
-
-           if (rule.openReplace || rule.closeReplace) {
-             const innerHTML = this._materializeInnerHTML(rule, innerText, MD);
-             const html = String(rule.openReplace || '') + innerHTML + String(rule.closeReplace || '');
-             this._replaceElementWithHTML(el, html);
-             this._d('P_REPLACED_AS_HTML', { rule: rule.name });
-             return true;
-           }
-
-           const outTag = (rule.tag && typeof rule.tag === 'string') ? rule.tag.toLowerCase() : 'span';
-           const out = document.createElement(outTag === 'p' ? 'p' : outTag);
-           if (rule.className) out.className = rule.className;
-           out.setAttribute('data-cm', rule.name);
-           this.setInnerByMode(out, rule.innerMode, innerText, MD, !!rule.decodeEntities);
-
-           try { el.replaceWith(out); } catch (_) {
-             const par = el.parentNode; if (par) par.replaceChild(out, el);
-           }
-           this._d('P_REPLACED', { rule: rule.name, asTag: outTag });
-           return true;
-         }
-         this._d('P_NO_FULL_MATCH', { preview: this.logger.pv(t, 160) });
-         return false;
-       }
-
-       // Core implementation shared by static and streaming passes.
-       applyRules(root, MD, rules) {
-         if (!root || !rules || !rules.length) return;
-
-         const scope = (root.nodeType === 1 || root.nodeType === 11) ? root : document;
-
-         // Phase 1: tolerant <p> replacements
-         try {
-           const paragraphs = (typeof scope.querySelectorAll === 'function') ? scope.querySelectorAll('p') : [];
-           this._d('P_TOLERANT_SCAN_START', { count: paragraphs.length });
-
-           if (paragraphs && paragraphs.length) {
-             for (let i = 0; i < paragraphs.length; i++) {
-               const p = paragraphs[i];
-               if (p && p.getAttribute && p.getAttribute('data-cm')) continue;
-               const tc = p && (p.textContent || '');
-               if (!tc || !this.hasAnyOpenToken(tc, rules)) continue;
-               // Skip paragraphs inside forbidden contexts (includes lists now)
-               if (this.isInsideForbiddenElement(p)) continue;
-               this._tryReplaceFullParagraph(p, rules, MD);
-             }
-           }
-         } catch (e) {
-           this._d('P_TOLERANT_SCAN_ERR', String(e));
-         }
-
-         // Phase 2: legacy per-text-node pass for partial inline cases.
-         const self = this;
-         const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
-           acceptNode: (node) => {
-             const val = node && node.nodeValue ? node.nodeValue : '';
-             if (!val || !self.hasAnyOpenToken(val, rules)) return NodeFilter.FILTER_SKIP;
-             if (self.isInsideForbiddenContext(node)) return NodeFilter.FILTER_REJECT;
-             return NodeFilter.FILTER_ACCEPT;
-           }
-         });
-
-         let node;
-         while ((node = walker.nextNode())) {
-           const text = node.nodeValue;
-           if (!text || !this.hasAnyOpenToken(text, rules)) continue; // quick skip
-           const parent = node.parentElement;
-
-           // Entire text node equals one full match and parent is <p>.
-           if (parent && parent.tagName === 'P' && parent.childNodes.length === 1) {
-             const fm = this.findFullMatch(text, rules);
-             if (fm) {
-               // If explicit HTML replacements are provided, swap <p> for exact HTML (only for html/both phase).
-               if ((fm.rule.phase === 'html' || fm.rule.phase === 'both') && (fm.rule.openReplace || fm.rule.closeReplace)) {
-                 const innerHTML = this._materializeInnerHTML(fm.rule, fm.inner, MD);
-                 const html = String(fm.rule.openReplace || '') + innerHTML + String(fm.rule.closeReplace || '');
-                 this._replaceElementWithHTML(parent, html);
-                 this._d('WALKER_FULL_REPLACE_HTML', { rule: fm.rule.name, preview: this.logger.pv(text, 160) });
-                 continue;
-               }
-
-               // Backward-compatible: only replace as <p> when rule tag is 'p'
-               if (fm.rule.tag === 'p') {
-                 const out = document.createElement('p');
-                 if (fm.rule.className) out.className = fm.rule.className;
-                 out.setAttribute('data-cm', fm.rule.name);
-                 this.setInnerByMode(out, fm.rule.innerMode, fm.inner, MD, !!fm.rule.decodeEntities);
-                 try { parent.replaceWith(out); } catch (_) {
-                   const par = parent.parentNode; if (par) par.replaceChild(out, parent);
-                 }
-                 this._d('WALKER_FULL_REPLACE', { rule: fm.rule.name, preview: this.logger.pv(text, 160) });
-                 continue;
-               }
-             }
-           }
-
-           // General inline replacement inside the text node (span-like or HTML-replace).
-           let i = 0;
-           let didReplace = false;
-           const frag = document.createDocumentFragment();
-
-           while (i < text.length) {
-             const m = this.findNextMatch(text, i, rules);
-             if (!m) break;
-
-             if (m.start > i) {
-               frag.appendChild(document.createTextNode(text.slice(i, m.start)));
-             }
-
-             // If HTML replacements are provided, build exact HTML around processed inner – only for html/both phase.
-             if ((m.rule.openReplace || m.rule.closeReplace) && (m.rule.phase === 'html' || m.rule.phase === 'both')) {
-               const innerHTML = this._materializeInnerHTML(m.rule, m.inner, MD);
-               const html = String(m.rule.openReplace || '') + innerHTML + String(m.rule.closeReplace || '');
-               const part = this._fragmentFromHTML(html, node);
-               frag.appendChild(part);
-               this._d('WALKER_INLINE_MATCH_HTML', { rule: m.rule.name, start: m.start, end: m.end });
-               i = m.end; didReplace = true; continue;
-             }
-
-             // If rule is not html-phase, do NOT inject open/close replacements here (source-only rules are handled pre-md).
-             if (m.rule.openReplace || m.rule.closeReplace) {
-               // Source-only replacement met in DOM pass – keep original text verbatim for this match.
-               frag.appendChild(document.createTextNode(text.slice(m.start, m.end)));
-               this._d('WALKER_INLINE_SKIP_SOURCE_PHASE_HTML', { rule: m.rule.name, start: m.start, end: m.end });
-               i = m.end; didReplace = true; continue;
-             }
-
-             // Element-based inline replacement (original behavior).
-             const tag = (m.rule.tag === 'p') ? 'span' : m.rule.tag;
-             const el = document.createElement(tag);
-             if (m.rule.className) el.className = m.rule.className;
-             el.setAttribute('data-cm', m.rule.name);
-             this.setInnerByMode(el, m.rule.innerMode, m.inner, MD, !!m.rule.decodeEntities);
-             frag.appendChild(el);
-             this._d('WALKER_INLINE_MATCH', { rule: m.rule.name, start: m.start, end: m.end });
-
-             i = m.end;
-             didReplace = true;
-           }
-
-           if (!didReplace) continue;
-
-           if (i < text.length) {
-             frag.appendChild(document.createTextNode(text.slice(i)));
-           }
-
-           const parentNode = node.parentNode;
-           if (parentNode) {
-             parentNode.replaceChild(frag, node);
-             this._d('WALKER_INLINE_DONE', { preview: this.logger.pv(text, 120) });
-           }
-         }
-       }
-
-       // Public API: apply custom markup for full (static) paths – unchanged behavior.
-       apply(root, MD) {
-         this.ensureCompiled();
-         this.applyRules(root, MD, this.__compiled);
-       }
-
-       // Public API: apply only stream-enabled rules (used in snapshots).
-       applyStream(root, MD) {
-         this.ensureCompiled();
-         if (!this.__hasStreamRules) return;
-         const rules = this.__compiled.filter(r => !!r.stream);
-         if (!rules.length) return;
-         this.applyRules(root, MD, rules);
-       }
-
-       // -----------------------------
-       // INTERNAL HELPERS (NEW)
-       // -----------------------------
-
-       // Scan source and return ranges [start, end) of fenced code blocks (``` or ~~~).
-       // Matches Markdown fences at line-start with up to 3 spaces/tabs indentation.
-       _findFenceRanges(s) {
-         const ranges = [];
-         const n = s.length;
-         let i = 0;
-         let inFence = false;
-         let fenceMark = '';
-         let fenceLen = 0;
-         let startLineStart = 0;
-
-         while (i < n) {
-           const lineStart = i;
-           // Find line end and newline length
-           let j = lineStart;
-           while (j < n && s.charCodeAt(j) !== 10 && s.charCodeAt(j) !== 13) j++;
-           const lineEnd = j;
-           let nl = 0;
-           if (j < n) {
-             if (s.charCodeAt(j) === 13 && j + 1 < n && s.charCodeAt(j + 1) === 10) nl = 2;
-             else nl = 1;
-           }
-
-           // Compute indentation up to 3 "spaces" (tabs count as 1 here – safe heuristic)
-           let k = lineStart;
-           let indent = 0;
-           while (k < lineEnd) {
-             const c = s.charCodeAt(k);
-             if (c === 32 /* space */) { indent++; if (indent > 3) break; k++; }
-             else if (c === 9 /* tab */) { indent++; if (indent > 3) break; k++; }
-             else break;
-           }
-
-           if (!inFence) {
-             if (indent <= 3 && k < lineEnd) {
-               const ch = s.charCodeAt(k);
-               if (ch === 0x60 /* ` */ || ch === 0x7E /* ~ */) {
-                 const mark = String.fromCharCode(ch);
-                 let m = k;
-                 while (m < lineEnd && s.charCodeAt(m) === ch) m++;
-                 const run = m - k;
-                 if (run >= 3) {
-                   inFence = true;
-                   fenceMark = mark;
-                   fenceLen = run;
-                   startLineStart = lineStart;
-                 }
-               }
-             }
-           } else {
-             if (indent <= 3 && k < lineEnd && s.charCodeAt(k) === fenceMark.charCodeAt(0)) {
-               let m = k;
-               while (m < lineEnd && s.charCodeAt(m) === fenceMark.charCodeAt(0)) m++;
-               const run = m - k;
-               if (run >= fenceLen) {
-                 // Only whitespace is allowed after closing fence on the same line
-                 let onlyWS = true;
-                 for (let t = m; t < lineEnd; t++) {
-                   const cc = s.charCodeAt(t);
-                   if (cc !== 32 && cc !== 9) { onlyWS = false; break; }
-                 }
-                 if (onlyWS) {
-                   const endIdx = lineEnd + nl; // include trailing newline if present
-                   ranges.push([startLineStart, endIdx]);
-                   inFence = false; fenceMark = ''; fenceLen = 0; startLineStart = 0;
-                 }
-               }
-             }
-           }
-           i = lineEnd + nl;
-         }
-
-         // If EOF while still in fence, mark until end of string.
-         if (inFence) ranges.push([startLineStart, n]);
-         return ranges;
-       }
-
-       // Check if match starts at "top-level" of a line:
-       // - up to 3 leading spaces/tabs allowed
-       // - not a list item marker ("- ", "+ ", "* ", "1. ", "1) ") and not a blockquote ("> ")
-       // - nothing else precedes the token on the same line
-       _isTopLevelLineInSource(s, absIdx) {
-         let ls = absIdx;
-         while (ls > 0) {
-           const ch = s.charCodeAt(ls - 1);
-           if (ch === 10 /* \n */ || ch === 13 /* \r */) break;
-           ls--;
-         }
-         const prefix = s.slice(ls, absIdx);
-
-         // Strip up to 3 leading "spaces" (tabs treated as 1 – acceptable heuristic)
-         let i = 0, indent = 0;
-         while (i < prefix.length) {
-           const c = prefix.charCodeAt(i);
-           if (c === 32) { indent++; if (indent > 3) break; i++; }
-           else if (c === 9) { indent++; if (indent > 3) break; i++; }
-           else break;
-         }
-         if (indent > 3) return false;
-         const rest = prefix.slice(i);
-
-         // Reject lists/blockquote
-         if (/^>\s?/.test(rest)) return false;
-         if (/^[-+*]\s/.test(rest)) return false;
-         if (/^\d+[.)]\s/.test(rest)) return false;
-
-         // If any other non-whitespace text precedes the token on this line – not top-level
-         if (rest.trim().length > 0) return false;
-
-         return true;
-       }
-
-       // Apply source-phase replacements to one outside-of-fence chunk with top-level guard.
-       _applySourceReplacementsInChunk(full, chunk, baseOffset, rules) {
-         let t = chunk;
-         for (let i = 0; i < rules.length; i++) {
-           const r = rules[i];
-           if (!r || !(r.openReplace || r.closeReplace)) continue;
-           try {
-             r.re.lastIndex = 0;
-             t = t.replace(r.re, (match, inner, offset /*, ...rest*/) => {
-               const abs = baseOffset + (offset | 0);
-               // Only apply when opener is at top-level on that line (not in lists/blockquote)
-               if (!this._isTopLevelLineInSource(full, abs)) return match;
-               const open = r.openReplace || '';
-               const close = r.closeReplace || '';
-               return open + (inner || '') + close;
-             });
-           } catch (_) { /* keep chunk as is on any error */ }
-         }
-         return t;
-       }
-     }
+    // ==========================================================================
+    // 4) Custom Markup Processor
+    // ==========================================================================
+
+    class CustomMarkup {
+      constructor(cfg, logger) {
+        this.cfg = cfg || { CUSTOM_MARKUP_RULES: [] };
+        this.logger = logger || new Logger(cfg);
+        this.__compiled = null;
+        this.__hasStreamRules = false; // Fast flag to skip stream work if not needed
+      }
+      _d(line, ctx) { try { this.logger.debug('CM', line, ctx); } catch (_) {} }
+
+      // Decode HTML entities once (safe)
+      decodeEntitiesOnce(s) {
+        if (!s || s.indexOf('&') === -1) return String(s || '');
+        const ta = CustomMarkup._decTA || (CustomMarkup._decTA = document.createElement('textarea'));
+        ta.innerHTML = s;
+        return ta.value;
+      }
+
+      // Escape helpers
+      _escHtml(s) {
+        try { return Utils.escapeHtml(s); } catch (_) {
+          return String(s || '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+        }
+      }
+      _escapeHtmlAllowBr(text, { convertNewlines = true } = {}) {
+        const PLACEHOLDER = '\u0001__BR__\u0001';
+        let s = String(text || '');
+        s = s.replace(/<br\s*\/?>/gi, PLACEHOLDER);
+        s = this._escHtml(s);
+        if (convertNewlines) s = s.replace(/\r\n|\r|\n/g, '<br>');
+        s = s.replace(new RegExp(PLACEHOLDER, 'g'), '<br>');
+        return s;
+      }
+
+      hasAnyOpenToken(text, rules) {
+        if (!text || !rules || !rules.length) return false;
+        for (let i = 0; i < rules.length; i++) {
+          const r = rules[i];
+          if (!r || !r.open) continue;
+          if (text.indexOf(r.open) !== -1) return true;
+        }
+        return false;
+      }
+
+      _materializeInnerHTML(rule, text, MD) {
+        let payload = String(text || '');
+        const wantsBr = !!(rule && (rule.nl2br || rule.allowBr));
+
+        if (rule && rule.decodeEntities && payload && payload.indexOf('&') !== -1) {
+          try { payload = this.decodeEntitiesOnce(payload); } catch (_) { /* keep original */ }
+        }
+
+        if (wantsBr) {
+          try { return this._escapeHtmlAllowBr(payload, { convertNewlines: !!rule.nl2br }); }
+          catch (_) { return this._escHtml(payload); }
+        }
+
+        if (rule && rule.innerMode === 'markdown-inline' && MD && typeof MD.renderInline === 'function') {
+          try { return MD.renderInline(payload); } catch (_) { return this._escHtml(payload); }
+        }
+        return this._escHtml(payload);
+      }
+
+      _fragmentFromHTML(html, ctxNode) {
+        let frag = null;
+        try {
+          const range = document.createRange();
+          const ctx = (ctxNode && ctxNode.parentNode) ? ctxNode.parentNode : (document.body || document.documentElement);
+          range.selectNode(ctx);
+          frag = range.createContextualFragment(String(html || ''));
+          return frag;
+        } catch (_) {
+          const tmp = document.createElement('div');
+          tmp.innerHTML = String(html || '');
+          frag = document.createDocumentFragment();
+          while (tmp.firstChild) frag.appendChild(tmp.firstChild);
+          return frag;
+        }
+      }
+      _replaceElementWithHTML(el, html) {
+        if (!el || !el.parentNode) return;
+        const parent = el.parentNode;
+        const frag = this._fragmentFromHTML(html, el);
+        try {
+          parent.insertBefore(frag, el);
+          parent.removeChild(el);
+        } catch (_) {
+          const tmp = document.createElement('span');
+          tmp.innerHTML = String(html || '');
+          while (tmp.firstChild) parent.insertBefore(tmp.firstChild, el);
+          parent.removeChild(el);
+        }
+      }
+
+      compile(rules) {
+        const src = Array.isArray(rules) ? rules : (window.CUSTOM_MARKUP_RULES || this.cfg.CUSTOM_MARKUP_RULES || []);
+        const compiled = [];
+        let hasStream = false;
+
+        for (const r of src) {
+          if (!r || typeof r.open !== 'string' || typeof r.close !== 'string') continue;
+
+          const tag = (r.tag || 'span').toLowerCase();
+          const className = (r.className || r.class || '').trim();
+          const innerMode = (r.innerMode === 'markdown-inline' || r.innerMode === 'text') ? r.innerMode : 'text';
+
+          const stream = !!(r.stream === true);
+          const openReplace = String((r.openReplace != null ? r.openReplace : (r.openReplace || '')) || '');
+          const closeReplace = String((r.closeReplace != null ? r.closeReplace : (r.closeReplace || '')) || '');
+
+          const decodeEntities = (typeof r.decodeEntities === 'boolean')
+            ? r.decodeEntities
+            : ((r.name || '').toLowerCase() === 'cmd' || className === 'cmd');
+
+          let phaseRaw = (typeof r.phase === 'string') ? r.phase.toLowerCase() : '';
+          if (phaseRaw !== 'source' && phaseRaw !== 'html' && phaseRaw !== 'both') phaseRaw = '';
+          const looksLikeFence = (openReplace.indexOf('```') !== -1) || (closeReplace.indexOf('```') !== -1);
+          const phase = phaseRaw || (looksLikeFence ? 'source' : 'html');
+
+          const re = new RegExp(Utils.reEscape(r.open) + '([\\s\\S]*?)' + Utils.reEscape(r.close), 'g');
+          const reFull = new RegExp('^' + Utils.reEscape(r.open) + '([\\s\\S]*?)' + Utils.reEscape(r.close) + '$');
+          const reFullTrim = new RegExp('^\\s*' + Utils.reEscape(r.open) + '([\\s\\S]*?)' + Utils.reEscape(r.close) + '\\s*$');
+
+          const nl2br = !!r.nl2br;
+          const allowBr = !!r.allowBr;
+
+          const item = {
+            name: r.name || tag,
+            tag, className, innerMode,
+            open: r.open, close: r.close,
+            decodeEntities,
+            re, reFull, reFullTrim,
+            stream,
+            openReplace, closeReplace,
+            phase,
+            isSourceFence: looksLikeFence,
+            nl2br, allowBr
+          };
+          compiled.push(item);
+          if (stream) hasStream = true;
+          this._d('COMPILE_RULE', { name: item.name, phase: item.phase, stream: item.stream, nl2br: item.nl2br, allowBr: item.allowBr });
+        }
+
+        if (compiled.length === 0) {
+          const open = '[!cmd]', close = '[/!cmd]';
+          const item = {
+            name: 'cmd', tag: 'p', className: 'cmd', innerMode: 'text', open, close,
+            decodeEntities: true,
+            re: new RegExp(Utils.reEscape(open) + '([\\s\\S]*?)' + Utils.reEscape(close), 'g'),
+            reFull: new RegExp('^' + Utils.reEscape(open) + '([\\s\\S]*?)' + Utils.reEscape(close) + '$'),
+            reFullTrim: new RegExp('^\\s*' + Utils.reEscape(open) + '([\\s\\S]*?)' + Utils.reEscape(close) + '\\s*$'),
+            stream: false,
+            openReplace: '', closeReplace: '',
+            phase: 'html', isSourceFence: false,
+            nl2br: false, allowBr: false
+          };
+          compiled.push(item);
+          this._d('COMPILE_RULE_FALLBACK', { name: item.name });
+        }
+
+        this.__hasStreamRules = hasStream;
+        return compiled;
+      }
+
+      transformSource(src, opts) {
+        let s = String(src || '');
+        this.ensureCompiled();
+        const rules = this.__compiled;
+        if (!rules || !rules.length) return s;
+
+        const candidates = [];
+        for (let i = 0; i < rules.length; i++) {
+          const r = rules[i];
+          if (!r) continue;
+          if ((r.phase === 'source' || r.phase === 'both') && (r.openReplace || r.closeReplace)) candidates.push(r);
+        }
+        if (!candidates.length) return s;
+
+        const fences = this._findFenceRanges(s);
+        if (!fences.length) {
+          return this._applySourceReplacementsInChunk(s, s, 0, candidates);
+        }
+
+        let out = '';
+        let last = 0;
+        for (let k = 0; k < fences.length; k++) {
+          const [a, b] = fences[k];
+          if (a > last) {
+            const chunk = s.slice(last, a);
+            out += this._applySourceReplacementsInChunk(s, chunk, last, candidates);
+          }
+          out += s.slice(a, b);
+          last = b;
+        }
+        if (last < s.length) {
+          const tail = s.slice(last);
+          out += this._applySourceReplacementsInChunk(s, tail, last, candidates);
+        }
+        return out;
+      }
+
+      getSourceFenceSpecs() {
+        this.ensureCompiled();
+        const rules = this.__compiled || [];
+        const out = [];
+        for (let i = 0; i < rules.length; i++) {
+          const r = rules[i];
+          if (!r || !r.isSourceFence) continue;
+          if (r.phase !== 'source' && r.phase !== 'both') continue;
+          out.push({ open: r.open, close: r.close });
+        }
+        return out;
+      }
+
+      ensureCompiled() {
+        if (!this.__compiled) {
+          this.__compiled = this.compile(window.CUSTOM_MARKUP_RULES || this.cfg.CUSTOM_MARKUP_RULES);
+          this._d('ENSURE_COMPILED', { count: this.__compiled.length, hasStream: this.__hasStreamRules });
+        }
+        return this.__compiled;
+      }
+
+      setRules(rules) {
+        this.__compiled = this.compile(rules);
+        window.CUSTOM_MARKUP_RULES = Array.isArray(rules) ? rules.slice() : (this.cfg.CUSTOM_MARKUP_RULES || []).slice();
+        this._d('SET_RULES', { count: this.__compiled.length, hasStream: this.__hasStreamRules });
+      }
+      getRules() {
+        const list = (window.CUSTOM_MARKUP_RULES ? window.CUSTOM_MARKUP_RULES.slice()
+                                                 : (this.cfg.CUSTOM_MARKUP_RULES || []).slice());
+        this._d('GET_RULES', { count: list.length });
+        return list;
+      }
+
+      hasStreamRules() {
+        this.ensureCompiled();
+        return !!this.__hasStreamRules;
+      }
+
+      hasStreamOpenerAtStart(text) {
+        if (!text) return false;
+        this.ensureCompiled();
+        const rules = (this.__compiled || []).filter(r => !!r.stream);
+        if (!rules.length) return false;
+        const t = String(text).trimStart();
+        for (let i = 0; i < rules.length; i++) {
+          const r = rules[i];
+          if (!r || !r.open) continue;
+          if (t.startsWith(r.open)) return true;
+        }
+        return false;
+      }
+
+      isInsideForbiddenContext(node) {
+        const p = node.parentElement; if (!p) return true;
+        return !!p.closest('pre, code, kbd, samp, var, script, style, textarea, .math-pending, .hljs, .code-wrapper, ul, ol, li, dl, dt, dd');
+      }
+      isInsideForbiddenElement(el) {
+        if (!el) return true;
+        return !!el.closest('pre, code, kbd, samp, var, script, style, textarea, .math-pending, .hljs, .code-wrapper, ul, ol, li, dl, dt, dd');
+      }
+
+      findNextMatch(text, from, rules) {
+        let best = null;
+        for (const rule of rules) {
+          rule.re.lastIndex = from;
+          const m = rule.re.exec(text);
+          if (m) {
+            const start = m.index, end = rule.re.lastIndex;
+            if (!best || start < best.start) best = { rule, start, end, inner: m[1] || '' };
+          }
+        }
+        return best;
+      }
+      findFullMatch(text, rules) {
+        for (const rule of rules) {
+          if (rule.reFull) {
+            const m = rule.reFull.exec(text);
+            if (m) return { rule, inner: m[1] || '' };
+          } else {
+            rule.re.lastIndex = 0;
+            const m = rule.re.exec(text);
+            if (m && m.index === 0 && (rule.re.lastIndex === text.length)) {
+              const m2 = rule.re.exec(text);
+              if (!m2) return { rule: rule, inner: m[1] || '' };
+            }
+          }
+        }
+        return null;
+      }
+
+      setInnerByMode(el, mode, text, MD, decodeEntities = false, rule = null) {
+        let payload = String(text || '');
+        const wantsBr = !!(rule && (rule.nl2br || rule.allowBr));
+
+        if (decodeEntities && payload && payload.indexOf('&') !== -1) {
+          try { payload = this.decodeEntitiesOnce(payload); } catch (_) {}
+        }
+
+        if (wantsBr) {
+          el.innerHTML = this._escapeHtmlAllowBr(payload, { convertNewlines: !!(rule && rule.nl2br) });
+          return;
+        }
+
+        if (mode === 'markdown-inline' && typeof window.markdownit !== 'undefined') {
+          try {
+            if (MD && typeof MD.renderInline === 'function') { el.innerHTML = MD.renderInline(payload); return; }
+            const tempMD = window.markdownit({ html: false, linkify: true, breaks: true, highlight: () => '' });
+            el.innerHTML = tempMD.renderInline(payload); return;
+          } catch (_) {}
+        }
+        el.textContent = payload;
+      }
+
+      _tryReplaceFullParagraph(el, rules, MD) {
+        if (!el || el.tagName !== 'P') return false;
+        if (this.isInsideForbiddenElement(el)) {
+          this._d('P_SKIP_FORBIDDEN', { tag: el.tagName });
+          return false;
+        }
+        const t = el.textContent || '';
+        if (!this.hasAnyOpenToken(t, rules)) return false;
+
+        for (const rule of rules) {
+          if (!rule) continue;
+          const m = rule.reFullTrim ? rule.reFullTrim.exec(t) : null;
+          if (!m) continue;
+
+          const innerText = m[1] || '';
+          if (rule.phase !== 'html' && rule.phase !== 'both') continue;
+
+          if (rule.openReplace || rule.closeReplace) {
+            const innerHTML = this._materializeInnerHTML(rule, innerText, MD);
+            const html = String(rule.openReplace || '') + innerHTML + String(rule.closeReplace || '');
+            this._replaceElementWithHTML(el, html);
+            this._d('P_REPLACED_AS_HTML', { rule: rule.name });
+            return true;
+          }
+
+          const outTag = (rule.tag && typeof rule.tag === 'string') ? rule.tag.toLowerCase() : 'span';
+          const out = document.createElement(outTag === 'p' ? 'p' : outTag);
+          if (rule.className) out.className = rule.className;
+          out.setAttribute('data-cm', rule.name);
+          this.setInnerByMode(out, rule.innerMode, innerText, MD, !!rule.decodeEntities, rule);
+
+          try { el.replaceWith(out); } catch (_) {
+            const par = el.parentNode; if (par) par.replaceChild(out, el);
+          }
+          this._d('P_REPLACED', { rule: rule.name, asTag: outTag });
+          return true;
+        }
+        this._d('P_NO_FULL_MATCH', { preview: this.logger.pv(t, 160) });
+        return false;
+      }
+
+      applyRules(root, MD, rules) {
+        if (!root || !rules || !rules.length) return;
+
+        const scope = (root.nodeType === 1 || root.nodeType === 11) ? root : document;
+
+        // Phase 1: tolerant <p> replacements
+        try {
+          const paragraphs = (typeof scope.querySelectorAll === 'function') ? scope.querySelectorAll('p') : [];
+          this._d('P_TOLERANT_SCAN_START', { count: paragraphs.length });
+
+          if (paragraphs && paragraphs.length) {
+            for (let i = 0; i < paragraphs.length; i++) {
+              const p = paragraphs[i];
+              if (p && p.getAttribute && p.getAttribute('data-cm')) continue;
+              const tc = p && (p.textContent || '');
+              if (!tc || !this.hasAnyOpenToken(tc, rules)) continue;
+              if (this.isInsideForbiddenElement(p)) continue;
+              this._tryReplaceFullParagraph(p, rules, MD);
+            }
+          }
+        } catch (e) {
+          this._d('P_TOLERANT_SCAN_ERR', String(e));
+        }
+
+        // Phase 2: per-text-node inline replacements
+        const self = this;
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+          acceptNode: (node) => {
+            const val = node && node.nodeValue ? node.nodeValue : '';
+            if (!val || !self.hasAnyOpenToken(val, rules)) return NodeFilter.FILTER_SKIP;
+            if (self.isInsideForbiddenContext(node)) return NodeFilter.FILTER_REJECT;
+            return NodeFilter.FILTER_ACCEPT;
+          }
+        });
+
+        let node;
+        while ((node = walker.nextNode())) {
+          const text = node.nodeValue;
+          if (!text || !this.hasAnyOpenToken(text, rules)) continue;
+          const parent = node.parentElement;
+
+          if (parent && parent.tagName === 'P' && parent.childNodes.length === 1) {
+            const fm = this.findFullMatch(text, rules);
+            if (fm) {
+              if ((fm.rule.phase === 'html' || fm.rule.phase === 'both') && (fm.rule.openReplace || fm.rule.closeReplace)) {
+                const innerHTML = this._materializeInnerHTML(fm.rule, fm.inner, MD);
+                const html = String(fm.rule.openReplace || '') + innerHTML + String(fm.rule.closeReplace || '');
+                this._replaceElementWithHTML(parent, html);
+                this._d('WALKER_FULL_REPLACE_HTML', { rule: fm.rule.name, preview: this.logger.pv(text, 160) });
+                continue;
+              }
+              if (fm.rule.tag === 'p') {
+                const out = document.createElement('p');
+                if (fm.rule.className) out.className = fm.rule.className;
+                out.setAttribute('data-cm', fm.rule.name);
+                this.setInnerByMode(out, fm.rule.innerMode, fm.inner, MD, !!fm.rule.decodeEntities, fm.rule);
+                try { parent.replaceWith(out); } catch (_) {
+                  const par = parent.parentNode; if (par) par.replaceChild(out, parent);
+                }
+                this._d('WALKER_FULL_REPLACE', { rule: fm.rule.name, preview: this.logger.pv(text, 160) });
+                continue;
+              }
+            }
+          }
+
+          let i = 0;
+          let didReplace = false;
+          const frag = document.createDocumentFragment();
+
+          while (i < text.length) {
+            const m = this.findNextMatch(text, i, rules);
+            if (!m) break;
+
+            if (m.start > i) {
+              frag.appendChild(document.createTextNode(text.slice(i, m.start)));
+            }
+
+            if ((m.rule.openReplace || m.rule.closeReplace) && (m.rule.phase === 'html' || m.rule.phase === 'both')) {
+              const innerHTML = this._materializeInnerHTML(m.rule, m.inner, MD);
+              const html = String(m.rule.openReplace || '') + innerHTML + String(m.rule.closeReplace || '');
+              const part = this._fragmentFromHTML(html, node);
+              frag.appendChild(part);
+              this._d('WALKER_INLINE_MATCH_HTML', { rule: m.rule.name, start: m.start, end: m.end });
+              i = m.end; didReplace = true; continue;
+            }
+
+            if (m.rule.openReplace || m.rule.closeReplace) {
+              frag.appendChild(document.createTextNode(text.slice(m.start, m.end)));
+              this._d('WALKER_INLINE_SKIP_SOURCE_PHASE_HTML', { rule: m.rule.name, start: m.start, end: m.end });
+              i = m.end; didReplace = true; continue;
+            }
+
+            const tag = (m.rule.tag === 'p') ? 'span' : m.rule.tag;
+            const el = document.createElement(tag);
+            if (m.rule.className) el.className = m.rule.className;
+            el.setAttribute('data-cm', m.rule.name);
+            this.setInnerByMode(el, m.rule.innerMode, m.inner, MD, !!m.rule.decodeEntities, m.rule);
+            frag.appendChild(el);
+            this._d('WALKER_INLINE_MATCH', { rule: m.rule.name, start: m.start, end: m.end });
+
+            i = m.end;
+            didReplace = true;
+          }
+
+          if (!didReplace) continue;
+          if (i < text.length) frag.appendChild(document.createTextNode(text.slice(i)));
+
+          const parentNode = node.parentNode;
+          if (parentNode) {
+            parentNode.replaceChild(frag, node);
+            this._d('WALKER_INLINE_DONE', { preview: this.logger.pv(text, 120) });
+          }
+        }
+      }
+
+      // Public API: full pass (static)
+      apply(root, MD) {
+        this.ensureCompiled();
+        this.applyRules(root, MD, this.__compiled);
+      }
+
+      // Public API: stream pass (stream-enabled rules only)
+      applyStream(root, MD) {
+        this.ensureCompiled();
+        if (!this.__hasStreamRules) return;
+        const rules = this.__compiled.filter(r => !!r.stream);
+        if (!rules.length) return;
+
+        // 1) Normal html-phase replacements where both tokens are within one node/paragraph
+        this.applyRules(root, MD, rules);
+
+        // 2) If only opener is present, start pending block and wrap the remainder of the snapshot
+        try { this.applyStreamPartialOpeners(root, MD, rules); } catch (_) {}
+
+        // 3) If a pending block exists and we can see a closer now – finalize immediately
+        try { this.applyStreamFinalizeClosers(root, rules); } catch (_) {}
+      }
+
+      // Streaming: begin pending wrapper when opener is unmatched in the same text node.
+      applyStreamPartialOpeners(root, MD, rulesAll) {
+        if (!root) return;
+
+        const rules = (rulesAll || []).filter(r =>
+          (r && (r.phase === 'html' || r.phase === 'both') && !(r.openReplace || r.closeReplace) && r.open && r.close)
+        );
+        if (!rules.length) return;
+
+        const scope = (root.nodeType === 1 || root.nodeType === 11) ? root : document;
+        const self = this;
+
+        const walker = document.createTreeWalker(scope, NodeFilter.SHOW_TEXT, {
+          acceptNode(node) {
+            const val = node && node.nodeValue ? node.nodeValue : '';
+            if (!val || !self.hasAnyOpenToken(val, rules)) return NodeFilter.FILTER_SKIP;
+            if (self.isInsideForbiddenContext(node)) return NodeFilter.FILTER_REJECT;
+            return NodeFilter.FILTER_ACCEPT;
+          }
+        });
+
+        let node;
+        while ((node = walker.nextNode())) {
+          const text = node.nodeValue || '';
+          if (!text) continue;
+
+          let best = null; // { rule, start }
+          for (let i = 0; i < rules.length; i++) {
+            const r = rules[i];
+            if (!r || !r.open || !r.close) continue;
+
+            const idx = text.lastIndexOf(r.open);
+            if (idx === -1) continue;
+
+            const after = text.indexOf(r.close, idx + r.open.length);
+            if (after !== -1) continue;
+
+            if (!best || idx > best.start) best = { rule: r, start: idx };
+          }
+
+          if (!best) continue;
+
+          const r = best.rule;
+          const start = best.start;
+          const openLen = r.open.length;
+          const prefixText = text.slice(0, start);
+          const fromOffset = start + openLen;
+
+          try {
+            const range = document.createRange();
+            range.setStart(node, Math.min(fromOffset, node.nodeValue.length));
+
+            // end to the end of scope
+            let endNode = root;
+            try {
+              endNode = (root.nodeType === 11 || root.nodeType === 1) ? root : node.parentNode;
+              while (endNode && endNode.lastChild) endNode = endNode.lastChild;
+            } catch (_) {}
+            if (endNode && endNode.nodeType === 3) range.setEnd(endNode, endNode.nodeValue.length);
+            else if (endNode) range.setEndAfter(endNode);
+            else range.setEndAfter(node);
+
+            const remainder = range.extractContents();
+
+            const outTag = (r.tag && typeof r.tag === 'string') ? r.tag.toLowerCase() : 'span';
+            const hostTag = (outTag === 'p') ? 'span' : outTag;
+            const el = document.createElement(hostTag);
+            if (r.className) el.className = r.className;
+            el.setAttribute('data-cm', r.name);
+            el.setAttribute('data-cm-pending', '1');
+
+            el.appendChild(remainder);
+            range.insertNode(el);
+            range.detach();
+
+            try { node.nodeValue = prefixText; } catch (_) {}
+            this._d('STREAM_PENDING_OPEN_WRAP_WHOLE', { rule: r.name, open: r.open, preview: this.logger.pv(text, 160) });
+
+            return; // wrap-to-end done; exit to avoid scanning mutated subtree
+          } catch (err) {
+            // Fallback: wrap only tail of current node
+            try {
+              const tail = text.slice(start + r.open.length);
+              const frag = document.createDocumentFragment();
+
+              if (prefixText) frag.appendChild(document.createTextNode(prefixText));
+
+              const el = document.createElement((r.tag === 'p') ? 'span' : r.tag);
+              if (r.className) el.className = r.className;
+              el.setAttribute('data-cm', r.name);
+              el.setAttribute('data-cm-pending', '1');
+
+              this.setInnerByMode(el, r.innerMode, tail, MD, !!r.decodeEntities, r);
+              frag.appendChild(el);
+
+              node.parentNode.replaceChild(frag, node);
+              this._d('STREAM_PENDING_OPEN_WRAP_FALLBACK', { rule: r.name, err: String(err) });
+              return;
+            } catch (_) { /* worst-case: keep node as-is */ }
+          }
+        }
+      }
+
+      // NEW: streaming close finalization — if a pending wrapper contains a closing token,
+      // remove the token and move the tail outside the wrapper, then clear pending flag.
+      applyStreamFinalizeClosers(root, rulesAll) {
+        if (!root) return;
+
+        const scope = (root.nodeType === 1 || root.nodeType === 11) ? root : document;
+        const pending = scope.querySelectorAll('[data-cm][data-cm-pending="1"]');
+        if (!pending || !pending.length) return;
+
+        const rulesByName = new Map();
+        (rulesAll || []).forEach(r => { if (r && r.name) rulesByName.set(r.name, r); });
+
+        for (let i = 0; i < pending.length; i++) {
+          const el = pending[i];
+          const name = el.getAttribute('data-cm') || '';
+          const rule = rulesByName.get(name);
+          if (!rule || !rule.close) continue;
+
+          // Look for the first text node inside 'el' that contains the closing token
+          const self = this;
+          const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, {
+            acceptNode(node) {
+              const val = node && node.nodeValue ? node.nodeValue : '';
+              if (!val || val.indexOf(rule.close) === -1) return NodeFilter.FILTER_SKIP;
+              if (self.isInsideForbiddenContext(node)) return NodeFilter.FILTER_REJECT;
+              return NodeFilter.FILTER_ACCEPT;
+            }
+          });
+
+          let nodeWithClose = null;
+          let idxInNode = -1;
+          let tn;
+          while ((tn = walker.nextNode())) {
+            const idx = tn.nodeValue.indexOf(rule.close);
+            if (idx !== -1) { nodeWithClose = tn; idxInNode = idx; break; }
+          }
+          if (!nodeWithClose) continue; // still pending; no closer yet
+
+          try {
+            const tokenLen = rule.close.length;
+
+            // Range for content AFTER the closing token -> will be moved outside
+            const afterRange = document.createRange();
+            afterRange.setStart(nodeWithClose, idxInNode + tokenLen);
+            // End at end of wrapper
+            let endNode = el;
+            while (endNode && endNode.lastChild) endNode = endNode.lastChild;
+            if (endNode && endNode.nodeType === 3) afterRange.setEnd(endNode, endNode.nodeValue.length);
+            else afterRange.setEndAfter(el.lastChild || el);
+
+            const tail = afterRange.extractContents();
+            afterRange.detach();
+
+            // Delete the closing token itself
+            const tok = document.createRange();
+            tok.setStart(nodeWithClose, idxInNode);
+            tok.setEnd(nodeWithClose, idxInNode + tokenLen);
+            tok.deleteContents();
+            tok.detach();
+
+            // Move tail right after the wrapper (preserve DOM order)
+            if (el.parentNode && tail && tail.childNodes.length) {
+              el.parentNode.insertBefore(tail, el.nextSibling);
+            }
+
+            // Finalize the wrapper
+            el.removeAttribute('data-cm-pending');
+            this._d('STREAM_PENDING_CLOSE_FINALIZED', { rule: rule.name });
+
+          } catch (err) {
+            this._d('STREAM_PENDING_CLOSE_ERR', { rule: rule.name, err: String(err) });
+            // If anything goes wrong, keep the block pending (safer for next snapshot).
+          }
+        }
+      }
+
+      // Source fence scan (unchanged)
+      _findFenceRanges(s) {
+        const ranges = [];
+        const n = s.length;
+        let i = 0;
+        let inFence = false;
+        let fenceMark = '';
+        let fenceLen = 0;
+        let startLineStart = 0;
+
+        while (i < n) {
+          const lineStart = i;
+          let j = lineStart;
+          while (j < n && s.charCodeAt(j) !== 10 && s.charCodeAt(j) !== 13) j++;
+          const lineEnd = j;
+          let nl = 0;
+          if (j < n) {
+            if (s.charCodeAt(j) === 13 && j + 1 < n && s.charCodeAt(j + 1) === 10) nl = 2;
+            else nl = 1;
+          }
+
+          let k = lineStart;
+          let indent = 0;
+          while (k < lineEnd) {
+            const c = s.charCodeAt(k);
+            if (c === 32) { indent++; if (indent > 3) break; k++; }
+            else if (c === 9) { indent++; if (indent > 3) break; k++; }
+            else break;
+          }
+
+          if (!inFence) {
+            if (indent <= 3 && k < lineEnd) {
+              const ch = s.charCodeAt(k);
+              if (ch === 0x60 || ch === 0x7E) {
+                const mark = String.fromCharCode(ch);
+                let m = k;
+                while (m < lineEnd && s.charCodeAt(m) === ch) m++;
+                const run = m - k;
+                if (run >= 3) { inFence = true; fenceMark = mark; fenceLen = run; startLineStart = lineStart; }
+              }
+            }
+          } else {
+            if (indent <= 3 && k < lineEnd && s.charCodeAt(k) === fenceMark.charCodeAt(0)) {
+              let m = k;
+              while (m < lineEnd && s.charCodeAt(m) === fenceMark.charCodeAt(0)) m++;
+              const run = m - k;
+              if (run >= fenceLen) {
+                let onlyWS = true;
+                for (let t = m; t < lineEnd; t++) {
+                  const cc = s.charCodeAt(t);
+                  if (cc !== 32 && cc !== 9) { onlyWS = false; break; }
+                }
+                if (onlyWS) {
+                  const endIdx = lineEnd + nl;
+                  ranges.push([startLineStart, endIdx]);
+                  inFence = false; fenceMark = ''; fenceLen = 0; startLineStart = 0;
+                }
+              }
+            }
+          }
+          i = lineEnd + nl;
+        }
+        if (inFence) ranges.push([startLineStart, n]);
+        return ranges;
+      }
+
+      _isTopLevelLineInSource(s, absIdx) {
+        let ls = absIdx;
+        while (ls > 0) {
+          const ch = s.charCodeAt(ls - 1);
+          if (ch === 10 || ch === 13) break;
+          ls--;
+        }
+        const prefix = s.slice(ls, absIdx);
+
+        let i = 0, indent = 0;
+        while (i < prefix.length) {
+          const c = prefix.charCodeAt(i);
+          if (c === 32) { indent++; if (indent > 3) break; i++; }
+          else if (c === 9) { indent++; if (indent > 3) break; i++; }
+          else break;
+        }
+        if (indent > 3) return false;
+        const rest = prefix.slice(i);
+
+        if (/^>\s?/.test(rest)) return false;
+        if (/^[-+*]\s/.test(rest)) return false;
+        if (/^\d+[.)]\s/.test(rest)) return false;
+
+        if (rest.trim().length > 0) return false;
+        return true;
+      }
+
+      _applySourceReplacementsInChunk(full, chunk, baseOffset, rules) {
+        let t = chunk;
+        for (let i = 0; i < rules.length; i++) {
+          const r = rules[i];
+          if (!r || !(r.openReplace || r.closeReplace)) continue;
+          try {
+            r.re.lastIndex = 0;
+            t = t.replace(r.re, (match, inner, offset) => {
+              const abs = baseOffset + (offset | 0);
+              if (!this._isTopLevelLineInSource(full, abs)) return match;
+              const open = r.openReplace || '';
+              const close = r.closeReplace || '';
+              return open + (inner || '') + close;
+            });
+          } catch (_) {}
+        }
+        return t;
+      }
+    }
 
   // ==========================================================================
   // 5) Markdown runtime (markdown-it + code wrapper + math placeholders)
@@ -3892,1072 +4046,1034 @@
   // ==========================================================================
 
   class StreamEngine {
-    constructor(cfg, dom, renderer, math, highlighter, codeScroll, scrollMgr, raf, asyncer, logger) {
-      this.cfg = cfg; this.dom = dom; this.renderer = renderer; this.math = math;
-      this.highlighter = highlighter; this.codeScroll = codeScroll; this.scrollMgr = scrollMgr; this.raf = raf;
-      this.asyncer = asyncer;
-      this.logger = logger || new Logger(cfg);
+  constructor(cfg, dom, renderer, math, highlighter, codeScroll, scrollMgr, raf, asyncer, logger) {
+    this.cfg = cfg; this.dom = dom; this.renderer = renderer; this.math = math;
+    this.highlighter = highlighter; this.codeScroll = codeScroll; this.scrollMgr = scrollMgr; this.raf = raf;
+    this.asyncer = asyncer;
+    this.logger = logger || new Logger(cfg);
 
-      // Streaming buffer (rope-like) – avoids O(n^2) string concatenation when many small chunks arrive.
-      // streamBuf holds the already materialized prefix; _sbParts keeps recent tail parts; _sbLen tracks their length.
-      this.streamBuf = '';     // materialized prefix (string used by render)
-      this._sbParts = [];      // pending string chunks (array) not yet joined
-      this._sbLen = 0;         // length of pending chunks
+    // Streaming buffer (rope-like) – avoids O(n^2) string concatenation when many small chunks arrive.
+    // streamBuf holds the already materialized prefix; _sbParts keeps recent tail parts; _sbLen tracks their length.
+    this.streamBuf = '';     // materialized prefix (string used by render)
+    this._sbParts = [];      // pending string chunks (array) not yet joined
+    this._sbLen = 0;         // length of pending chunks
 
-      this.fenceOpen = false; this.fenceMark = '`'; this.fenceLen = 3;
-      this.fenceTail = ''; this.fenceBuf = '';
-      this.lastSnapshotTs = 0; this.nextSnapshotStep = cfg.PROFILE_TEXT.base;
-      this.snapshotScheduled = false; this.snapshotRAF = 0;
+    this.fenceOpen = false; this.fenceMark = '`'; this.fenceLen = 3;
+    this.fenceTail = ''; this.fenceBuf = '';
+    this.lastSnapshotTs = 0; this.nextSnapshotStep = cfg.PROFILE_TEXT.base;
+    this.snapshotScheduled = false; this.snapshotRAF = 0;
 
-      this.codeStream = { open: false, lines: 0, chars: 0 };
-      this.activeCode = null;
+    this.codeStream = { open: false, lines: 0, chars: 0 };
+    this.activeCode = null;
 
-      this.suppressPostFinalizePass = false;
+    this.suppressPostFinalizePass = false;
 
-      this._promoteScheduled = false;
+    this._promoteScheduled = false;
 
-      // Guard to ensure first fence-open is materialized immediately when stream starts with code.
-      this._firstCodeOpenSnapDone = false;
+    // Guard to ensure first fence-open is materialized immediately when stream starts with code.
+    this._firstCodeOpenSnapDone = false;
 
-      // Streaming mode flag – controls reduced rendering (no linkify etc.) on hot path.
-      this.isStreaming = false;
+    // Streaming mode flag – controls reduced rendering (no linkify etc.) on hot path.
+    this.isStreaming = false;
 
-      // Tracks whether renderSnapshot injected a one-off synthetic EOL for parsing an open fence
-      // (used to strip it from the initial streaming tail to avoid "#\n foo" on first line).
-      this._lastInjectedEOL = false;
+    // Tracks whether renderSnapshot injected a one-off synthetic EOL for parsing an open fence
+    // (used to strip it from the initial streaming tail to avoid "#\n foo" on first line).
+    this._lastInjectedEOL = false;
 
-      this._customFenceSpecs = [];   // [{ open, close }, ...]
-      this._fenceCustom = null;      // currently active custom fence spec or null
-    }
-    _d(tag, data) { this.logger.debug('STREAM', tag, data); }
+    this._customFenceSpecs = [];   // [{ open, close }, ...]
+    this._fenceCustom = null;      // currently active custom fence spec or null
+  }
+  _d(tag, data) { this.logger.debug('STREAM', tag, data); }
 
-    setCustomFenceSpecs(specs) {
-      this._customFenceSpecs = Array.isArray(specs) ? specs.slice() : [];
-    }
+  setCustomFenceSpecs(specs) {
+    this._customFenceSpecs = Array.isArray(specs) ? specs.slice() : [];
+  }
 
-    // --- Rope buffer helpers (internal) ---
-
-    // Append a chunk into the rope without immediately touching the large string.
-    _appendChunk(s) {
-      if (!s) return;
-      this._sbParts.push(s);
-      this._sbLen += s.length;
-    }
-    // Current logical length of the stream text (materialized prefix + pending tail).
-    getStreamLength() {
-      return (this.streamBuf.length + this._sbLen);
-    }
-    // Materialize the rope into a single string for rendering (cheap if nothing pending).
-    getStreamText() {
-      if (this._sbLen > 0) {
-        // Join pending parts into the materialized prefix and clear the tail.
-        // Single-part fast path avoids a temporary array join.
-        this.streamBuf += (this._sbParts.length === 1 ? this._sbParts[0] : this._sbParts.join(''));
-        this._sbParts.length = 0;
-        this._sbLen = 0;
-      }
-      return this.streamBuf;
-    }
-    // Reset the rope to an empty state.
-    _clearStreamBuffer() {
-      this.streamBuf = '';
+  // --- Rope buffer helpers (internal) ---
+  _appendChunk(s) {
+    if (!s) return;
+    this._sbParts.push(s);
+    this._sbLen += s.length;
+  }
+  getStreamLength() {
+    return (this.streamBuf.length + this._sbLen);
+  }
+  getStreamText() {
+    if (this._sbLen > 0) {
+      // Join pending parts into the materialized prefix and clear the tail.
+      // Single-part fast path avoids a temporary array join.
+      this.streamBuf += (this._sbParts.length === 1 ? this._sbParts[0] : this._sbParts.join(''));
       this._sbParts.length = 0;
       this._sbLen = 0;
     }
+    return this.streamBuf;
+  }
+  _clearStreamBuffer() {
+    this.streamBuf = '';
+    this._sbParts.length = 0;
+    this._sbLen = 0;
+  }
 
-    // Reset all streaming state and counters.
-    reset() {
-      this._clearStreamBuffer();
-      this.fenceOpen = false; this.fenceMark = '`'; this.fenceLen = 3;
-      this.fenceTail = ''; this.fenceBuf = '';
-      this.lastSnapshotTs = 0; this.nextSnapshotStep = this.profile().base;
-      this.snapshotScheduled = false; this.snapshotRAF = 0;
-      this.codeStream = { open: false, lines: 0, chars: 0 };
-      this.activeCode = null; this.suppressPostFinalizePass = false;
-      this._promoteScheduled = false;
-      this._firstCodeOpenSnapDone = false;
+  // Reset all streaming state and counters.
+  reset() {
+    this._clearStreamBuffer();
+    this.fenceOpen = false; this.fenceMark = '`'; this.fenceLen = 3;
+    this.fenceTail = ''; this.fenceBuf = '';
+    this.lastSnapshotTs = 0; this.nextSnapshotStep = this.profile().base;
+    this.snapshotScheduled = false; this.snapshotRAF = 0;
+    this.codeStream = { open: false, lines: 0, chars: 0 };
+    this.activeCode = null; this.suppressPostFinalizePass = false;
+    this._promoteScheduled = false;
+    this._firstCodeOpenSnapDone = false;
 
-      // Clear any previous synthetic EOL marker.
-      this._lastInjectedEOL = false;
-      this._fenceCustom = null;
+    // Clear any previous synthetic EOL marker.
+    this._lastInjectedEOL = false;
+    this._fenceCustom = null;
 
-      this._d('RESET', { });
-    }
-    // Turn active streaming code block into plain text (safety on abort).
-    defuseActiveToPlain() {
-      if (!this.activeCode || !this.activeCode.codeEl || !this.activeCode.codeEl.isConnected) return;
-      const codeEl = this.activeCode.codeEl;
-      const fullText = (this.activeCode.frozenEl?.textContent || '') + (this.activeCode.tailEl?.textContent || '');
-      try {
-        codeEl.textContent = fullText;
+    this._d('RESET', { });
+  }
+  defuseActiveToPlain() {
+    if (!this.activeCode || !this.activeCode.codeEl || !this.activeCode.codeEl.isConnected) return;
+    const codeEl = this.activeCode.codeEl;
+    const fullText = (this.activeCode.frozenEl?.textContent || '') + (this.activeCode.tailEl?.textContent || '');
+    try {
+      codeEl.textContent = fullText;
+      codeEl.removeAttribute('data-highlighted');
+      codeEl.classList.remove('hljs');
+      codeEl.dataset._active_stream = '0';
+      const st = this.codeScroll.state(codeEl); st.autoFollow = false;
+    } catch (_) {}
+    this._d('DEFUSE_ACTIVE_TO_PLAIN', { len: fullText.length });
+    this.activeCode = null;
+  }
+  defuseOrphanActiveBlocks(root) {
+    try {
+      const scope = root || document;
+      const nodes = scope.querySelectorAll('pre code[data-_active_stream="1"]');
+      let n = 0;
+      nodes.forEach(codeEl => {
+        if (!codeEl.isConnected) return;
+        let text = '';
+        const frozen = codeEl.querySelector('.hl-frozen');
+        const tail = codeEl.querySelector('.hl-tail');
+        if (frozen || tail) text = (frozen?.textContent || '') + (tail?.textContent || '');
+        else text = codeEl.textContent || '';
+        codeEl.textContent = text;
         codeEl.removeAttribute('data-highlighted');
         codeEl.classList.remove('hljs');
         codeEl.dataset._active_stream = '0';
-        const st = this.codeScroll.state(codeEl); st.autoFollow = false;
-      } catch (_) {}
-      this._d('DEFUSE_ACTIVE_TO_PLAIN', { len: fullText.length });
-      this.activeCode = null;
-    }
-    // If there are orphan streaming code blocks in DOM, finalize them as plain text.
-    defuseOrphanActiveBlocks(root) {
-      try {
-        const scope = root || document;
-        const nodes = scope.querySelectorAll('pre code[data-_active_stream="1"]');
-        let n = 0;
-        nodes.forEach(codeEl => {
-          if (!codeEl.isConnected) return;
-          let text = '';
-          const frozen = codeEl.querySelector('.hl-frozen');
-          const tail = codeEl.querySelector('.hl-tail');
-          if (frozen || tail) text = (frozen?.textContent || '') + (tail?.textContent || '');
-          else text = codeEl.textContent || '';
-          codeEl.textContent = text;
-          codeEl.removeAttribute('data-highlighted');
-          codeEl.classList.remove('hljs');
-          codeEl.dataset._active_stream = '0';
-          try { this.codeScroll.attachHandlers(codeEl); } catch (_) {}
-          n++;
-        });
-        if (n) this._d('DEFUSE_ORPHAN_ACTIVE_BLOCKS', { count: n });
-      } catch (e) { this._d('DEFUSE_ORPHAN_ACTIVE_ERR', String(e)); }
-    }
-    // Abort streaming and clear state with options.
-    abortAndReset(opts) {
-      const o = Object.assign({
-        finalizeActive: true,
-        clearBuffer: true,
-        clearMsg: false,
-        defuseOrphans: true,
-        reason: '',
-        suppressLog: false
-      }, (opts || {}));
+        try { this.codeScroll.attachHandlers(codeEl); } catch (_) {}
+        n++;
+      });
+      if (n) this._d('DEFUSE_ORPHAN_ACTIVE_BLOCKS', { count: n });
+    } catch (e) { this._d('DEFUSE_ORPHAN_ACTIVE_ERR', String(e)); }
+  }
+  abortAndReset(opts) {
+    const o = Object.assign({
+      finalizeActive: true,
+      clearBuffer: true,
+      clearMsg: false,
+      defuseOrphans: true,
+      reason: '',
+      suppressLog: false
+    }, (opts || {}));
 
-      try { this.raf.cancelGroup('StreamEngine'); } catch (_) {}
-      try { this.raf.cancel('SE:snapshot'); } catch (_) {}
-      this.snapshotScheduled = false; this.snapshotRAF = 0;
+    try { this.raf.cancelGroup('StreamEngine'); } catch (_) {}
+    try { this.raf.cancel('SE:snapshot'); } catch (_) {}
+    this.snapshotScheduled = false; this.snapshotRAF = 0;
 
-      const hadActive = !!this.activeCode;
-      try {
-        if (this.activeCode) {
-          if (o.finalizeActive === true) this.finalizeActiveCode();
-          else this.defuseActiveToPlain();
-        }
-      } catch (e) {
-        this._d('ABORT_FINALIZE_ERR', String(e));
+    const hadActive = !!this.activeCode;
+    try {
+      if (this.activeCode) {
+        if (o.finalizeActive === true) this.finalizeActiveCode();
+        else this.defuseActiveToPlain();
       }
-
-      if (o.defuseOrphans) {
-        try { this.defuseOrphanActiveBlocks(); }
-        catch (e) { this._d('ABORT_DEFUSE_ORPHANS_ERR', String(e)); }
-      }
-
-      if (o.clearBuffer) {
-        this._clearStreamBuffer();
-        this.fenceOpen = false; this.fenceMark = '`'; this.fenceLen = 3;
-        this.fenceTail = ''; this.fenceBuf = '';
-        this.codeStream.open = false; this.codeStream.lines = 0; this.codeStream.chars = 0;
-        window.__lastSnapshotLen = 0;
-      }
-      if (o.clearMsg === true) {
-        try { this.dom.resetEphemeral(); } catch (_) {}
-      }
-      if (!o.suppressLog) this._d('ABORT_AND_RESET', { hadActive, ...o });
-    }
-    // Select profile for current stream state (code vs text).
-    profile() { return this.fenceOpen ? this.cfg.PROFILE_CODE : this.cfg.PROFILE_TEXT; }
-    // Reset adaptive snapshot budget to base.
-    resetBudget() { this.nextSnapshotStep = this.profile().base; }
-    // Check whether [from, end) contains only spaces/tabs.
-    onlyTrailingWhitespace(s, from, end) {
-      for (let i = from; i < end; i++) { const c = s.charCodeAt(i); if (c !== 0x20 && c !== 0x09) return false; }
-      return true;
-    }
-    // Update fence state based on a fresh chunk and buffer tail; detect openings and closings.
-    updateFenceHeuristic(chunk) {
-      const prev = (this.fenceBuf || '');
-      const s = prev + (chunk || '');
-      const preLen = prev.length;
-      const n = s.length; let i = 0;
-      let opened = false; let closed = false; let splitAt = -1;
-      let atLineStart = (preLen === 0) ? true : /[\n\r]$/.test(prev);
-
-      const inNewOrCrosses = (j, k) => (j >= preLen) || (k > preLen);
-
-      while (i < n) {
-        const ch = s[i];
-        if (ch === '\r' || ch === '\n') { atLineStart = true; i++; continue; }
-        if (!atLineStart) { i++; continue; }
-        atLineStart = false;
-
-        // Skip list/blockquote/indent normalization (existing logic)
-        let j = i;
-        while (j < n) {
-          let localSpaces = 0;
-          while (j < n && (s[j] === ' ' || s[j] === '\t')) { localSpaces += (s[j] === '\t') ? 4 : 1; j++; if (localSpaces > 3) break; }
-          if (j < n && s[j] === '>') { j++; if (j < n && s[j] === ' ') j++; continue; }
-
-          let saved = j;
-          if (j < n && (s[j] === '-' || s[j] === '*' || s[j] === '+')) {
-            let jj = j + 1; if (jj < n && s[jj] === ' ') { j = jj + 1; } else { j = saved; }
-          } else {
-            let k2 = j; let hasDigit = false;
-            while (k2 < n && s[k2] >= '0' && s[k2] <= '9') { hasDigit = true; k2++; }
-            if (hasDigit && k2 < n && (s[k2] === '.' || s[k2] === ')')) {
-              k2++; if (k2 < n && s[k2] === ' ') { j = k2 + 1; } else { j = saved; }
-            } else { j = saved; }
-          }
-          break;
-        }
-
-        let indent = 0;
-        while (j < n && (s[j] === ' ' || s[j] === '\t')) {
-          indent += (s[j] === '\t') ? 4 : 1; j++; if (indent > 3) break;
-        }
-        if (indent > 3) { i = j; continue; }
-
-        // 1) Custom fences first (e.g. [!exec] ... [/!exec], <execute>...</execute>)
-        if (!this.fenceOpen && this._customFenceSpecs && this._customFenceSpecs.length) {
-          for (let ci = 0; ci < this._customFenceSpecs.length; ci++) {
-            const spec = this._customFenceSpecs[ci];
-            const open = spec && spec.open ? spec.open : '';
-            if (!open) continue;
-            const k = j + open.length;
-            if (k <= n && s.slice(j, k) === open) {
-              if (!inNewOrCrosses(j, k)) { /* seen fully in previous prefix */ }
-              else {
-                this.fenceOpen = true; this._fenceCustom = spec; opened = true; i = k;
-                this._d('FENCE_OPEN_DETECTED_CUSTOM', { open, idxStart: j, idxEnd: k, region: (j >= preLen) ? 'new' : 'cross' });
-                continue; // main while
-              }
-            }
-          }
-        } else if (this.fenceOpen && this._fenceCustom && this._fenceCustom.close) {
-          const close = this._fenceCustom.close;
-          const k = j + close.length;
-          if (k <= n && s.slice(j, k) === close) {
-            // Require only trailing whitespace on the line (consistent with ``` logic)
-            let eol = k; while (eol < n && s[eol] !== '\n' && s[eol] !== '\r') eol++;
-            const onlyWS = this.onlyTrailingWhitespace(s, k, eol);
-            if (onlyWS) {
-              if (!inNewOrCrosses(j, k)) { /* seen in previous prefix */ }
-              else {
-                this.fenceOpen = false; this._fenceCustom = null; closed = true;
-                const endInS = k;
-                const rel = endInS - preLen;
-                splitAt = Math.max(0, Math.min((chunk ? chunk.length : 0), rel));
-                i = k;
-                this._d('FENCE_CLOSE_DETECTED_CUSTOM', { close, idxStart: j, idxEnd: k, splitAt, region: (j >= preLen) ? 'new' : 'cross' });
-                continue; // main while
-              }
-            } else {
-              this._d('FENCE_CLOSE_REJECTED_CUSTOM_NON_WS_AFTER', { close, idxStart: j, idxEnd: k });
-            }
-          }
-        }
-
-        // 2) Standard markdown-it fences (``` or ~~~) – leave your original logic intact
-        if (j < n && (s[j] === '`' || s[j] === '~')) {
-          const mark = s[j]; let k = j; while (k < n && s[k] === mark) k++; const run = k - j;
-
-          if (!this.fenceOpen) {
-            if (run >= 3) {
-              if (!inNewOrCrosses(j, k)) { i = k; continue; }
-              this.fenceOpen = true; this.fenceMark = mark; this.fenceLen = run; opened = true; i = k;
-              this._d('FENCE_OPEN_DETECTED', { mark, run, idxStart: j, idxEnd: k, region: (j >= preLen) ? 'new' : 'cross' });
-              continue;
-            }
-          } else if (!this._fenceCustom) {
-            if (mark === this.fenceMark && run >= this.fenceLen) {
-              if (!inNewOrCrosses(j, k)) { i = k; continue; }
-              let eol = k; while (eol < n && s[eol] !== '\n' && s[eol] !== '\r') eol++;
-              if (this.onlyTrailingWhitespace(s, k, eol)) {
-                this.fenceOpen = false; closed = true;
-                const endInS = k;
-                const rel = endInS - preLen;
-                splitAt = Math.max(0, Math.min((chunk ? chunk.length : 0), rel));
-                i = k;
-                this._d('FENCE_CLOSE_DETECTED', { mark, run, idxStart: j, idxEnd: k, splitAt, region: (j >= preLen) ? 'new' : 'cross' });
-                continue;
-              } else {
-                this._d('FENCE_CLOSE_REJECTED_NON_WS_AFTER', { mark, run, idxStart: j, idxEnd: k });
-              }
-            }
-          }
-        }
-
-        i = j + 1;
-      }
-
-      const MAX_TAIL = 512;
-      this.fenceBuf = s.slice(-MAX_TAIL);
-      this.fenceTail = s.slice(-3);
-      return { opened, closed, splitAt };
+    } catch (e) {
+      this._d('ABORT_FINALIZE_ERR', String(e));
     }
 
-    // Ensure message snapshot container exists.
-    getMsgSnapshotRoot(msg) {
-      if (!msg) return null;
-      let snap = msg.querySelector('.md-snapshot-root');
-      if (!snap) { snap = document.createElement('div'); snap.className = 'md-snapshot-root'; msg.appendChild(snap); }
-      return snap;
+    if (o.defuseOrphans) {
+      try { this.defuseOrphanActiveBlocks(); }
+      catch (e) { this._d('ABORT_DEFUSE_ORPHANS_ERR', String(e)); }
     }
-    // Detect structural boundaries in a chunk (for snapshot decisions).
-    hasStructuralBoundary(chunk) { if (!chunk) return false; return /\n(\n|[-*]\s|\d+\.\s|#{1,6}\s|>\s)/.test(chunk); }
-    // Decide whether we should snapshot on this chunk.
-    shouldSnapshotOnChunk(chunk, chunkHasNL, hasBoundary) {
-      const prof = this.profile(); const now = Utils.now();
-      if (this.activeCode && this.fenceOpen) return false;
-      if ((now - this.lastSnapshotTs) < prof.minInterval) return false;
-      if (hasBoundary) return true;
 
-      const delta = Math.max(0, this.getStreamLength() - (window.__lastSnapshotLen || 0));
-      if (this.fenceOpen) { if (chunkHasNL && delta >= this.nextSnapshotStep) return true; return false; }
-      if (delta >= this.nextSnapshotStep) return true;
-      return false;
+    if (o.clearBuffer) {
+      this._clearStreamBuffer();
+      this.fenceOpen = false; this.fenceMark = '`'; this.fenceLen = 3;
+      this.fenceTail = ''; this.fenceBuf = '';
+      this.codeStream.open = false; this.codeStream.lines = 0; this.codeStream.chars = 0;
+      window.__lastSnapshotLen = 0;
     }
-    // If we are getting slow, schedule a soft snapshot based on time.
-    maybeScheduleSoftSnapshot(msg, chunkHasNL) {
-      const prof = this.profile(); const now = Utils.now();
-      if (this.activeCode && this.fenceOpen) return;
-      if (this.fenceOpen && this.codeStream.lines < 1 && !chunkHasNL) return;
-      if ((now - this.lastSnapshotTs) >= prof.softLatency) this.scheduleSnapshot(msg);
+    if (o.clearMsg === true) {
+      try { this.dom.resetEphemeral(); } catch (_) {}
     }
-    // Schedule snapshot rendering (coalesced via rAF).
-    scheduleSnapshot(msg, force = false) {
-      if (this.snapshotScheduled && !this.raf.isScheduled('SE:snapshot')) this.snapshotScheduled = false;
-      if (!force) {
-        if (this.snapshotScheduled) return;
-        if (this.activeCode && this.fenceOpen) return;
-      } else {
-        if (this.snapshotScheduled && this.raf.isScheduled('SE:snapshot')) return;
-      }
-      this.snapshotScheduled = true;
-      this.raf.schedule('SE:snapshot', () => { this.snapshotScheduled = false; this.renderSnapshot(msg); }, 'StreamEngine', 0);
-    }
-    // Split code element into frozen and tail spans if needed.
-    ensureSplitCodeEl(codeEl) {
-      if (!codeEl) return null;
-      let frozen = codeEl.querySelector('.hl-frozen'); let tail = codeEl.querySelector('.hl-tail');
-      if (frozen && tail) return { codeEl, frozenEl: frozen, tailEl: tail };
-      const text = codeEl.textContent || ''; codeEl.innerHTML = '';
-      frozen = document.createElement('span'); frozen.className = 'hl-frozen';
-      tail = document.createElement('span'); tail.className = 'hl-tail';
-      codeEl.appendChild(frozen); codeEl.appendChild(tail);
-      if (text) tail.textContent = text; return { codeEl, frozenEl: frozen, tailEl: tail };
-    }
-    // Create active code context from the latest snapshot.
-    setupActiveCodeFromSnapshot(snap) {
-      const codes = snap.querySelectorAll('pre code'); if (!codes.length) return null;
-      const last = codes[codes.length - 1];
-      const cls = Array.from(last.classList).find(c => c.startsWith('language-')) || 'language-plaintext';
-      const lang = (cls.replace('language-', '') || 'plaintext');
-      const parts = this.ensureSplitCodeEl(last); if (!parts) return null;
+    if (!o.suppressLog) this._d('ABORT_AND_RESET', { hadActive, ...o });
+  }
+  profile() { return this.fenceOpen ? this.cfg.PROFILE_CODE : this.cfg.PROFILE_TEXT; }
+  resetBudget() { this.nextSnapshotStep = this.profile().base; }
+  onlyTrailingWhitespace(s, from, end) {
+    for (let i = from; i < end; i++) { const c = s.charCodeAt(i); if (c !== 0x20 && c !== 0x09) return false; }
+    return true;
+  }
+  updateFenceHeuristic(chunk) {
+    const prev = (this.fenceBuf || '');
+    const s = prev + (chunk || '');
+    const preLen = prev.length;
+    const n = s.length; let i = 0;
+    let opened = false; let closed = false; let splitAt = -1;
+    let atLineStart = (preLen === 0) ? true : /[\n\r]$/.test(prev);
 
-      // If we injected a synthetic EOL for parsing an open fence, remove it from the streaming tail now.
-      // This prevents breaking the very first code line into "#\n foo" when the next chunk starts with " foo".
-      if (this._lastInjectedEOL && parts.tailEl && parts.tailEl.textContent && parts.tailEl.textContent.endsWith('\n')) {
-        parts.tailEl.textContent = parts.tailEl.textContent.slice(0, -1);
-        // Reset the marker so we don't accidentally trim again in this snapshot lifecycle.
-        this._lastInjectedEOL = false;
-      }
+    const inNewOrCrosses = (j, k) => (j >= preLen) || (k > preLen);
 
-      const st = this.codeScroll.state(parts.codeEl); st.autoFollow = true; st.userInteracted = false;
-      parts.codeEl.dataset._active_stream = '1';
-      const baseFrozenNL = Utils.countNewlines(parts.frozenEl.textContent || ''); const baseTailNL = Utils.countNewlines(parts.tailEl.textContent || '');
-      const ac = { codeEl: parts.codeEl, frozenEl: parts.frozenEl, tailEl: parts.tailEl, lang, frozenLen: parts.frozenEl.textContent.length, lastPromoteTs: 0,
-                   lines: 0, tailLines: baseTailNL, linesSincePromote: 0, initialLines: baseFrozenNL + baseTailNL, haltHL: false, plainStream: false };
-      this._d('ACTIVE_CODE_SETUP', { lang, frozenLen: ac.frozenLen, tailLines: ac.tailLines, initialLines: ac.initialLines });
-      return ac;
-    }
-    // Copy previous active code state into the new one (after snapshot).
-    rehydrateActiveCode(oldAC, newAC) {
-      if (!oldAC || !newAC) return;
-      newAC.frozenEl.innerHTML = oldAC.frozenEl ? oldAC.frozenEl.innerHTML : '';
-      const fullText = newAC.codeEl.textContent || ''; const remainder = fullText.slice(oldAC.frozenLen);
-      newAC.tailEl.textContent = remainder;
-      newAC.frozenLen = oldAC.frozenLen; newAC.lang = oldAC.lang;
-      newAC.lines = oldAC.lines; newAC.tailLines = Utils.countNewlines(remainder);
-      newAC.lastPromoteTs = oldAC.lastPromoteTs; newAC.linesSincePromote = oldAC.linesSincePromote || 0;
-      newAC.initialLines = oldAC.initialLines || 0; newAC.haltHL = !!oldAC.haltHL;
-      newAC.plainStream = !!oldAC.plainStream;
-      this._d('ACTIVE_CODE_REHYDRATE', { lang: newAC.lang, frozenLen: newAC.frozenLen, tailLines: newAC.tailLines, initialLines: newAC.initialLines, halted: newAC.haltHL, plainStream: newAC.plainStream });
-    }
-    // Append text to active tail span and update counters.
-    appendToActiveTail(text) {
-      if (!this.activeCode || !this.activeCode.tailEl || !text) return;
-      this.activeCode.tailEl.insertAdjacentText('beforeend', text);
-      const nl = Utils.countNewlines(text);
-      this.activeCode.tailLines += nl; this.activeCode.linesSincePromote += nl;
-      this.codeScroll.scheduleScroll(this.activeCode.codeEl, true, false);
-      if (this.logger.isEnabled('STREAM') && (nl > 0 || text.length >= 64)) {
-        this._d('TAIL_APPEND', { addLen: text.length, addNL: nl, totalTailNL: this.activeCode.tailLines });
-      }
-    }
-    // Enforce budgets: stop incremental hljs and switch to plain streaming if needed.
-    enforceHLStopBudget() {
-      if (!this.activeCode) return;
-      // If global disable was requested, halt early and switch to plain streaming.
-      if (this.cfg.HL.DISABLE_ALL) { this.activeCode.haltHL = true; this.activeCode.plainStream = true; return; }
-      const stop = (this.cfg.PROFILE_CODE.stopAfterLines | 0);
-      const streamPlainLines = (this.cfg.PROFILE_CODE.streamPlainAfterLines | 0);
-      const streamPlainChars = (this.cfg.PROFILE_CODE.streamPlainAfterChars | 0);
-      const maxFrozenChars = (this.cfg.PROFILE_CODE.maxFrozenChars | 0);
+    while (i < n) {
+      const ch = s[i];
+      if (ch === '\r' || ch === '\n') { atLineStart = true; i++; continue; }
+      if (!atLineStart) { i++; continue; }
+      atLineStart = false;
 
-      const totalLines = (this.activeCode.initialLines || 0) + (this.activeCode.lines || 0);
-      const frozenChars = this.activeCode.frozenLen | 0;
-      const tailChars = (this.activeCode.tailEl?.textContent || '').length | 0;
-      const totalStreamedChars = frozenChars + tailChars;
+      // Skip list/blockquote/indent normalization (existing logic)
+      let j = i;
+      while (j < n) {
+        let localSpaces = 0;
+        while (j < n && (s[j] === ' ' || s[j] === '\t')) { localSpaces += (s[j] === '\t') ? 4 : 1; j++; if (localSpaces > 3) break; }
+        if (j < n && s[j] === '>') { j++; if (j < n && s[j] === ' ') j++; continue; }
 
-      // Switch to plain streaming after budgets – no incremental hljs
-      if ((streamPlainLines > 0 && totalLines >= streamPlainLines) ||
-          (streamPlainChars > 0 && totalStreamedChars >= streamPlainChars) ||
-          (maxFrozenChars > 0 && frozenChars >= maxFrozenChars)) {
-        this.activeCode.haltHL = true;
-        this.activeCode.plainStream = true;
-        try { this.activeCode.codeEl.dataset.hlStreamSuspended = '1'; } catch (_) {}
-        this._d('STREAM_HL_SUSPENDED', { totalLines, totalStreamedChars, frozenChars, reason: 'budget' });
-        return;
-      }
-
-      if (stop > 0 && totalLines >= stop) {
-        this.activeCode.haltHL = true;
-        this.activeCode.plainStream = true;
-        try { this.activeCode.codeEl.dataset.hlStreamSuspended = '1'; } catch (_) {}
-        this._d('STREAM_HL_SUSPENDED', { totalLines, stopAfter: stop, reason: 'stopAfterLines' });
-      }
-    }
-    _aliasLang(token) {
-      const ALIAS = {
-        txt: 'plaintext', text: 'plaintext', plaintext: 'plaintext',
-        sh: 'bash', shell: 'bash', zsh: 'bash', 'shell-session': 'bash',
-        py: 'python', python3: 'python', py3: 'python',
-        js: 'javascript', node: 'javascript', nodejs: 'javascript',
-        ts: 'typescript', 'ts-node': 'typescript',
-        yml: 'yaml', kt: 'kotlin', rs: 'rust',
-        csharp: 'csharp', 'c#': 'csharp', 'c++': 'cpp',
-        ps: 'powershell', ps1: 'powershell', pwsh: 'powershell', powershell7: 'powershell',
-        docker: 'dockerfile'
-      };
-      const v = String(token || '').trim().toLowerCase();
-      return ALIAS[v] || v;
-    }
-    _isHLJSSupported(lang) {
-      try { return !!(window.hljs && hljs.getLanguage && hljs.getLanguage(lang)); } catch (_) { return false; }
-    }
-    // Try to detect language from a "language: X" style first line directive.
-    _detectDirectiveLangFromText(text) {
-      if (!text) return null;
-      let s = String(text);
-      if (s.charCodeAt(0) === 0xFEFF) s = s.slice(1);
-      const lines = s.split(/\r?\n/);
-      let i = 0; while (i < lines.length && !lines[i].trim()) i++;
-      if (i >= lines.length) return null;
-      let first = lines[i].trim();
-      first = first.replace(/^\s*lang(?:uage)?\s*[:=]\s*/i, '').trim();
-      let token = first.split(/\s+/)[0].replace(/:$/, '');
-      if (!/^[A-Za-z][\w#+\-\.]{0,30}$/.test(token)) return null;
-
-      let cand = this._aliasLang(token);
-      const rest = lines.slice(i + 1).join('\n');
-      if (!rest.trim()) return null;
-
-      let pos = 0, seen = 0;
-      while (seen < i && pos < s.length) { const nl = s.indexOf('\n', pos); if (nl === -1) return null; pos = nl + 1; seen++; }
-      let end = s.indexOf('\n', pos);
-      if (end === -1) end = s.length; else end = end + 1;
-      return { lang: cand, deleteUpto: end };
-    }
-    // Update code element class to reflect new lang (language-xxx).
-    _updateCodeLangClass(codeEl, newLang) {
-      try {
-        Array.from(codeEl.classList).forEach(c => { if (c.startsWith('language-')) codeEl.classList.remove(c); });
-        codeEl.classList.add('language-' + (newLang || 'plaintext'));
-      } catch (_) {}
-    }
-    // Update code header label and data attribute.
-    _updateCodeHeaderLabel(codeEl, newLabel, newLangToken) {
-      try {
-        const wrap = codeEl.closest('.code-wrapper');
-        if (!wrap) return;
-        const span = wrap.querySelector('.code-header-lang');
-        if (span) span.textContent = newLabel || (newLangToken || 'code');
-        wrap.setAttribute('data-code-lang', newLangToken || '');
-      } catch (_) {}
-    }
-    // Try to promote language from a directive and remove its header line.
-    maybePromoteLanguageFromDirective() {
-      if (!this.activeCode || !this.activeCode.codeEl) return;
-      if (this.activeCode.lang && this.activeCode.lang !== 'plaintext') return;
-
-      const frozenTxt = this.activeCode.frozenEl ? this.activeCode.frozenEl.textContent : '';
-      const tailTxt = this.activeCode.tailEl ? this.activeCode.tailEl.textContent : '';
-      const combined = frozenTxt + tailTxt;
-      if (!combined) return;
-
-      const det = this._detectDirectiveLangFromText(combined);
-      if (!det || !det.lang) return;
-
-      const newLang = det.lang;
-      const newCombined = combined.slice(det.deleteUpto);
-
-      try {
-        const codeEl = this.activeCode.codeEl;
-        codeEl.innerHTML = '';
-        const frozen = document.createElement('span'); frozen.className = 'hl-frozen';
-        const tail = document.createElement('span'); tail.className = 'hl-tail';
-        tail.textContent = newCombined;
-        codeEl.appendChild(frozen); codeEl.appendChild(tail);
-        this.activeCode.frozenEl = frozen; this.activeCode.tailEl = tail;
-        this.activeCode.frozenLen = 0;
-        this.activeCode.tailLines = Utils.countNewlines(newCombined);
-        this.activeCode.linesSincePromote = 0;
-
-        this.activeCode.lang = newLang;
-        this._updateCodeLangClass(codeEl, newLang);
-        this._updateCodeHeaderLabel(codeEl, newLang, newLang);
-
-        this._d('LANG_PROMOTE', { to: newLang, removedChars: det.deleteUpto, tailLines: this.activeCode.tailLines });
-        this.schedulePromoteTail(true);
-      } catch (e) {
-        this._d('LANG_PROMOTE_ERR', String(e));
-      }
-    }
-    // Highlight a small piece of text based on language (safe fallback to escapeHtml).
-    highlightDeltaText(lang, text) {
-      if (this.cfg.HL.DISABLE_ALL) return Utils.escapeHtml(text);
-      if (window.hljs && lang && hljs.getLanguage && hljs.getLanguage(lang)) {
-        try { return hljs.highlight(text, { language: lang, ignoreIllegals: true }).value; }
-        catch (_) { return Utils.escapeHtml(text); }
-      }
-      return Utils.escapeHtml(text);
-    }
-    // Schedule cooperative tail promotion (async) to avoid blocking UI on each chunk.
-    schedulePromoteTail(force = false) {
-      if (!this.activeCode || !this.activeCode.tailEl) return;
-      if (this._promoteScheduled) return;
-      this._promoteScheduled = true;
-      this.raf.schedule('SE:promoteTail', () => {
-        this._promoteScheduled = false;
-        this._promoteTailWork(force);
-      }, 'StreamEngine', 1);
-    }
-    // Move a full-line part of tail into frozen region (with highlight if budgets allow).
-    async _promoteTailWork(force = false) {
-      if (!this.activeCode || !this.activeCode.tailEl) return;
-
-      // If plain streaming mode is on, or incremental hljs is disabled, promote as plain text only.
-      const now = Utils.now(); const prof = this.cfg.PROFILE_CODE;
-      const tailText0 = this.activeCode.tailEl.textContent || ''; if (!tailText0) return;
-
-      if (!force) {
-        if ((now - this.activeCode.lastPromoteTs) < prof.promoteMinInterval) return;
-        const enoughLines = (this.activeCode.linesSincePromote || 0) >= (prof.promoteMinLines || 10);
-        const enoughChars = tailText0.length >= prof.minCharsForHL;
-        if (!enoughLines && !enoughChars) return;
-      }
-
-      // Cut at last full line to avoid moving partial tokens
-      const idx = tailText0.lastIndexOf('\n');
-      if (idx <= -1 && !force) return;
-      const cut = (idx >= 0) ? (idx + 1) : tailText0.length;
-      const delta = tailText0.slice(0, cut); if (!delta) return;
-
-      // Re-evaluate budgets before performing any heavy work
-      this.enforceHLStopBudget();
-      const usePlain = this.activeCode.haltHL || this.activeCode.plainStream || !this._isHLJSSupported(this.activeCode.lang);
-
-      // Cooperative rAF yield before heavy highlight
-      if (!usePlain) await this.asyncer.yield();
-
-      // If tail changed since we captured it, validate prefix to avoid duplication
-      if (!this.activeCode || !this.activeCode.tailEl) return;
-      const tailNow = this.activeCode.tailEl.textContent || '';
-      if (!tailNow.startsWith(delta)) {
-        // New data arrived; reschedule for next frame without touching DOM
-        this.schedulePromoteTail(false);
-        return;
-      }
-
-      // Apply DOM updates: either highlighted HTML delta or plain text
-      if (usePlain) {
-        // Plain text promotion – extremely cheap, no spans created.
-        this.activeCode.frozenEl.insertAdjacentText('beforeend', delta);
-      } else {
-        // Highlighted promotion – still capped by budgets above.
-        let html = Utils.escapeHtml(delta);
-        try { html = this.highlightDeltaText(this.activeCode.lang, delta); } catch (_) { html = Utils.escapeHtml(delta); }
-        this.activeCode.frozenEl.insertAdjacentHTML('beforeend', html);
-      }
-
-      // Update tail and counters
-      this.activeCode.tailEl.textContent = tailNow.slice(delta.length);
-      this.activeCode.frozenLen += delta.length;
-      const promotedLines = Utils.countNewlines(delta);
-      this.activeCode.tailLines = Math.max(0, (this.activeCode.tailLines || 0) - promotedLines);
-      this.activeCode.linesSincePromote = Math.max(0, (this.activeCode.linesSincePromote || 0) - promotedLines);
-      this.activeCode.lastPromoteTs = Utils.now();
-      this.codeScroll.scheduleScroll(this.activeCode.codeEl, true, false);
-      this._d(usePlain ? 'TAIL_PROMOTE_PLAIN' : 'TAIL_PROMOTE_ASYNC', { cut, promotedLines, lang: this.activeCode.lang, plain: usePlain });
-    }
-    // Finalize the current active code block. Keep it plain for now and schedule highlight lazily.
-    finalizeActiveCode() {
-      if (!this.activeCode) return;
-      const codeEl = this.activeCode.codeEl;
-      const fromBottomBefore = Math.max(0, codeEl.scrollHeight - codeEl.clientHeight - codeEl.scrollTop);
-      const wasNearBottom = this.codeScroll.isNearBottomEl(codeEl, this.cfg.CODE_SCROLL.NEAR_MARGIN_PX);
-      const fullText = (this.activeCode.frozenEl.textContent || '') + (this.activeCode.tailEl.textContent || '');
-
-      // Non-blocking finalize: place plain text now, schedule highlight via Highlighter later.
-      try {
-        codeEl.innerHTML = '';
-        codeEl.textContent = fullText;
-        codeEl.classList.add('hljs');           // keep visual parity until highlight applies
-        codeEl.removeAttribute('data-highlighted');
-      } catch (_) {}
-
-      const st = this.codeScroll.state(codeEl); st.autoFollow = false;
-      const maxScrollTop = Math.max(0, codeEl.scrollHeight - codeEl.clientHeight);
-      const target = wasNearBottom ? maxScrollTop : Math.max(0, maxScrollTop - fromBottomBefore);
-      try { codeEl.scrollTop = target; } catch (_) {}
-      st.lastScrollTop = codeEl.scrollTop;
-      codeEl.dataset._active_stream = '0';
-
-      try { codeEl.dataset.justFinalized = '1'; } catch (_) {}
-      this.codeScroll.scheduleScroll(codeEl, false, true);
-
-      // Schedule async highlight on the finalized element (viewport-aware).
-      try { if (!this.cfg.HL.DISABLE_ALL) this.highlighter.queue(codeEl, null); } catch (_) {}
-
-      this.suppressPostFinalizePass = true;
-
-      this._d('FINALIZE_CODE_NONBLOCK', { lang: this.activeCode.lang, len: fullText.length, highlighted: false });
-      this.activeCode = null;
-    }
-    // Make a simple fingerprint to reuse identical closed code blocks between snapshots.
-    codeFingerprint(codeEl) {
-      const cls = Array.from(codeEl.classList).find(c => c.startsWith('language-')) || 'language-plaintext';
-      const lang = cls.replace('language-', '') || 'plaintext';
-      const t = codeEl.textContent || ''; const len = t.length; const head = t.slice(0, 64); const tail = t.slice(-64);
-      return `${lang}|${len}|${head}|${tail}`;
-    }
-    // fingerprint using precomputed meta on wrapper (avoids .textContent for heavy blocks).
-    codeFingerprintFromWrapper(codeEl) {
-      try {
-        const wrap = codeEl.closest('.code-wrapper'); if (!wrap) return null;
-        const cls = Array.from(codeEl.classList).find(c => c.startsWith('language-')) || 'language-plaintext';
-        const lang = (cls.replace('language-', '') || 'plaintext');
-        const len = wrap.getAttribute('data-code-len') || '';
-        const head = wrap.getAttribute('data-code-head') || '';
-        const tail = wrap.getAttribute('data-code-tail') || '';
-        if (!len) return null; // ensure at least length exists
-        return `${lang}|${len}|${head}|${tail}`;
-      } catch (_) {
-        return null;
-      }
-    }
-    // Try to reuse old finalized code block DOM nodes to avoid re-highlighting.
-    preserveStableClosedCodes(oldSnap, newRoot, skipLastIfStreaming) {
-      try {
-        const oldCodes = Array.from(oldSnap.querySelectorAll('pre code')); if (!oldCodes.length) return;
-        // Safety guard: avoid heavy fingerprint work on extremely large outputs
-        const newCodesPre = Array.from(newRoot.querySelectorAll('pre code'));
-        if (newCodesPre.length > this.cfg.STREAM.PRESERVE_CODES_MAX || oldCodes.length > this.cfg.STREAM.PRESERVE_CODES_MAX) return;
-
-        const map = new Map();
-        for (const el of oldCodes) {
-          if (el.querySelector('.hl-frozen')) continue;               // skip streaming blocks
-          if (this.activeCode && el === this.activeCode.codeEl) continue;
-          // Try wrapper-based fingerprint first, fallback to text-based
-          let fp = this.codeFingerprintFromWrapper(el);
-          if (!fp) fp = el.dataset.fp || (el.dataset.fp = this.codeFingerprint(el));
-          const arr = map.get(fp) || []; arr.push(el); map.set(fp, arr);
-        }
-        const newCodes = newCodesPre;
-        const end = (skipLastIfStreaming && newCodes.length > 0) ? (newCodes.length - 1) : newCodes.length;
-        let reuseCount = 0;
-        for (let i = 0; i < end; i++) {
-          const nc = newCodes[i];
-          if (nc.getAttribute('data-highlighted') === 'yes') continue;
-          // Fingerprint new code: prefer wrapper meta (no .textContent read)
-          let fp = this.codeFingerprintFromWrapper(nc);
-          if (!fp) fp = this.codeFingerprint(nc);
-          const arr = map.get(fp);
-          if (arr && arr.length) {
-            const oldEl = arr.shift();
-            if (oldEl && oldEl.isConnected) {
-              try {
-                nc.replaceWith(oldEl);
-                this.codeScroll.attachHandlers(oldEl);
-                // Preserve whatever final state the old element had
-                if (!oldEl.getAttribute('data-highlighted')) oldEl.setAttribute('data-highlighted', 'yes');
-                const st = this.codeScroll.state(oldEl); st.autoFollow = false;
-                reuseCount++;
-              } catch (_) {}
-            }
-            if (!arr.length) map.delete(fp);
-          }
-        }
-        if (reuseCount) this._d('PRESERVE_CODES_REUSED', { reuseCount, skipLastIfStreaming });
-      } catch (e) {
-        this._d('PRESERVE_CODES_ERROR', String(e));
-      }
-    }
-    // Ensure blocks marked as just-finalized are scrolled to bottom.
-    _ensureBottomForJustFinalized(root) {
-      try {
-        const scope = root || document;
-        const nodes = scope.querySelectorAll('pre code[data-just-finalized="1"]');
-        if (!nodes || !nodes.length) return;
-        nodes.forEach((codeEl) => {
-          this.codeScroll.scheduleScroll(codeEl, false, true);
-          const key = { t: 'JF:forceBottom', el: codeEl, n: Math.random() };
-          this.raf.schedule(key, () => {
-            this.codeScroll.scrollToBottom(codeEl, false, true);
-            try { codeEl.dataset.justFinalized = '0'; } catch (_) {}
-          }, 'CodeScroll', 2);
-        });
-      } catch (_) {}
-    }
-    // If stream is visible but something got stuck, force a quick refresh.
-    kickVisibility() {
-      const msg = this.getMsg(false, '');
-      if (!msg) return;
-      if (this.codeStream.open && !this.activeCode) {
-        this.scheduleSnapshot(msg, true);
-        return;
-      }
-      const needSnap = (this.getStreamLength() !== (window.__lastSnapshotLen || 0));
-      if (needSnap) this.scheduleSnapshot(msg, true);
-      if (this.activeCode && this.activeCode.codeEl) {
-        this.codeScroll.scheduleScroll(this.activeCode.codeEl, true, false);
-        this.schedulePromoteTail(true);
-      }
-    }
-      // Keep language header stable across snapshots for the active streaming code.
-      // If the current snapshot produced a tiny/unsupported token (e.g. 'on', 'ml', 's'),
-      // reuse the last known good language (from previous active state or sticky attribute).
-      stabilizeHeaderLabel(prevAC, newAC) {
-        try {
-          if (!newAC || !newAC.codeEl || !newAC.codeEl.isConnected) return;
-
-          const wrap = newAC.codeEl.closest('.code-wrapper');
-          if (!wrap) return;
-
-          const span = wrap.querySelector('.code-header-lang');
-          const curLabel = (span && span.textContent ? span.textContent.trim() : '').toLowerCase();
-
-          // Do not touch tool/output blocks
-          if (curLabel === 'output') return;
-
-          const tokNow = (wrap.getAttribute('data-code-lang') || '').trim().toLowerCase();
-          const sticky = (wrap.getAttribute('data-lang-sticky') || '').trim().toLowerCase();
-          const prev = (prevAC && prevAC.lang && prevAC.lang !== 'plaintext') ? prevAC.lang.toLowerCase() : '';
-
-          const valid = (t) => !!t && t !== 'plaintext' && this._isHLJSSupported(t);
-
-          let finalTok = '';
-          if (valid(tokNow)) finalTok = tokNow;
-          else if (valid(prev)) finalTok = prev;
-          else if (valid(sticky)) finalTok = sticky;
-
-          if (finalTok) {
-            // Update code class and header label consistently
-            this._updateCodeLangClass(newAC.codeEl, finalTok);
-            this._updateCodeHeaderLabel(newAC.codeEl, finalTok, finalTok);
-            try { wrap.setAttribute('data-code-lang', finalTok); } catch (_) {}
-            try { wrap.setAttribute('data-lang-sticky', finalTok); } catch (_) {}
-            newAC.lang = finalTok; // keep AC state in sync
-          } else {
-            // If current label looks like a tiny/incomplete token, normalize to 'code'
-            if (span && curLabel && curLabel.length < 3) {
-              span.textContent = 'code';
-            }
-          }
-        } catch (_) { /* defensive: never break streaming path */ }
-      }
-    // Render a snapshot of current stream buffer into the DOM.
-    renderSnapshot(msg) {
-      const streaming = !!this.isStreaming;
-      const snap = this.getMsgSnapshotRoot(msg); if (!snap) return;
-
-      // No-op if nothing changed and no active code
-      const prevLen = (window.__lastSnapshotLen || 0);
-      const curLen = this.getStreamLength();
-      if (!this.fenceOpen && !this.activeCode && curLen === prevLen) {
-        this.lastSnapshotTs = Utils.now();
-        this._d('SNAPSHOT_SKIPPED_NO_DELTA', { bufLen: curLen });
-        return;
-      }
-
-      const t0 = Utils.now();
-
-      // When an open fence is present, append a synthetic EOL only if the current buffer
-      // does not already end with EOL. This stabilizes markdown-it parsing without polluting
-      // the real code tail (we will strip this EOL from the active tail right after snapshot).
-      const allText = this.getStreamText();
-      const needSyntheticEOL = (this.fenceOpen && !/[\r\n]$/.test(allText));
-      this._lastInjectedEOL = !!needSyntheticEOL;
-      const src = needSyntheticEOL ? (allText + '\n') : allText;
-
-      // Use streaming renderer (no linkify) on hot path to reduce CPU/allocs
-      const html = streaming ? this.renderer.renderStreamingSnapshot(src) : this.renderer.renderFinalSnapshot(src);
-
-      // parse HTML into a DocumentFragment directly to avoid intermediate container allocations.
-      let frag = null;
-      try {
-        const range = document.createRange();
-        range.selectNodeContents(snap);
-        frag = range.createContextualFragment(html);
-      } catch (_) {
-        const tmp = document.createElement('div');
-        tmp.innerHTML = html;
-        frag = document.createDocumentFragment();
-        while (tmp.firstChild) frag.appendChild(tmp.firstChild);
-      }
-
-      // (stream-aware custom markup):
-      // Apply Custom Markup on the fragment only if at least one rule opted-in for stream.
-      try {
-        if (this.renderer && this.renderer.customMarkup && this.renderer.customMarkup.hasStreamRules()) {
-          const MDinline = this.renderer.MD_STREAM || this.renderer.MD || null;
-          this.renderer.customMarkup.applyStream(frag, MDinline);
-        }
-      } catch (_) { /* keep snapshot path resilient */ }
-
-      // Reuse closed, stable code blocks from previous snapshot to avoid re-highlighting
-      this.preserveStableClosedCodes(snap, frag, this.fenceOpen === true);
-
-      // Replace content
-      snap.replaceChildren(frag);
-
-      // Restore code UI state and ensure bottoming for freshly finalized elements
-      this.renderer.restoreCollapsedCode(snap);
-      this._ensureBottomForJustFinalized(snap);
-
-      // Setup active streaming code if fence is open, otherwise clear active state
-        const prevAC = this.activeCode; // remember previous active streaming state (if any)
-
-        if (this.fenceOpen) {
-          const newAC = this.setupActiveCodeFromSnapshot(snap);
-
-          // preserve previous frozen/tail state and stable lang/header across snapshots
-          if (prevAC && newAC) {
-            this.rehydrateActiveCode(prevAC, newAC);
-            this.stabilizeHeaderLabel(prevAC, newAC);
-          }
-
-          this.activeCode = newAC || null;
+        let saved = j;
+        if (j < n && (s[j] === '-' || s[j] === '*' || s[j] === '+')) {
+          let jj = j + 1; if (jj < n && s[jj] === ' ') { j = jj + 1; } else { j = saved; }
         } else {
-          this.activeCode = null;
+          let k2 = j; let hasDigit = false;
+          while (k2 < n && s[k2] >= '0' && s[k2] <= '9') { hasDigit = true; k2++; }
+          if (hasDigit && k2 < n && (s[k2] === '.' || s[k2] === ')')) {
+            k2++; if (k2 < n && s[k2] === ' ') { j = k2 + 1; } else { j = saved; }
+          } else { j = saved; }
         }
-
-      // Attach scroll/highlight observers (viewport aware)
-      if (!this.fenceOpen) {
-        this.codeScroll.initScrollableBlocks(snap);
+        break;
       }
-      this.highlighter.observeNewCode(snap, {
+
+      let indent = 0;
+      while (j < n && (s[j] === ' ' || s[j] === '\t')) {
+        indent += (s[j] === '\t') ? 4 : 1; j++; if (indent > 3) break;
+      }
+      if (indent > 3) { i = j; continue; }
+
+      // 1) Custom fences first (e.g. [!exec] ... [/!exec], <execute>...</execute>)
+      if (!this.fenceOpen && this._customFenceSpecs && this._customFenceSpecs.length) {
+        for (let ci = 0; ci < this._customFenceSpecs.length; ci++) {
+          const spec = this._customFenceSpecs[ci];
+          const open = spec && spec.open ? spec.open : '';
+          if (!open) continue;
+          const k = j + open.length;
+          if (k <= n && s.slice(j, k) === open) {
+            if (!inNewOrCrosses(j, k)) { /* seen fully in previous prefix */ }
+            else {
+              this.fenceOpen = true; this._fenceCustom = spec; opened = true; i = k;
+              this._d('FENCE_OPEN_DETECTED_CUSTOM', { open, idxStart: j, idxEnd: k, region: (j >= preLen) ? 'new' : 'cross' });
+              continue; // main while
+            }
+          }
+        }
+      } else if (this.fenceOpen && this._fenceCustom && this._fenceCustom.close) {
+        const close = this._fenceCustom.close;
+        const k = j + close.length;
+        if (k <= n && s.slice(j, k) === close) {
+          // Require only trailing whitespace on the line (consistent with ``` logic)
+          let eol = k; while (eol < n && s[eol] !== '\n' && s[eol] !== '\r') eol++;
+          const onlyWS = this.onlyTrailingWhitespace(s, k, eol);
+          if (onlyWS) {
+            if (!inNewOrCrosses(j, k)) { /* seen in previous prefix */ }
+            else {
+              this.fenceOpen = false; this._fenceCustom = null; closed = true;
+              const endInS = k;
+              const rel = endInS - preLen;
+              splitAt = Math.max(0, Math.min((chunk ? chunk.length : 0), rel));
+              i = k;
+              this._d('FENCE_CLOSE_DETECTED_CUSTOM', { close, idxStart: j, idxEnd: k, splitAt, region: (j >= preLen) ? 'new' : 'cross' });
+              continue; // main while
+            }
+          } else {
+            this._d('FENCE_CLOSE_REJECTED_CUSTOM_NON_WS_AFTER', { close, idxStart: j, idxEnd: k });
+          }
+        }
+      }
+
+      // 2) Standard markdown-it fences (``` or ~~~) – leave your original logic intact
+      if (j < n && (s[j] === '`' || s[j] === '~')) {
+        const mark = s[j]; let k = j; while (k < n && s[k] === mark) k++; const run = k - j;
+
+        if (!this.fenceOpen) {
+          if (run >= 3) {
+            if (!inNewOrCrosses(j, k)) { i = k; continue; }
+            this.fenceOpen = true; this.fenceMark = mark; this.fenceLen = run; opened = true; i = k;
+            this._d('FENCE_OPEN_DETECTED', { mark, run, idxStart: j, idxEnd: k, region: (j >= preLen) ? 'new' : 'cross' });
+            continue;
+          }
+        } else if (!this._fenceCustom) {
+          if (mark === this.fenceMark && run >= this.fenceLen) {
+            if (!inNewOrCrosses(j, k)) { i = k; continue; }
+            let eol = k; while (eol < n && s[eol] !== '\n' && s[eol] !== '\r') eol++;
+            if (this.onlyTrailingWhitespace(s, k, eol)) {
+              this.fenceOpen = false; closed = true;
+              const endInS = k;
+              const rel = endInS - preLen;
+              splitAt = Math.max(0, Math.min((chunk ? chunk.length : 0), rel));
+              i = k;
+              this._d('FENCE_CLOSE_DETECTED', { mark, run, idxStart: j, idxEnd: k, splitAt, region: (j >= preLen) ? 'new' : 'cross' });
+              continue;
+            } else {
+              this._d('FENCE_CLOSE_REJECTED_NON_WS_AFTER', { mark, run, idxStart: j, idxEnd: k });
+            }
+          }
+        }
+      }
+
+      i = j + 1;
+    }
+
+    const MAX_TAIL = 512;
+    this.fenceBuf = s.slice(-MAX_TAIL);
+    this.fenceTail = s.slice(-3);
+    return { opened, closed, splitAt };
+  }
+
+  // Ensure message snapshot container exists.
+  getMsgSnapshotRoot(msg) {
+    if (!msg) return null;
+    let snap = msg.querySelector('.md-snapshot-root');
+    if (!snap) { snap = document.createElement('div'); snap.className = 'md-snapshot-root'; msg.appendChild(snap); }
+    return snap;
+  }
+  hasStructuralBoundary(chunk) { if (!chunk) return false; return /\n(\n|[-*]\s|\d+\.\s|#{1,6}\s|>\s)/.test(chunk); }
+  shouldSnapshotOnChunk(chunk, chunkHasNL, hasBoundary) {
+    const prof = this.profile(); const now = Utils.now();
+    if (this.activeCode && this.fenceOpen) return false;
+    if ((now - this.lastSnapshotTs) < prof.minInterval) return false;
+    if (hasBoundary) return true;
+
+    const delta = Math.max(0, this.getStreamLength() - (window.__lastSnapshotLen || 0));
+    if (this.fenceOpen) { if (chunkHasNL && delta >= this.nextSnapshotStep) return true; return false; }
+    if (delta >= this.nextSnapshotStep) return true;
+    return false;
+  }
+  maybeScheduleSoftSnapshot(msg, chunkHasNL) {
+    const prof = this.profile(); const now = Utils.now();
+    if (this.activeCode && this.fenceOpen) return;
+    if (this.fenceOpen && this.codeStream.lines < 1 && !chunkHasNL) return;
+    if ((now - this.lastSnapshotTs) >= prof.softLatency) this.scheduleSnapshot(msg);
+  }
+  scheduleSnapshot(msg, force = false) {
+    if (this.snapshotScheduled && !this.raf.isScheduled('SE:snapshot')) this.snapshotScheduled = false;
+    if (!force) {
+      if (this.snapshotScheduled) return;
+      if (this.activeCode && this.fenceOpen) return;
+    } else {
+      if (this.snapshotScheduled && this.raf.isScheduled('SE:snapshot')) return;
+    }
+    this.snapshotScheduled = true;
+    this.raf.schedule('SE:snapshot', () => { this.snapshotScheduled = false; this.renderSnapshot(msg); }, 'StreamEngine', 0);
+  }
+
+  ensureSplitCodeEl(codeEl) {
+    if (!codeEl) return null;
+    let frozen = codeEl.querySelector('.hl-frozen'); let tail = codeEl.querySelector('.hl-tail');
+    if (frozen && tail) return { codeEl, frozenEl: frozen, tailEl: tail };
+    const text = codeEl.textContent || ''; codeEl.innerHTML = '';
+    frozen = document.createElement('span'); frozen.className = 'hl-frozen';
+    tail = document.createElement('span'); tail.className = 'hl-tail';
+    codeEl.appendChild(frozen); codeEl.appendChild(tail);
+    if (text) tail.textContent = text; return { codeEl, frozenEl: frozen, tailEl: tail };
+  }
+  setupActiveCodeFromSnapshot(snap) {
+    const codes = snap.querySelectorAll('pre code'); if (!codes.length) return null;
+    const last = codes[codes.length - 1];
+    const cls = Array.from(last.classList).find(c => c.startsWith('language-')) || 'language-plaintext';
+    const lang = (cls.replace('language-', '') || 'plaintext');
+    const parts = this.ensureSplitCodeEl(last); if (!parts) return null;
+
+    // If we injected a synthetic EOL for parsing an open fence, remove it from the streaming tail now.
+    if (this._lastInjectedEOL && parts.tailEl && parts.tailEl.textContent && parts.tailEl.textContent.endsWith('\n')) {
+      parts.tailEl.textContent = parts.tailEl.textContent.slice(0, -1);
+      this._lastInjectedEOL = false;
+    }
+
+    const st = this.codeScroll.state(parts.codeEl); st.autoFollow = true; st.userInteracted = false;
+    parts.codeEl.dataset._active_stream = '1';
+    const baseFrozenNL = Utils.countNewlines(parts.frozenEl.textContent || ''); const baseTailNL = Utils.countNewlines(parts.tailEl.textContent || '');
+    const ac = { codeEl: parts.codeEl, frozenEl: parts.frozenEl, tailEl: parts.tailEl, lang, frozenLen: parts.frozenEl.textContent.length, lastPromoteTs: 0,
+                 lines: 0, tailLines: baseTailNL, linesSincePromote: 0, initialLines: baseFrozenNL + baseTailNL, haltHL: false, plainStream: false };
+    this._d('ACTIVE_CODE_SETUP', { lang, frozenLen: ac.frozenLen, tailLines: ac.tailLines, initialLines: ac.initialLines });
+    return ac;
+  }
+  rehydrateActiveCode(oldAC, newAC) {
+    if (!oldAC || !newAC) return;
+    newAC.frozenEl.innerHTML = oldAC.frozenEl ? oldAC.frozenEl.innerHTML : '';
+    const fullText = newAC.codeEl.textContent || ''; const remainder = fullText.slice(oldAC.frozenLen);
+    newAC.tailEl.textContent = remainder;
+    newAC.frozenLen = oldAC.frozenLen; newAC.lang = oldAC.lang;
+    newAC.lines = oldAC.lines; newAC.tailLines = Utils.countNewlines(remainder);
+    newAC.lastPromoteTs = oldAC.lastPromoteTs; newAC.linesSincePromote = oldAC.linesSincePromote || 0;
+    newAC.initialLines = oldAC.initialLines || 0; newAC.haltHL = !!oldAC.haltHL;
+    newAC.plainStream = !!oldAC.plainStream;
+    this._d('ACTIVE_CODE_REHYDRATE', { lang: newAC.lang, frozenLen: newAC.frozenLen, tailLines: newAC.tailLines, initialLines: newAC.initialLines, halted: newAC.haltHL, plainStream: newAC.plainStream });
+  }
+  appendToActiveTail(text) {
+    if (!this.activeCode || !this.activeCode.tailEl || !text) return;
+    this.activeCode.tailEl.insertAdjacentText('beforeend', text);
+    const nl = Utils.countNewlines(text);
+    this.activeCode.tailLines += nl; this.activeCode.linesSincePromote += nl;
+    this.codeScroll.scheduleScroll(this.activeCode.codeEl, true, false);
+    if (this.logger.isEnabled('STREAM') && (nl > 0 || text.length >= 64)) {
+      this._d('TAIL_APPEND', { addLen: text.length, addNL: nl, totalTailNL: this.activeCode.tailLines });
+    }
+  }
+  enforceHLStopBudget() {
+    if (!this.activeCode) return;
+    if (this.cfg.HL.DISABLE_ALL) { this.activeCode.haltHL = true; this.activeCode.plainStream = true; return; }
+    const stop = (this.cfg.PROFILE_CODE.stopAfterLines | 0);
+    const streamPlainLines = (this.cfg.PROFILE_CODE.streamPlainAfterLines | 0);
+    const streamPlainChars = (this.cfg.PROFILE_CODE.streamPlainAfterChars | 0);
+    const maxFrozenChars = (this.cfg.PROFILE_CODE.maxFrozenChars | 0);
+
+    const totalLines = (this.activeCode.initialLines || 0) + (this.activeCode.lines || 0);
+    const frozenChars = this.activeCode.frozenLen | 0;
+    const tailChars = (this.activeCode.tailEl?.textContent || '').length | 0;
+    const totalStreamedChars = frozenChars + tailChars;
+
+    if ((streamPlainLines > 0 && totalLines >= streamPlainLines) ||
+        (streamPlainChars > 0 && totalStreamedChars >= streamPlainChars) ||
+        (maxFrozenChars > 0 && frozenChars >= maxFrozenChars)) {
+      this.activeCode.haltHL = true;
+      this.activeCode.plainStream = true;
+      try { this.activeCode.codeEl.dataset.hlStreamSuspended = '1'; } catch (_) {}
+      this._d('STREAM_HL_SUSPENDED', { totalLines, totalStreamedChars, frozenChars, reason: 'budget' });
+      return;
+    }
+
+    if (stop > 0 && totalLines >= stop) {
+      this.activeCode.haltHL = true;
+      this.activeCode.plainStream = true;
+      try { this.activeCode.codeEl.dataset.hlStreamSuspended = '1'; } catch (_) {}
+      this._d('STREAM_HL_SUSPENDED', { totalLines, stopAfter: stop, reason: 'stopAfterLines' });
+    }
+  }
+  _aliasLang(token) {
+    const ALIAS = {
+      txt: 'plaintext', text: 'plaintext', plaintext: 'plaintext',
+      sh: 'bash', shell: 'bash', zsh: 'bash', 'shell-session': 'bash',
+      py: 'python', python3: 'python', py3: 'python',
+      js: 'javascript', node: 'javascript', nodejs: 'javascript',
+      ts: 'typescript', 'ts-node': 'typescript',
+      yml: 'yaml', kt: 'kotlin', rs: 'rust',
+      csharp: 'csharp', 'c#': 'csharp', 'c++': 'cpp',
+      ps: 'powershell', ps1: 'powershell', pwsh: 'powershell', powershell7: 'powershell',
+      docker: 'dockerfile'
+    };
+    const v = String(token || '').trim().toLowerCase();
+    return ALIAS[v] || v;
+  }
+  _isHLJSSupported(lang) {
+    try { return !!(window.hljs && hljs.getLanguage && hljs.getLanguage(lang)); } catch (_) { return false; }
+  }
+  _detectDirectiveLangFromText(text) {
+    if (!text) return null;
+    let s = String(text);
+    if (s.charCodeAt(0) === 0xFEFF) s = s.slice(1);
+    const lines = s.split(/\r?\n/);
+    let i = 0; while (i < lines.length && !lines[i].trim()) i++;
+    if (i >= lines.length) return null;
+    let first = lines[i].trim();
+    first = first.replace(/^\s*lang(?:uage)?\s*[:=]\s*/i, '').trim();
+    let token = first.split(/\s+/)[0].replace(/:$/, '');
+    if (!/^[A-Za-z][\w#+\-\.]{0,30}$/.test(token)) return null;
+
+    let cand = this._aliasLang(token);
+    const rest = lines.slice(i + 1).join('\n');
+    if (!rest.trim()) return null;
+
+    let pos = 0, seen = 0;
+    while (seen < i && pos < s.length) { const nl = s.indexOf('\n', pos); if (nl === -1) return null; pos = nl + 1; seen++; }
+    let end = s.indexOf('\n', pos);
+    if (end === -1) end = s.length; else end = end + 1;
+    return { lang: cand, deleteUpto: end };
+  }
+  _updateCodeLangClass(codeEl, newLang) {
+    try {
+      Array.from(codeEl.classList).forEach(c => { if (c.startsWith('language-')) codeEl.classList.remove(c); });
+      codeEl.classList.add('language-' + (newLang || 'plaintext'));
+    } catch (_) {}
+  }
+  _updateCodeHeaderLabel(codeEl, newLabel, newLangToken) {
+    try {
+      const wrap = codeEl.closest('.code-wrapper');
+      if (!wrap) return;
+      const span = wrap.querySelector('.code-header-lang');
+      if (span) span.textContent = newLabel || (newLangToken || 'code');
+      wrap.setAttribute('data-code-lang', newLangToken || '');
+    } catch (_) {}
+  }
+  maybePromoteLanguageFromDirective() {
+    if (!this.activeCode || !this.activeCode.codeEl) return;
+    if (this.activeCode.lang && this.activeCode.lang !== 'plaintext') return;
+
+    const frozenTxt = this.activeCode.frozenEl ? this.activeCode.frozenEl.textContent : '';
+    const tailTxt = this.activeCode.tailEl ? this.activeCode.tailEl.textContent : '';
+    const combined = frozenTxt + tailTxt;
+    if (!combined) return;
+
+    const det = this._detectDirectiveLangFromText(combined);
+    if (!det || !det.lang) return;
+
+    const newLang = det.lang;
+    const newCombined = combined.slice(det.deleteUpto);
+
+    try {
+      const codeEl = this.activeCode.codeEl;
+      codeEl.innerHTML = '';
+      const frozen = document.createElement('span'); frozen.className = 'hl-frozen';
+      const tail = document.createElement('span'); tail.className = 'hl-tail';
+      tail.textContent = newCombined;
+      codeEl.appendChild(frozen); codeEl.appendChild(tail);
+      this.activeCode.frozenEl = frozen; this.activeCode.tailEl = tail;
+      this.activeCode.frozenLen = 0;
+      this.activeCode.tailLines = Utils.countNewlines(newCombined);
+      this.activeCode.linesSincePromote = 0;
+
+      this.activeCode.lang = newLang;
+      this._updateCodeLangClass(codeEl, newLang);
+      this._updateCodeHeaderLabel(codeEl, newLang, newLang);
+
+      this._d('LANG_PROMOTE', { to: newLang, removedChars: det.deleteUpto, tailLines: this.activeCode.tailLines });
+      this.schedulePromoteTail(true);
+    } catch (e) {
+      this._d('LANG_PROMOTE_ERR', String(e));
+    }
+  }
+  highlightDeltaText(lang, text) {
+    if (this.cfg.HL.DISABLE_ALL) return Utils.escapeHtml(text);
+    if (window.hljs && lang && hljs.getLanguage && hljs.getLanguage(lang)) {
+      try { return hljs.highlight(text, { language: lang, ignoreIllegals: true }).value; }
+      catch (_) { return Utils.escapeHtml(text); }
+    }
+    return Utils.escapeHtml(text);
+  }
+  schedulePromoteTail(force = false) {
+    if (!this.activeCode || !this.activeCode.tailEl) return;
+    if (this._promoteScheduled) return;
+    this._promoteScheduled = true;
+    this.raf.schedule('SE:promoteTail', () => {
+      this._promoteScheduled = false;
+      this._promoteTailWork(force);
+    }, 'StreamEngine', 1);
+  }
+  async _promoteTailWork(force = false) {
+    if (!this.activeCode || !this.activeCode.tailEl) return;
+
+    const now = Utils.now(); const prof = this.cfg.PROFILE_CODE;
+    const tailText0 = this.activeCode.tailEl.textContent || ''; if (!tailText0) return;
+
+    if (!force) {
+      if ((now - this.activeCode.lastPromoteTs) < prof.promoteMinInterval) return;
+      const enoughLines = (this.activeCode.linesSincePromote || 0) >= (prof.promoteMinLines || 10);
+      const enoughChars = tailText0.length >= prof.minCharsForHL;
+      if (!enoughLines && !enoughChars) return;
+    }
+
+    const idx = tailText0.lastIndexOf('\n');
+    if (idx <= -1 && !force) return;
+    const cut = (idx >= 0) ? (idx + 1) : tailText0.length;
+    const delta = tailText0.slice(0, cut); if (!delta) return;
+
+    this.enforceHLStopBudget();
+    const usePlain = this.activeCode.haltHL || this.activeCode.plainStream || !this._isHLJSSupported(this.activeCode.lang);
+
+    if (!usePlain) await this.asyncer.yield();
+
+    if (!this.activeCode || !this.activeCode.tailEl) return;
+    const tailNow = this.activeCode.tailEl.textContent || '';
+    if (!tailNow.startsWith(delta)) {
+      this.schedulePromoteTail(false);
+      return;
+    }
+
+    if (usePlain) {
+      this.activeCode.frozenEl.insertAdjacentText('beforeend', delta);
+    } else {
+      let html = Utils.escapeHtml(delta);
+      try { html = this.highlightDeltaText(this.activeCode.lang, delta); } catch (_) { html = Utils.escapeHtml(delta); }
+      this.activeCode.frozenEl.insertAdjacentHTML('beforeend', html);
+    }
+
+    this.activeCode.tailEl.textContent = tailNow.slice(delta.length);
+    this.activeCode.frozenLen += delta.length;
+    const promotedLines = Utils.countNewlines(delta);
+    this.activeCode.tailLines = Math.max(0, (this.activeCode.tailLines || 0) - promotedLines);
+    this.activeCode.linesSincePromote = Math.max(0, (this.activeCode.linesSincePromote || 0) - promotedLines);
+    this.activeCode.lastPromoteTs = Utils.now();
+    this.codeScroll.scheduleScroll(this.activeCode.codeEl, true, false);
+    this._d(usePlain ? 'TAIL_PROMOTE_PLAIN' : 'TAIL_PROMOTE_ASYNC', { cut, promotedLines, lang: this.activeCode.lang, plain: usePlain });
+  }
+  finalizeActiveCode() {
+    if (!this.activeCode) return;
+    const codeEl = this.activeCode.codeEl;
+    const fromBottomBefore = Math.max(0, codeEl.scrollHeight - codeEl.clientHeight - codeEl.scrollTop);
+    const wasNearBottom = this.codeScroll.isNearBottomEl(codeEl, this.cfg.CODE_SCROLL.NEAR_MARGIN_PX);
+    const fullText = (this.activeCode.frozenEl.textContent || '') + (this.activeCode.tailEl.textContent || '');
+
+    try {
+      codeEl.innerHTML = '';
+      codeEl.textContent = fullText;
+      codeEl.classList.add('hljs');
+      codeEl.removeAttribute('data-highlighted');
+    } catch (_) {}
+
+    const st = this.codeScroll.state(codeEl); st.autoFollow = false;
+    const maxScrollTop = Math.max(0, codeEl.scrollHeight - codeEl.clientHeight);
+    const target = wasNearBottom ? maxScrollTop : Math.max(0, maxScrollTop - fromBottomBefore);
+    try { codeEl.scrollTop = target; } catch (_) {}
+    st.lastScrollTop = codeEl.scrollTop;
+    codeEl.dataset._active_stream = '0';
+
+    try { codeEl.dataset.justFinalized = '1'; } catch (_) {}
+    this.codeScroll.scheduleScroll(codeEl, false, true);
+
+    try { if (!this.cfg.HL.DISABLE_ALL) this.highlighter.queue(codeEl, null); } catch (_) {}
+
+    this.suppressPostFinalizePass = true;
+
+    this._d('FINALIZE_CODE_NONBLOCK', { lang: this.activeCode.lang, len: fullText.length, highlighted: false });
+    this.activeCode = null;
+  }
+  codeFingerprint(codeEl) {
+    const cls = Array.from(codeEl.classList).find(c => c.startsWith('language-')) || 'language-plaintext';
+    const lang = cls.replace('language-', '') || 'plaintext';
+    const t = codeEl.textContent || ''; const len = t.length; const head = t.slice(0, 64); const tail = t.slice(-64);
+    return `${lang}|${len}|${head}|${tail}`;
+  }
+  codeFingerprintFromWrapper(codeEl) {
+    try {
+      const wrap = codeEl.closest('.code-wrapper'); if (!wrap) return null;
+      const cls = Array.from(codeEl.classList).find(c => c.startsWith('language-')) || 'language-plaintext';
+      const lang = (cls.replace('language-', '') || 'plaintext');
+      const len = wrap.getAttribute('data-code-len') || '';
+      const head = wrap.getAttribute('data-code-head') || '';
+      const tail = wrap.getAttribute('data-code-tail') || '';
+      if (!len) return null;
+      return `${lang}|${len}|${head}|${tail}`;
+    } catch (_) {
+      return null;
+    }
+  }
+  preserveStableClosedCodes(oldSnap, newRoot, skipLastIfStreaming) {
+    try {
+      const oldCodes = Array.from(oldSnap.querySelectorAll('pre code')); if (!oldCodes.length) return;
+      const newCodesPre = Array.from(newRoot.querySelectorAll('pre code'));
+      if (newCodesPre.length > this.cfg.STREAM.PRESERVE_CODES_MAX || oldCodes.length > this.cfg.STREAM.PRESERVE_CODES_MAX) return;
+
+      const map = new Map();
+      for (const el of oldCodes) {
+        if (el.querySelector('.hl-frozen')) continue;
+        if (this.activeCode && el === this.activeCode.codeEl) continue;
+        let fp = this.codeFingerprintFromWrapper(el);
+        if (!fp) fp = el.dataset.fp || (el.dataset.fp = this.codeFingerprint(el));
+        const arr = map.get(fp) || []; arr.push(el); map.set(fp, arr);
+      }
+      const newCodes = newCodesPre;
+      const end = (skipLastIfStreaming && newCodes.length > 0) ? (newCodes.length - 1) : newCodes.length;
+      let reuseCount = 0;
+      for (let i = 0; i < end; i++) {
+        const nc = newCodes[i];
+        if (nc.getAttribute('data-highlighted') === 'yes') continue;
+        let fp = this.codeFingerprintFromWrapper(nc);
+        if (!fp) fp = this.codeFingerprint(nc);
+        const arr = map.get(fp);
+        if (arr && arr.length) {
+          const oldEl = arr.shift();
+          if (oldEl && oldEl.isConnected) {
+            try {
+              nc.replaceWith(oldEl);
+              this.codeScroll.attachHandlers(oldEl);
+              if (!oldEl.getAttribute('data-highlighted')) oldEl.setAttribute('data-highlighted', 'yes');
+              const st = this.codeScroll.state(oldEl); st.autoFollow = false;
+              reuseCount++;
+            } catch (_) {}
+          }
+          if (!arr.length) map.delete(fp);
+        }
+      }
+      if (reuseCount) this._d('PRESERVE_CODES_REUSED', { reuseCount, skipLastIfStreaming });
+    } catch (e) {
+      this._d('PRESERVE_CODES_ERROR', String(e));
+    }
+  }
+  _ensureBottomForJustFinalized(root) {
+    try {
+      const scope = root || document;
+      const nodes = scope.querySelectorAll('pre code[data-just-finalized="1"]');
+      if (!nodes || !nodes.length) return;
+      nodes.forEach((codeEl) => {
+        this.codeScroll.scheduleScroll(codeEl, false, true);
+        const key = { t: 'JF:forceBottom', el: codeEl, n: Math.random() };
+        this.raf.schedule(key, () => {
+          this.codeScroll.scrollToBottom(codeEl, false, true);
+          try { codeEl.dataset.justFinalized = '0'; } catch (_) {}
+        }, 'CodeScroll', 2);
+      });
+    } catch (_) {}
+  }
+  kickVisibility() {
+    const msg = this.getMsg(false, '');
+    if (!msg) return;
+    if (this.codeStream.open && !this.activeCode) {
+      this.scheduleSnapshot(msg, true);
+      return;
+    }
+    const needSnap = (this.getStreamLength() !== (window.__lastSnapshotLen || 0));
+    if (needSnap) this.scheduleSnapshot(msg, true);
+    if (this.activeCode && this.activeCode.codeEl) {
+      this.codeScroll.scheduleScroll(this.activeCode.codeEl, true, false);
+      this.schedulePromoteTail(true);
+    }
+  }
+  stabilizeHeaderLabel(prevAC, newAC) {
+    try {
+      if (!newAC || !newAC.codeEl || !newAC.codeEl.isConnected) return;
+
+      const wrap = newAC.codeEl.closest('.code-wrapper');
+      if (!wrap) return;
+
+      const span = wrap.querySelector('.code-header-lang');
+      const curLabel = (span && span.textContent ? span.textContent.trim() : '').toLowerCase();
+
+      if (curLabel === 'output') return;
+
+      const tokNow = (wrap.getAttribute('data-code-lang') || '').trim().toLowerCase();
+      const sticky = (wrap.getAttribute('data-lang-sticky') || '').trim().toLowerCase();
+      const prev = (prevAC && prevAC.lang && prevAC.lang !== 'plaintext') ? prevAC.lang.toLowerCase() : '';
+
+      const valid = (t) => !!t && t !== 'plaintext' && this._isHLJSSupported(t);
+
+      let finalTok = '';
+      if (valid(tokNow)) finalTok = tokNow;
+      else if (valid(prev)) finalTok = prev;
+      else if (valid(sticky)) finalTok = sticky;
+
+      if (finalTok) {
+        this._updateCodeLangClass(newAC.codeEl, finalTok);
+        this._updateCodeHeaderLabel(newAC.codeEl, finalTok, finalTok);
+        try { wrap.setAttribute('data-code-lang', finalTok); } catch (_) {}
+        try { wrap.setAttribute('data-lang-sticky', finalTok); } catch (_) {}
+        newAC.lang = finalTok;
+      } else {
+        if (span && curLabel && curLabel.length < 3) {
+          span.textContent = 'code';
+        }
+      }
+    } catch (_) { /* defensive: never break streaming path */ }
+  }
+
+  renderSnapshot(msg) {
+    const streaming = !!this.isStreaming;
+    const snap = this.getMsgSnapshotRoot(msg); if (!snap) return;
+
+    const prevLen = (window.__lastSnapshotLen || 0);
+    const curLen = this.getStreamLength();
+    if (!this.fenceOpen && !this.activeCode && curLen === prevLen) {
+      this.lastSnapshotTs = Utils.now();
+      this._d('SNAPSHOT_SKIPPED_NO_DELTA', { bufLen: curLen });
+      return;
+    }
+
+    const t0 = Utils.now();
+
+    // When an open fence is present, append a synthetic EOL only if the current buffer
+    // does not already end with EOL. This stabilizes markdown-it parsing without polluting
+    // the real code tail (we will strip this EOL from the active tail right after snapshot).
+    const allText = this.getStreamText();
+    const needSyntheticEOL = (this.fenceOpen && !/[\r\n]$/.test(allText));
+    this._lastInjectedEOL = !!needSyntheticEOL;
+    const src = needSyntheticEOL ? (allText + '\n') : allText;
+
+    const html = streaming ? this.renderer.renderStreamingSnapshot(src) : this.renderer.renderFinalSnapshot(src);
+
+    let frag = null;
+    try {
+      const range = document.createRange();
+      range.selectNodeContents(snap);
+      frag = range.createContextualFragment(html);
+    } catch (_) {
+      const tmp = document.createElement('div');
+      tmp.innerHTML = html;
+      frag = document.createDocumentFragment();
+      while (tmp.firstChild) frag.appendChild(tmp.firstChild);
+    }
+
+    // (stream-aware custom markup):
+    try {
+      if (this.renderer && this.renderer.customMarkup && this.renderer.customMarkup.hasStreamRules()) {
+        const MDinline = this.renderer.MD_STREAM || this.renderer.MD || null;
+        this.renderer.customMarkup.applyStream(frag, MDinline);
+      }
+    } catch (_) { /* keep snapshot path resilient */ }
+
+    this.preserveStableClosedCodes(snap, frag, this.fenceOpen === true);
+
+    snap.replaceChildren(frag);
+
+    this.renderer.restoreCollapsedCode(snap);
+    this._ensureBottomForJustFinalized(snap);
+
+    const prevAC = this.activeCode;
+
+    if (this.fenceOpen) {
+      const newAC = this.setupActiveCodeFromSnapshot(snap);
+
+      if (prevAC && newAC) {
+        this.rehydrateActiveCode(prevAC, newAC);
+        this.stabilizeHeaderLabel(prevAC, newAC);
+      }
+
+      this.activeCode = newAC || null;
+    } else {
+      this.activeCode = null;
+    }
+
+    if (!this.fenceOpen) {
+      this.codeScroll.initScrollableBlocks(snap);
+    }
+    this.highlighter.observeNewCode(snap, {
+      deferLastIfStreaming: true,
+      minLinesForLast: this.cfg.PROFILE_CODE.minLinesForHL,
+      minCharsForLast: this.cfg.PROFILE_CODE.minCharsForHL
+    }, this.activeCode);
+    this.highlighter.observeMsgBoxes(snap, (box) => {
+      this.highlighter.observeNewCode(box, {
         deferLastIfStreaming: true,
         minLinesForLast: this.cfg.PROFILE_CODE.minLinesForHL,
         minCharsForLast: this.cfg.PROFILE_CODE.minCharsForHL
       }, this.activeCode);
-      this.highlighter.observeMsgBoxes(snap, (box) => {
-        this.highlighter.observeNewCode(box, {
-          deferLastIfStreaming: true,
-          minLinesForLast: this.cfg.PROFILE_CODE.minLinesForHL,
-          minCharsForLast: this.cfg.PROFILE_CODE.minCharsForHL
-        }, this.activeCode);
-        this.codeScroll.initScrollableBlocks(box);
-      });
+      this.codeScroll.initScrollableBlocks(box);
+    });
 
-      // Schedule math render according to mode; keep "finalize-only" cheap on hot path
-      const mm = getMathMode();
-      if (!this.suppressPostFinalizePass) {
-        if (mm === 'idle') this.math.schedule(snap);
-        else if (mm === 'always') this.math.schedule(snap, 0, true);
-      }
-
-      // If streaming code is visible, keep it glued to bottom
-      if (this.fenceOpen && this.activeCode && this.activeCode.codeEl) {
-        this.codeScroll.attachHandlers(this.activeCode.codeEl);
-        this.codeScroll.scheduleScroll(this.activeCode.codeEl, true, false);
-      } else if (!this.fenceOpen) {
-        this.codeScroll.initScrollableBlocks(snap);
-      }
-
-      // Advance snapshot budget and remember progress
-      window.__lastSnapshotLen = this.getStreamLength();
-      this.lastSnapshotTs = Utils.now();
-
-      const prof = this.profile();
-      if (prof.adaptiveStep) {
-        const maxStep = this.cfg.STREAM.SNAPSHOT_MAX_STEP || 8000;
-        this.nextSnapshotStep = Math.min(Math.ceil(this.nextSnapshotStep * prof.growth), maxStep);
-      } else {
-        this.nextSnapshotStep = prof.base;
-      }
-
-      // Keep page scroll/fab in sync
-      this.scrollMgr.scheduleScroll(true);
-      this.scrollMgr.fabFreezeUntil = Utils.now() + this.cfg.FAB.TOGGLE_DEBOUNCE_MS;
-      this.scrollMgr.scheduleScrollFabUpdate();
-
-      if (this.suppressPostFinalizePass) this.suppressPostFinalizePass = false;
-
-      const dt = Utils.now() - t0;
-      this._d('SNAPSHOT', { fenceOpen: this.fenceOpen, activeCode: !!this.activeCode, bufLen: this.getStreamLength(), timeMs: Math.round(dt), streaming });
+    const mm = getMathMode();
+    if (!this.suppressPostFinalizePass) {
+      if (mm === 'idle') this.math.schedule(snap);
+      else if (mm === 'always') this.math.schedule(snap, 0, true);
     }
 
-    // Get current message container (.msg) or create if allowed.
-    getMsg(create, name_header) { return this.dom.getStreamMsg(create, name_header); }
-    // Start a new streaming session (clear state and display loader, if any).
-    beginStream(chunk = false) {
-      this.isStreaming = true; // engage streaming mode (no linkify etc.)
-      if (chunk) runtime.loading.hide();
-      this.scrollMgr.userInteracted = false;
-      this.dom.clearOutput();
-      this.reset();
-      this.scrollMgr.forceScrollToBottomImmediate();
-      this.scrollMgr.scheduleScroll();
-      this._d('BEGIN_STREAM', { chunkFlag: !!chunk });
+    if (this.fenceOpen && this.activeCode && this.activeCode.codeEl) {
+      this.codeScroll.attachHandlers(this.activeCode.codeEl);
+      this.codeScroll.scheduleScroll(this.activeCode.codeEl, true, false);
+    } else if (!this.fenceOpen) {
+      this.codeScroll.initScrollableBlocks(snap);
     }
-    // End streaming session, finalize active code if present, and complete math/highlight.
-    endStream() {
-      // Switch to final mode before the last snapshot to allow full renderer (linkify etc.)
-      this.isStreaming = false;
 
-      const msg = this.getMsg(false, '');
-      if (msg) this.renderSnapshot(msg);
+    window.__lastSnapshotLen = this.getStreamLength();
+    this.lastSnapshotTs = Utils.now();
 
-      this.snapshotScheduled = false;
-      try { this.raf.cancel('SE:snapshot'); } catch (_) {}
-      this.snapshotRAF = 0;
+    const prof = this.profile();
+    if (prof.adaptiveStep) {
+      const maxStep = this.cfg.STREAM.SNAPSHOT_MAX_STEP || 8000;
+      this.nextSnapshotStep = Math.min(Math.ceil(this.nextSnapshotStep * prof.growth), maxStep);
+    } else {
+      this.nextSnapshotStep = prof.base;
+    }
 
-      const hadActive = !!this.activeCode;
-      if (this.activeCode) this.finalizeActiveCode();
+    this.scrollMgr.scheduleScroll(true);
+    this.scrollMgr.fabFreezeUntil = Utils.now() + this.cfg.FAB.TOGGLE_DEBOUNCE_MS;
+    this.scrollMgr.scheduleScrollFabUpdate();
 
-      if (!hadActive) {
-        if (this.highlighter.hlQueue && this.highlighter.hlQueue.length) {
-          this.highlighter.flush(this.activeCode);
+    if (this.suppressPostFinalizePass) this.suppressPostFinalizePass = false;
+
+    const dt = Utils.now() - t0;
+    this._d('SNAPSHOT', { fenceOpen: this.fenceOpen, activeCode: !!this.activeCode, bufLen: this.getStreamLength(), timeMs: Math.round(dt), streaming });
+  }
+
+  getMsg(create, name_header) { return this.dom.getStreamMsg(create, name_header); }
+  beginStream(chunk = false) {
+    this.isStreaming = true;
+    if (chunk) runtime.loading.hide();
+    this.scrollMgr.userInteracted = false;
+    this.dom.clearOutput();
+    this.reset();
+    this.scrollMgr.forceScrollToBottomImmediate();
+    this.scrollMgr.scheduleScroll();
+    this._d('BEGIN_STREAM', { chunkFlag: !!chunk });
+  }
+  endStream() {
+    this.isStreaming = false;
+
+    const msg = this.getMsg(false, '');
+    if (msg) this.renderSnapshot(msg);
+
+    this.snapshotScheduled = false;
+    try { this.raf.cancel('SE:snapshot'); } catch (_) {}
+    this.snapshotRAF = 0;
+
+    const hadActive = !!this.activeCode;
+    if (this.activeCode) this.finalizeActiveCode();
+
+    if (!hadActive) {
+      if (this.highlighter.hlQueue && this.highlighter.hlQueue.length) {
+        this.highlighter.flush(this.activeCode);
+      }
+      const snap = msg ? this.getMsgSnapshotRoot(msg) : null;
+      if (snap) this.math.renderAsync(snap);
+    }
+
+    this.fenceOpen = false; this.codeStream.open = false; this.activeCode = null; this.lastSnapshotTs = Utils.now();
+    this.suppressPostFinalizePass = false;
+    this._d('END_STREAM', { hadActive });
+  }
+
+  // NEW: eager snapshot detection for custom stream openers (e.g., <think>, <tool>)
+  _maybeEagerSnapshotForCustomOpeners(msg, chunkStr) {
+    try {
+      const CM = this.renderer && this.renderer.customMarkup;
+      if (!CM || !CM.hasStreamRules()) return;
+
+      // Do not interfere with code fence streaming.
+      if (this.fenceOpen || this.codeStream.open) return;
+
+      const isFirstSnapshot = ((window.__lastSnapshotLen || 0) === 0);
+
+      if (isFirstSnapshot) {
+        // Cheap first-chunk check: if stream starts with a custom opener, snapshot immediately.
+        let head;
+        try { head = this.getStreamText(); } catch (_) { head = String(chunkStr || ''); }
+        if (CM.hasStreamOpenerAtStart(head)) {
+          this._d('CM_EAGER_SNAPSHOT_START', { openerAtStart: true });
+          this.scheduleSnapshot(msg, true);
+          return;
         }
-        const snap = msg ? this.getMsgSnapshotRoot(msg) : null;
-        if (snap) this.math.renderAsync(snap); // ensure math completes eagerly but async
       }
 
-      this.fenceOpen = false; this.codeStream.open = false; this.activeCode = null; this.lastSnapshotTs = Utils.now();
-      this.suppressPostFinalizePass = false;
-      this._d('END_STREAM', { hadActive });
+      // For later chunks: if this chunk contains any stream opener token, snapshot soon
+      // to let CustomMarkup.applyStreamPartialOpeners extend the pending block.
+      const rules = (CM.getRules() || []).filter(r => r && r.stream && typeof r.open === 'string');
+      if (rules.length && CM.hasAnyOpenToken(String(chunkStr || ''), rules)) {
+        this._d('CM_EAGER_SNAPSHOT_CHUNK', { tokenFound: true, chunkLen: (chunkStr || '').length });
+        this.scheduleSnapshot(msg); // normal (coalesced) schedule is enough
+      }
+    } catch (_) {
+      // Keep streaming resilient; never throw here.
     }
-    // Apply incoming chunk to stream buffer and update DOM when needed.
-    applyStream(name_header, chunk, alreadyBuffered = false) {
-      if (!this.activeCode && !this.fenceOpen) {
-        try { if (document.querySelector('pre code[data-_active_stream="1"]')) this.defuseOrphanActiveBlocks(); } catch (_) {}
+  }
+
+  // Apply incoming chunk to stream buffer and update DOM when needed.
+  applyStream(name_header, chunk, alreadyBuffered = false) {
+    if (!this.activeCode && !this.fenceOpen) {
+      try { if (document.querySelector('pre code[data-_active_stream="1"]')) this.defuseOrphanActiveBlocks(); } catch (_) {}
+    }
+    if (this.snapshotScheduled && !this.raf.isScheduled('SE:snapshot')) this.snapshotScheduled = false;
+
+    const msg = this.getMsg(true, name_header); if (!msg || !chunk) return;
+    const s = String(chunk);
+    if (!alreadyBuffered) this._appendChunk(s);
+
+    const change = this.updateFenceHeuristic(s);
+    const nlCount = Utils.countNewlines(s); const chunkHasNL = nlCount > 0;
+
+    this._d('APPLY_CHUNK', { len: s.length, nl: nlCount, opened: change.opened, closed: change.closed, splitAt: change.splitAt, fenceOpenBefore: this.fenceOpen || false, codeOpenBefore: this.codeStream.open || false, rebroadcast: !!alreadyBuffered });
+
+    // Eager snapshot for custom stream openers (non-code contexts).
+    // This ensures tags like <think> immediately turn on "pending block" behavior across the rest of the snapshot.
+    if (!change.opened && !this.fenceOpen) {
+      this._maybeEagerSnapshotForCustomOpeners(msg, s);
+    }
+
+    // Track if we just materialized the first code-open snapshot synchronously.
+    let didImmediateOpenSnap = false;
+
+    if (change.opened) {
+      this.codeStream.open = true; this.codeStream.lines = 0; this.codeStream.chars = 0;
+      this.resetBudget();
+      this.scheduleSnapshot(msg);
+      this._d('CODE_STREAM_OPEN', { });
+
+      if (!this._firstCodeOpenSnapDone && !this.activeCode && ((window.__lastSnapshotLen || 0) === 0)) {
+        try {
+          this.renderSnapshot(msg);
+          try { this.raf.cancel('SE:snapshot'); } catch (_) {}
+          this.snapshotScheduled = false;
+          this._firstCodeOpenSnapDone = true;
+          didImmediateOpenSnap = true;
+          this._d('CODE_OPEN_IMMEDIATE_SNAPSHOT', { bufLen: this.getStreamLength() });
+        } catch (_) {
+          // Normal scheduled snapshot will land soon.
+        }
       }
-      if (this.snapshotScheduled && !this.raf.isScheduled('SE:snapshot')) this.snapshotScheduled = false;
+    }
 
-      const msg = this.getMsg(true, name_header); if (!msg || !chunk) return;
-      const s = String(chunk);
-      if (!alreadyBuffered) this._appendChunk(s);
+    if (this.codeStream.open) {
+      this.codeStream.lines += nlCount; this.codeStream.chars += s.length;
 
-      const change = this.updateFenceHeuristic(s);
-      const nlCount = Utils.countNewlines(s); const chunkHasNL = nlCount > 0;
+      if (this.activeCode && this.activeCode.codeEl && this.activeCode.codeEl.isConnected) {
+        let partForCode = s; let remainder = '';
 
-      this._d('APPLY_CHUNK', { len: s.length, nl: nlCount, opened: change.opened, closed: change.closed, splitAt: change.splitAt, fenceOpenBefore: this.fenceOpen || false, codeOpenBefore: this.codeStream.open || false, rebroadcast: !!alreadyBuffered });
+        if (didImmediateOpenSnap) {
+          partForCode = '';
+        } else {
+          if (change.closed && change.splitAt >= 0 && change.splitAt <= s.length) {
+            partForCode = s.slice(0, change.splitAt); remainder = s.slice(change.splitAt);
+          }
+        }
 
-      // Track if we just materialized the first code-open snapshot synchronously.
-      let didImmediateOpenSnap = false;
+        if (partForCode) {
+          this.appendToActiveTail(partForCode);
+          this.activeCode.lines += Utils.countNewlines(partForCode);
 
-      if (change.opened) {
-        this.codeStream.open = true; this.codeStream.lines = 0; this.codeStream.chars = 0;
-        this.resetBudget();
+          this.maybePromoteLanguageFromDirective();
+          this.enforceHLStopBudget();
+
+          if (!this.activeCode.haltHL) {
+            if (partForCode.indexOf('\n') >= 0 || (this.activeCode.tailEl.textContent || '').length >= this.cfg.PROFILE_CODE.minCharsForHL) {
+              this.schedulePromoteTail(false);
+            }
+          }
+        }
+        this.scrollMgr.scrollFabUpdateScheduled = false;
+        this.scrollMgr.scheduleScroll(true);
+        this.scrollMgr.fabFreezeUntil = Utils.now() + this.cfg.FAB.TOGGLE_DEBOUNCE_MS;
+        this.scrollMgr.scheduleScrollFabUpdate();
+
+        if (change.closed) {
+          this.finalizeActiveCode();
+          this.codeStream.open = false; this.resetBudget(); this.scheduleSnapshot(msg);
+          this._d('CODE_STREAM_CLOSE_FINALIZED', { remainderLen: remainder.length });
+          if (remainder && remainder.length) { this.applyStream(name_header, remainder, true); }
+        }
+        return;
+      } else {
+        if (!this.activeCode && (this.codeStream.lines >= 2 || this.codeStream.chars >= 80)) {
+          this.scheduleSnapshot(msg, true);
+          return;
+        }
+        if (change.closed) {
+          this.codeStream.open = false; this.resetBudget(); this.scheduleSnapshot(msg);
+          this._d('CODE_CLOSED_WITHOUT_ACTIVE', { sinceLastSnapMs: Math.round(Utils.now() - this.lastSnapshotTs), snapshotScheduled: this.snapshotScheduled });
+        } else {
+          const boundary = this.hasStructuralBoundary(s);
+          if (this.shouldSnapshotOnChunk(s, chunkHasNL, boundary)) this.scheduleSnapshot(msg);
+          else this.maybeScheduleSoftSnapshot(msg, chunkHasNL);
+        }
+        return;
+      }
+    }
+
+    if (change.closed) {
+      this.codeStream.open = false; this.resetBudget(); this.scheduleSnapshot(msg);
+      this._d('CODE_STREAM_CLOSE', { });
+    } else {
+      const boundary = this.hasStructuralBoundary(s);
+      if (this.shouldSnapshotOnChunk(s, chunkHasNL, boundary)) {
         this.scheduleSnapshot(msg);
-        this._d('CODE_STREAM_OPEN', { });
-
-        // Fast-path: if stream starts with a code fence and no snapshot was made yet,
-        // immediately materialize the code block so tail streaming can proceed without click.
-        if (!this._firstCodeOpenSnapDone && !this.activeCode && ((window.__lastSnapshotLen || 0) === 0)) {
-          try {
-            this.renderSnapshot(msg);
-            try { this.raf.cancel('SE:snapshot'); } catch (_) {}
-            this.snapshotScheduled = false;
-            this._firstCodeOpenSnapDone = true;
-            didImmediateOpenSnap = true;
-            this._d('CODE_OPEN_IMMEDIATE_SNAPSHOT', { bufLen: this.getStreamLength() });
-          } catch (_) {
-            // Keep going; normal scheduled snapshot will land soon.
-          }
-        }
-      }
-
-      if (this.codeStream.open) {
-        this.codeStream.lines += nlCount; this.codeStream.chars += s.length;
-
-        if (this.activeCode && this.activeCode.codeEl && this.activeCode.codeEl.isConnected) {
-          let partForCode = s; let remainder = '';
-
-          if (didImmediateOpenSnap) {
-            partForCode = '';
-          } else {
-            if (change.closed && change.splitAt >= 0 && change.splitAt <= s.length) {
-              partForCode = s.slice(0, change.splitAt); remainder = s.slice(change.splitAt);
-            }
-          }
-
-          if (partForCode) {
-            this.appendToActiveTail(partForCode);
-            this.activeCode.lines += Utils.countNewlines(partForCode);
-
-            this.maybePromoteLanguageFromDirective();
-            this.enforceHLStopBudget();
-
-            if (!this.activeCode.haltHL) {
-              if (partForCode.indexOf('\n') >= 0 || (this.activeCode.tailEl.textContent || '').length >= this.cfg.PROFILE_CODE.minCharsForHL) {
-                this.schedulePromoteTail(false);
-              }
-            }
-          }
-          this.scrollMgr.scrollFabUpdateScheduled = false;
-          this.scrollMgr.scheduleScroll(true);
-          this.scrollMgr.fabFreezeUntil = Utils.now() + this.cfg.FAB.TOGGLE_DEBOUNCE_MS;
-          this.scrollMgr.scheduleScrollFabUpdate();
-
-          if (change.closed) {
-            this.finalizeActiveCode();
-            this.codeStream.open = false; this.resetBudget(); this.scheduleSnapshot(msg);
-            this._d('CODE_STREAM_CLOSE_FINALIZED', { remainderLen: remainder.length });
-            if (remainder && remainder.length) { this.applyStream(name_header, remainder, true); }
-          }
-          return;
-        } else {
-          if (!this.activeCode && (this.codeStream.lines >= 2 || this.codeStream.chars >= 80)) {
-            this.scheduleSnapshot(msg, true);
-            return;
-          }
-          if (change.closed) {
-            this.codeStream.open = false; this.resetBudget(); this.scheduleSnapshot(msg);
-            this._d('CODE_CLOSED_WITHOUT_ACTIVE', { sinceLastSnapMs: Math.round(Utils.now() - this.lastSnapshotTs), snapshotScheduled: this.snapshotScheduled });
-          } else {
-            const boundary = this.hasStructuralBoundary(s);
-            if (this.shouldSnapshotOnChunk(s, chunkHasNL, boundary)) this.scheduleSnapshot(msg);
-            else this.maybeScheduleSoftSnapshot(msg, chunkHasNL);
-          }
-          return;
-        }
-      }
-
-      if (change.closed) {
-        this.codeStream.open = false; this.resetBudget(); this.scheduleSnapshot(msg);
-        this._d('CODE_STREAM_CLOSE', { });
+        this._d('SCHEDULE_SNAPSHOT_BOUNDARY', { boundary });
       } else {
-        const boundary = this.hasStructuralBoundary(s);
-        if (this.shouldSnapshotOnChunk(s, chunkHasNL, boundary)) {
-          this.scheduleSnapshot(msg);
-          this._d('SCHEDULE_SNAPSHOT_BOUNDARY', { boundary });
-        } else {
-          this.maybeScheduleSoftSnapshot(msg, chunkHasNL);
-        }
+        this.maybeScheduleSoftSnapshot(msg, chunkHasNL);
       }
     }
   }
+}
 
   // ==========================================================================
   // 12) Stream queue

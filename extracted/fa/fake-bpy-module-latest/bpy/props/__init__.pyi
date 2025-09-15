@@ -155,7 +155,7 @@ import numpy.typing as npt
 import bpy.stub_internal.rna_enums
 import bpy.types
 
-def BoolProperty(
+def BoolProperty[_GenericType1: bpy.types.bpy_struct](
     *,
     name: str | None = "",
     description: str | None = "",
@@ -165,10 +165,10 @@ def BoolProperty(
     override: set[bpy.stub_internal.rna_enums.PropertyOverrideFlagItems] = set(),
     tags=set(),
     subtype: bpy.stub_internal.rna_enums.PropertySubtypeNumberItems = "NONE",
-    update: collections.abc.Callable[[bpy.types.bpy_struct, bpy.types.Context], None]
+    update: collections.abc.Callable[[_GenericType1, bpy.types.Context], None]
     | None = None,
-    get: collections.abc.Callable[[bpy.types.bpy_struct], bool] | None = None,
-    set: collections.abc.Callable[[bpy.types.bpy_struct, bool], None] | None = None,
+    get: collections.abc.Callable[[_GenericType1], bool] | None = None,
+    set: collections.abc.Callable[[_GenericType1, bool], None] | None = None,
     get_transform: collections.abc.Callable[[bpy.types.bpy_struct, bool, bool], bool]
     | None = None,
     set_transform: collections.abc.Callable[
@@ -194,19 +194,19 @@ def BoolProperty(
         :param update: Function to be called when this value is modified,
     This function must take 2 values (self, context) and return None.
     Warning there are no safety checks to avoid infinite recursion.
-        :type update: collections.abc.Callable[[bpy.types.bpy_struct, bpy.types.Context], None] | None
+        :type update: collections.abc.Callable[[_GenericType1, bpy.types.Context], None] | None
         :param get: Function to be called when this value is read, and the default,
     system-defined storage is not used for this property.
     This function must take 1 value (self) and return the value of the property.
 
     Defining this callback without a matching set one will make the property read-only (even if READ_ONLY option is not set).
-        :type get: collections.abc.Callable[[bpy.types.bpy_struct], bool] | None
+        :type get: collections.abc.Callable[[_GenericType1], bool] | None
         :param set: Function to be called when this value is written, and the default,
     system-defined storage is not used for this property.
     This function must take 2 values (self, value) and return None.
 
     Defining this callback without a matching get one is invalid.
-        :type set: collections.abc.Callable[[bpy.types.bpy_struct, bool], None] | None
+        :type set: collections.abc.Callable[[_GenericType1, bool], None] | None
         :param get_transform: Function to be called when this value is read,
     if some additional processing must be performed on the stored value.
     This function must take three arguments (self, the stored value,
@@ -226,7 +226,7 @@ def BoolProperty(
         :type set_transform: collections.abc.Callable[[bpy.types.bpy_struct, bool, bool, bool], bool] | None
     """
 
-def BoolVectorProperty(
+def BoolVectorProperty[_GenericType1: bpy.types.bpy_struct](
     *,
     name: str | None = "",
     description: str | None = "",
@@ -237,13 +237,11 @@ def BoolVectorProperty(
     tags=set(),
     subtype: bpy.stub_internal.rna_enums.PropertySubtypeNumberArrayItems = "NONE",
     size: collections.abc.Sequence[int] | int | None = 3,
-    update: collections.abc.Callable[[bpy.types.bpy_struct, bpy.types.Context], None]
+    update: collections.abc.Callable[[_GenericType1, bpy.types.Context], None]
     | None = None,
-    get: collections.abc.Callable[
-        [bpy.types.bpy_struct], collections.abc.Sequence[bool]
-    ]
+    get: collections.abc.Callable[[_GenericType1], collections.abc.Sequence[bool]]
     | None = None,
-    set: collections.abc.Callable[[bpy.types.bpy_struct, tuple[bool, ...]], None]
+    set: collections.abc.Callable[[_GenericType1, collections.abc.Sequence[bool]], None]
     | None = None,
     get_transform: collections.abc.Callable[
         [bpy.types.bpy_struct, collections.abc.Sequence[bool], bool],
@@ -283,19 +281,19 @@ def BoolVectorProperty(
         :param update: Function to be called when this value is modified,
     This function must take 2 values (self, context) and return None.
     Warning there are no safety checks to avoid infinite recursion.
-        :type update: collections.abc.Callable[[bpy.types.bpy_struct, bpy.types.Context], None] | None
+        :type update: collections.abc.Callable[[_GenericType1, bpy.types.Context], None] | None
         :param get: Function to be called when this value is read, and the default,
     system-defined storage is not used for this property.
     This function must take 1 value (self) and return the value of the property.
 
     Defining this callback without a matching set one will make the property read-only (even if READ_ONLY option is not set).
-        :type get: collections.abc.Callable[[bpy.types.bpy_struct], collections.abc.Sequence[bool]] | None
+        :type get: collections.abc.Callable[[_GenericType1], collections.abc.Sequence[bool]] | None
         :param set: Function to be called when this value is written, and the default,
     system-defined storage is not used for this property.
     This function must take 2 values (self, value) and return None.
 
     Defining this callback without a matching get one is invalid.
-        :type set: collections.abc.Callable[[bpy.types.bpy_struct, tuple[bool, ...]], None] | None
+        :type set: collections.abc.Callable[[_GenericType1, collections.abc.Sequence[bool]], None] | None
         :param get_transform: Function to be called when this value is read,
     if some additional processing must be performed on the stored value.
     This function must take three arguments (self, the stored value,
@@ -344,7 +342,7 @@ def CollectionProperty(
     :param tags: Enumerator of tags that are defined by parent class.
     """
 
-def EnumProperty(
+def EnumProperty[_GenericType1: bpy.types.bpy_struct](
     *,
     items: collections.abc.Iterable[
         tuple[str, str, str]
@@ -353,7 +351,7 @@ def EnumProperty(
         | None
     ]
     | collections.abc.Callable[
-        [typing.Any, bpy.types.Context | None],
+        [_GenericType1, bpy.types.Context | None],
         collections.abc.Iterable[
             tuple[str, str, str]
             | tuple[str, str, str, int]
@@ -368,10 +366,10 @@ def EnumProperty(
     options: set[bpy.stub_internal.rna_enums.PropertyFlagEnumItems] = {"ANIMATABLE"},
     override: set[bpy.stub_internal.rna_enums.PropertyOverrideFlagItems] = set(),
     tags=set(),
-    update: collections.abc.Callable[[bpy.types.bpy_struct, bpy.types.Context], None]
+    update: collections.abc.Callable[[_GenericType1, bpy.types.Context], None]
     | None = None,
-    get: collections.abc.Callable[[bpy.types.bpy_struct], int] | None = None,
-    set: collections.abc.Callable[[bpy.types.bpy_struct, int], None] | None = None,
+    get: collections.abc.Callable[[_GenericType1], int] | None = None,
+    set: collections.abc.Callable[[_GenericType1, int], None] | None = None,
     get_transform: collections.abc.Callable[[bpy.types.bpy_struct, int, bool], int]
     | None = None,
     set_transform: collections.abc.Callable[[bpy.types.bpy_struct, int, int, bool], int]
@@ -420,7 +418,7 @@ def EnumProperty(
     There is a known bug with using a callback,
     Python must keep a reference to the strings returned by the callback or Blender
     will misbehave or even crash.
-        :type items: collections.abc.Iterable[tuple[str, str, str] | tuple[str, str, str, int] | tuple[str, str, str, str, int] | None] | collections.abc.Callable[[typing.Any, bpy.types.Context | None], collections.abc.Iterable[tuple[str, str, str] | tuple[str, str, str, int] | tuple[str, str, str, str, int] | None]]
+        :type items: collections.abc.Iterable[tuple[str, str, str] | tuple[str, str, str, int] | tuple[str, str, str, str, int] | None] | collections.abc.Callable[[_GenericType1, bpy.types.Context | None], collections.abc.Iterable[tuple[str, str, str] | tuple[str, str, str, int] | tuple[str, str, str, str, int] | None]]
         :param name: Name used in the user interface.
         :type name: str | None
         :param description: Text used for the tooltip and api documentation.
@@ -440,19 +438,19 @@ def EnumProperty(
         :param update: Function to be called when this value is modified,
     This function must take 2 values (self, context) and return None.
     Warning there are no safety checks to avoid infinite recursion.
-        :type update: collections.abc.Callable[[bpy.types.bpy_struct, bpy.types.Context], None] | None
+        :type update: collections.abc.Callable[[_GenericType1, bpy.types.Context], None] | None
         :param get: Function to be called when this value is read, and the default,
     system-defined storage is not used for this property.
     This function must take 1 value (self) and return the value of the property.
 
     Defining this callback without a matching set one will make the property read-only (even if READ_ONLY option is not set).
-        :type get: collections.abc.Callable[[bpy.types.bpy_struct], int] | None
+        :type get: collections.abc.Callable[[_GenericType1], int] | None
         :param set: Function to be called when this value is written, and the default,
     system-defined storage is not used for this property.
     This function must take 2 values (self, value) and return None.
 
     Defining this callback without a matching get one is invalid.
-        :type set: collections.abc.Callable[[bpy.types.bpy_struct, int], None] | None
+        :type set: collections.abc.Callable[[_GenericType1, int], None] | None
         :param get_transform: Function to be called when this value is read,
     if some additional processing must be performed on the stored value.
     This function must take three arguments (self, the stored value,
@@ -472,7 +470,7 @@ def EnumProperty(
         :type set_transform: collections.abc.Callable[[bpy.types.bpy_struct, int, int, bool], int] | None
     """
 
-def FloatProperty(
+def FloatProperty[_GenericType1: bpy.types.bpy_struct](
     *,
     name: str | None = "",
     description: str | None = "",
@@ -489,10 +487,10 @@ def FloatProperty(
     tags=set(),
     subtype: bpy.stub_internal.rna_enums.PropertySubtypeNumberItems = "NONE",
     unit: bpy.stub_internal.rna_enums.PropertyUnitItems = "NONE",
-    update: collections.abc.Callable[[bpy.types.bpy_struct, bpy.types.Context], None]
+    update: collections.abc.Callable[[_GenericType1, bpy.types.Context], None]
     | None = None,
-    get: collections.abc.Callable[[bpy.types.bpy_struct], float] | None = None,
-    set: collections.abc.Callable[[bpy.types.bpy_struct, float], None] | None = None,
+    get: collections.abc.Callable[[_GenericType1], float] | None = None,
+    set: collections.abc.Callable[[_GenericType1, float], None] | None = None,
     get_transform: collections.abc.Callable[[bpy.types.bpy_struct, float, bool], float]
     | None = None,
     set_transform: collections.abc.Callable[
@@ -532,19 +530,19 @@ def FloatProperty(
         :param update: Function to be called when this value is modified,
     This function must take 2 values (self, context) and return None.
     Warning there are no safety checks to avoid infinite recursion.
-        :type update: collections.abc.Callable[[bpy.types.bpy_struct, bpy.types.Context], None] | None
+        :type update: collections.abc.Callable[[_GenericType1, bpy.types.Context], None] | None
         :param get: Function to be called when this value is read, and the default,
     system-defined storage is not used for this property.
     This function must take 1 value (self) and return the value of the property.
 
     Defining this callback without a matching set one will make the property read-only (even if READ_ONLY option is not set).
-        :type get: collections.abc.Callable[[bpy.types.bpy_struct], float] | None
+        :type get: collections.abc.Callable[[_GenericType1], float] | None
         :param set: Function to be called when this value is written, and the default,
     system-defined storage is not used for this property.
     This function must take 2 values (self, value) and return None.
 
     Defining this callback without a matching get one is invalid.
-        :type set: collections.abc.Callable[[bpy.types.bpy_struct, float], None] | None
+        :type set: collections.abc.Callable[[_GenericType1, float], None] | None
         :param get_transform: Function to be called when this value is read,
     if some additional processing must be performed on the stored value.
     This function must take three arguments (self, the stored value,
@@ -564,7 +562,7 @@ def FloatProperty(
         :type set_transform: collections.abc.Callable[[bpy.types.bpy_struct, float, float, bool], float] | None
     """
 
-def FloatVectorProperty(
+def FloatVectorProperty[_GenericType1: bpy.types.bpy_struct](
     *,
     name: str | None = "",
     description: str | None = "",
@@ -582,13 +580,13 @@ def FloatVectorProperty(
     subtype: bpy.stub_internal.rna_enums.PropertySubtypeNumberArrayItems = "NONE",
     unit: bpy.stub_internal.rna_enums.PropertyUnitItems = "NONE",
     size: collections.abc.Sequence[int] | int | None = 3,
-    update: collections.abc.Callable[[bpy.types.bpy_struct, bpy.types.Context], None]
+    update: collections.abc.Callable[[_GenericType1, bpy.types.Context], None]
     | None = None,
-    get: collections.abc.Callable[
-        [bpy.types.bpy_struct], collections.abc.Sequence[float]
+    get: collections.abc.Callable[[_GenericType1], collections.abc.Sequence[float]]
+    | None = None,
+    set: collections.abc.Callable[
+        [_GenericType1, collections.abc.Sequence[float]], None
     ]
-    | None = None,
-    set: collections.abc.Callable[[bpy.types.bpy_struct, tuple[float, ...]], None]
     | None = None,
 ) -> None:
     """Returns a new vector float property definition.
@@ -627,22 +625,22 @@ def FloatVectorProperty(
         :param update: Function to be called when this value is modified,
     This function must take 2 values (self, context) and return None.
     Warning there are no safety checks to avoid infinite recursion.
-        :type update: collections.abc.Callable[[bpy.types.bpy_struct, bpy.types.Context], None] | None
+        :type update: collections.abc.Callable[[_GenericType1, bpy.types.Context], None] | None
         :param get: Function to be called when this value is read, and the default,
     system-defined storage is not used for this property.
     This function must take 1 value (self) and return the value of the property.
 
     Defining this callback without a matching set one will make the property read-only (even if READ_ONLY option is not set).
-        :type get: collections.abc.Callable[[bpy.types.bpy_struct], collections.abc.Sequence[float]] | None
+        :type get: collections.abc.Callable[[_GenericType1], collections.abc.Sequence[float]] | None
         :param set: Function to be called when this value is written, and the default,
     system-defined storage is not used for this property.
     This function must take 2 values (self, value) and return None.
 
     Defining this callback without a matching get one is invalid.
-        :type set: collections.abc.Callable[[bpy.types.bpy_struct, tuple[float, ...]], None] | None
+        :type set: collections.abc.Callable[[_GenericType1, collections.abc.Sequence[float]], None] | None
     """
 
-def IntProperty(
+def IntProperty[_GenericType1: bpy.types.bpy_struct](
     *,
     name: str | None = "",
     description: str | None = "",
@@ -657,10 +655,10 @@ def IntProperty(
     override: set[bpy.stub_internal.rna_enums.PropertyOverrideFlagItems] = set(),
     tags=set(),
     subtype: bpy.stub_internal.rna_enums.PropertySubtypeNumberItems = "NONE",
-    update: collections.abc.Callable[[bpy.types.bpy_struct, bpy.types.Context], None]
+    update: collections.abc.Callable[[_GenericType1, bpy.types.Context], None]
     | None = None,
-    get: collections.abc.Callable[[bpy.types.bpy_struct], int] | None = None,
-    set: collections.abc.Callable[[bpy.types.bpy_struct, int], None] | None = None,
+    get: collections.abc.Callable[[_GenericType1], int] | None = None,
+    set: collections.abc.Callable[[_GenericType1, int], None] | None = None,
     get_transform: collections.abc.Callable[[bpy.types.bpy_struct, int, bool], int]
     | None = None,
     set_transform: collections.abc.Callable[[bpy.types.bpy_struct, int, int, bool], int]
@@ -694,19 +692,19 @@ def IntProperty(
         :param update: Function to be called when this value is modified,
     This function must take 2 values (self, context) and return None.
     Warning there are no safety checks to avoid infinite recursion.
-        :type update: collections.abc.Callable[[bpy.types.bpy_struct, bpy.types.Context], None] | None
+        :type update: collections.abc.Callable[[_GenericType1, bpy.types.Context], None] | None
         :param get: Function to be called when this value is read, and the default,
     system-defined storage is not used for this property.
     This function must take 1 value (self) and return the value of the property.
 
     Defining this callback without a matching set one will make the property read-only (even if READ_ONLY option is not set).
-        :type get: collections.abc.Callable[[bpy.types.bpy_struct], int] | None
+        :type get: collections.abc.Callable[[_GenericType1], int] | None
         :param set: Function to be called when this value is written, and the default,
     system-defined storage is not used for this property.
     This function must take 2 values (self, value) and return None.
 
     Defining this callback without a matching get one is invalid.
-        :type set: collections.abc.Callable[[bpy.types.bpy_struct, int], None] | None
+        :type set: collections.abc.Callable[[_GenericType1, int], None] | None
         :param get_transform: Function to be called when this value is read,
     if some additional processing must be performed on the stored value.
     This function must take three arguments (self, the stored value,
@@ -726,7 +724,7 @@ def IntProperty(
         :type set_transform: collections.abc.Callable[[bpy.types.bpy_struct, int, int, bool], int] | None
     """
 
-def IntVectorProperty(
+def IntVectorProperty[_GenericType1: bpy.types.bpy_struct](
     *,
     name: str | None = "",
     description: str | None = "",
@@ -742,11 +740,11 @@ def IntVectorProperty(
     tags=set(),
     subtype: bpy.stub_internal.rna_enums.PropertySubtypeNumberArrayItems = "NONE",
     size: collections.abc.Sequence[int] | int | None = 3,
-    update: collections.abc.Callable[[bpy.types.bpy_struct, bpy.types.Context], None]
+    update: collections.abc.Callable[[_GenericType1, bpy.types.Context], None]
     | None = None,
-    get: collections.abc.Callable[[bpy.types.bpy_struct], collections.abc.Sequence[int]]
+    get: collections.abc.Callable[[_GenericType1], collections.abc.Sequence[int]]
     | None = None,
-    set: collections.abc.Callable[[bpy.types.bpy_struct, tuple[int, ...]], None]
+    set: collections.abc.Callable[[_GenericType1, collections.abc.Sequence[int]], None]
     | None = None,
     get_transform: collections.abc.Callable[
         [bpy.types.bpy_struct, collections.abc.Sequence[int], bool],
@@ -796,19 +794,19 @@ def IntVectorProperty(
         :param update: Function to be called when this value is modified,
     This function must take 2 values (self, context) and return None.
     Warning there are no safety checks to avoid infinite recursion.
-        :type update: collections.abc.Callable[[bpy.types.bpy_struct, bpy.types.Context], None] | None
+        :type update: collections.abc.Callable[[_GenericType1, bpy.types.Context], None] | None
         :param get: Function to be called when this value is read, and the default,
     system-defined storage is not used for this property.
     This function must take 1 value (self) and return the value of the property.
 
     Defining this callback without a matching set one will make the property read-only (even if READ_ONLY option is not set).
-        :type get: collections.abc.Callable[[bpy.types.bpy_struct], collections.abc.Sequence[int]] | None
+        :type get: collections.abc.Callable[[_GenericType1], collections.abc.Sequence[int]] | None
         :param set: Function to be called when this value is written, and the default,
     system-defined storage is not used for this property.
     This function must take 2 values (self, value) and return None.
 
     Defining this callback without a matching get one is invalid.
-        :type set: collections.abc.Callable[[bpy.types.bpy_struct, tuple[int, ...]], None] | None
+        :type set: collections.abc.Callable[[_GenericType1, collections.abc.Sequence[int]], None] | None
         :param get_transform: Function to be called when this value is read,
     if some additional processing must be performed on the stored value.
     This function must take three arguments (self, the stored value,
@@ -828,7 +826,7 @@ def IntVectorProperty(
         :type set_transform: collections.abc.Callable[[bpy.types.bpy_struct, collections.abc.Sequence[int], collections.abc.Sequence[int], bool], collections.abc.Sequence[int]] | None
     """
 
-def PointerProperty(
+def PointerProperty[_GenericType1: bpy.types.bpy_struct, _GenericType2: bpy.types.ID](
     *,
     type: type[bpy.types.PropertyGroup | bpy.types.ID] | None,
     name: str | None = "",
@@ -837,9 +835,8 @@ def PointerProperty(
     options: set[bpy.stub_internal.rna_enums.PropertyFlagItems] = {"ANIMATABLE"},
     override: set[bpy.stub_internal.rna_enums.PropertyOverrideFlagItems] = set(),
     tags=set(),
-    poll: collections.abc.Callable[[bpy.types.bpy_struct, bpy.types.ID], bool]
-    | None = None,
-    update: collections.abc.Callable[[bpy.types.bpy_struct, bpy.types.Context], None]
+    poll: collections.abc.Callable[[_GenericType1, _GenericType2], bool] | None = None,
+    update: collections.abc.Callable[[_GenericType1, bpy.types.Context], None]
     | None = None,
 ) -> None:
     """Returns a new pointer property definition.
@@ -861,11 +858,11 @@ def PointerProperty(
     The function must take 2 values (self, object) and return a boolean.
 
     The return value will be checked only when assigning an item from the UI, but it is still possible to assign an "invalid" item to the property directly.
-        :type poll: collections.abc.Callable[[bpy.types.bpy_struct, bpy.types.ID], bool] | None
+        :type poll: collections.abc.Callable[[_GenericType1, _GenericType2], bool] | None
         :param update: Function to be called when this value is modified,
     This function must take 2 values (self, context) and return None.
     Warning there are no safety checks to avoid infinite recursion.
-        :type update: collections.abc.Callable[[bpy.types.bpy_struct, bpy.types.Context], None] | None
+        :type update: collections.abc.Callable[[_GenericType1, bpy.types.Context], None] | None
     """
 
 def RemoveProperty(*, cls: typing.Any | None, attr: str | None) -> None:
@@ -877,7 +874,7 @@ def RemoveProperty(*, cls: typing.Any | None, attr: str | None) -> None:
     :type attr: str | None
     """
 
-def StringProperty(
+def StringProperty[_GenericType1: bpy.types.bpy_struct](
     *,
     name: str | None = "",
     description: str | None = "",
@@ -888,16 +885,16 @@ def StringProperty(
     override: set[bpy.stub_internal.rna_enums.PropertyOverrideFlagItems] = set(),
     tags=set(),
     subtype: bpy.stub_internal.rna_enums.PropertySubtypeStringItems = "NONE",
-    update: collections.abc.Callable[[bpy.types.bpy_struct, bpy.types.Context], None]
+    update: collections.abc.Callable[[_GenericType1, bpy.types.Context], None]
     | None = None,
-    get: collections.abc.Callable[[bpy.types.bpy_struct], str] | None = None,
-    set: collections.abc.Callable[[bpy.types.bpy_struct, str], None] | None = None,
+    get: collections.abc.Callable[[_GenericType1], str] | None = None,
+    set: collections.abc.Callable[[_GenericType1, str], None] | None = None,
     get_transform: collections.abc.Callable[[bpy.types.bpy_struct, str, bool], str]
     | None = None,
     set_transform: collections.abc.Callable[[bpy.types.bpy_struct, str, str, bool], str]
     | None = None,
     search: collections.abc.Callable[
-        [bpy.types.bpy_struct, bpy.types.Context, str],
+        [_GenericType1, bpy.types.Context, str],
         collections.abc.Iterable[str | tuple[str, str]],
     ]
     | None = None,
@@ -925,19 +922,19 @@ def StringProperty(
         :param update: Function to be called when this value is modified,
     This function must take 2 values (self, context) and return None.
     Warning there are no safety checks to avoid infinite recursion.
-        :type update: collections.abc.Callable[[bpy.types.bpy_struct, bpy.types.Context], None] | None
+        :type update: collections.abc.Callable[[_GenericType1, bpy.types.Context], None] | None
         :param get: Function to be called when this value is read, and the default,
     system-defined storage is not used for this property.
     This function must take 1 value (self) and return the value of the property.
 
     Defining this callback without a matching set one will make the property read-only (even if READ_ONLY option is not set).
-        :type get: collections.abc.Callable[[bpy.types.bpy_struct], str] | None
+        :type get: collections.abc.Callable[[_GenericType1], str] | None
         :param set: Function to be called when this value is written, and the default,
     system-defined storage is not used for this property.
     This function must take 2 values (self, value) and return None.
 
     Defining this callback without a matching get one is invalid.
-        :type set: collections.abc.Callable[[bpy.types.bpy_struct, str], None] | None
+        :type set: collections.abc.Callable[[_GenericType1, str], None] | None
         :param get_transform: Function to be called when this value is read,
     if some additional processing must be performed on the stored value.
     This function must take three arguments (self, the stored value,
@@ -963,7 +960,7 @@ def StringProperty(
 
     A tuple-pair of strings, where the first is a candidate and the second
     is additional information about the candidate.
-        :type search: collections.abc.Callable[[bpy.types.bpy_struct, bpy.types.Context, str], collections.abc.Iterable[str | tuple[str, str]]] | None
+        :type search: collections.abc.Callable[[_GenericType1, bpy.types.Context, str], collections.abc.Iterable[str | tuple[str, str]]] | None
         :param search_options: Set of strings in:
 
     SORT sorts the resulting items.

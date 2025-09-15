@@ -3,7 +3,6 @@ from pandas import DataFrame, Series
 from pandas_ta._typing import DictLike, Int
 from pandas_ta.utils import v_offset, v_pos_default, v_series, v_talib
 from .smma import smma
-from posix import pread
 
 
 

@@ -357,6 +357,10 @@ def patch_constraints(model: type[Model], opts: TranslationOptions) -> None:
 
     model._meta.unique_together += tuple(add_unique_together())  # type: ignore[operator]
     model._meta.constraints += tuple(add_constraints())
+    # `unique_together` needs `original_attrs` to be set, for this changes to appear in migrations.
+    for attr_name in ("unique_together",):
+        if value := getattr(model._meta, attr_name):
+            model._meta.original_attrs[attr_name] = value
 
 
 def delete_mt_init(sender: type[Model], instance: Model, **kwargs: Any) -> None:
@@ -419,7 +423,7 @@ def patch_refresh_from_db(model: type[Model]) -> None:
     model.refresh_from_db = build_refresh_from_db(model.refresh_from_db)
 
 
-def delete_cache_fields(model: type[Model]) -> None:
+def _delete_cache_fields(model: type[Model]) -> None:
     opts = model._meta
     cached_attrs = (
         "_field_cache",
@@ -583,7 +587,7 @@ class Translator:
 
         # Add translation fields to the model.
         if model._meta.proxy:
-            delete_cache_fields(model)
+            _delete_cache_fields(model)
         else:
             add_translation_fields(model, opts)
 
@@ -595,7 +599,7 @@ class Translator:
         )
 
         for related_obj in related:
-            delete_cache_fields(related_obj.model)
+            _delete_cache_fields(related_obj.model)
 
         # Set MultilingualManager
         add_manager(model)

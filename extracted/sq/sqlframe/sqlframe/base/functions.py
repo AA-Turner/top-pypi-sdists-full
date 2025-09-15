@@ -2133,6 +2133,11 @@ def bit_xor(col: ColumnOrName) -> Column:
 
 @meta(unsupported_engines=["postgres", "snowflake"])
 def bit_count(col: ColumnOrName) -> Column:
+    session = _get_session()
+
+    if session._is_duckdb:
+        return Column.invoke_anonymous_function(col, "BIT_COUNT")
+
     return Column.invoke_expression_over_column(col, expression.BitwiseCountAgg)
 
 
@@ -5216,7 +5221,7 @@ def regexp_count(str: ColumnOrName, regexp: ColumnOrName) -> Column:
     return Column.invoke_anonymous_function(str, "regexp_count", regexp)
 
 
-@meta(unsupported_engines="*")
+@meta(unsupported_engines=["bigquery", "postgres"])
 def regexp_extract_all(
     str: ColumnOrName, regexp: ColumnOrName, idx: t.Optional[t.Union[int, Column]] = None
 ) -> Column:
@@ -5251,6 +5256,9 @@ def regexp_extract_all(
     >>> df.select(regexp_extract_all('str', col("regexp")).alias('d')).collect()
     [Row(d=['100', '300'])]
     """
+    if idx is None:
+        idx = 1
+
     return Column.invoke_expression_over_column(
         str, expression.RegexpExtractAll, expression=regexp, group=idx
     )

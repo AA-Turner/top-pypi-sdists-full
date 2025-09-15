@@ -358,7 +358,12 @@ def test_identifier_success(value, expected):
 
 @pytest.mark.parametrize(
     "value,expected",
-    [("top_secret", "'top_secret'"), (["cove"], "'{cove}'")],
+    [
+        ("top_secret", "'top_secret'"),
+        (["cove"], "'{cove}'"),
+        (["'; SELECT 'Oops!' -- -"], """'{"''; SELECT ''Oops!'' -- -"}'"""),
+        ({"'; SELECT 'Oops!' -- -"}, """'{"''; SELECT ''Oops!'' -- -"}'"""),
+    ],
 )
 def test_literal(value, expected):
     assert literal(value) == expected

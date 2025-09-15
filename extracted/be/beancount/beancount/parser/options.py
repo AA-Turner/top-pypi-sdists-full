@@ -82,7 +82,7 @@ def options_validate_tolerance_map(value):
     """
     # Process the setting of a key-value, whereby the value is a Decimal
     # representation.
-    match = re.match("(.*):(.*)", value)
+    match = re.match(r"(.*):([\d\.]+)", value)
     if not match:
         raise ValueError("Invalid value '{}'".format(value))
     currency, tolerance_str = match.groups()
@@ -447,6 +447,40 @@ PUBLIC_OPTION_GROUPS = [
         [Opt("conversion_currency", "NOTHING")],
     ),
     OptGroup(
+        """ Mappings of currency to a fixed display precision, used when
+      rendering amount numbers for that currency.
+
+      The syntax is similar to that of the `inferred_tolerance_default`. The
+      values must be example strings in the following format:
+        <currency>:<example>
+      for example, 'USD:0.01'. This would make USD render with two fractional
+      digits, always, regardless of the numbers present in the ledge.
+
+      By default, the display precision is normally inferred from statistics
+      derived from the population of numbers seen in the ledger. However this
+      led to a lot of confusion, and this option allows the setting of the
+      number of fractional digits explicitly. If you like control, this is the
+      recommended method. (If you have a well burnished ledger already, it is
+      highly likely that the most common numbers present in your file already
+      set this right and that inference infers the correct precision
+      automatically; you can use `bean-doctor display-contenxt` to verify this).
+
+      Note that although the precision is fixed, the width of the displayed
+      numbers is still learned from the numbers in the input fie.
+
+      For detailed documentation about how tolerances are handled, see this doc:
+      http://furius.ca/beancount/doc/tolerances
+    """,
+        [
+            Opt(
+                "display_precision",
+                {},
+                "CHF:0.01",
+                converter=options_validate_tolerance_map,
+            )
+        ],
+    ),
+    OptGroup(
         """
       Mappings of currency to the tolerance used when it cannot be inferred
       automatically. The tolerance at hand is the one used for verifying (1)
@@ -471,7 +505,7 @@ PUBLIC_OPTION_GROUPS = [
             Opt(
                 "inferred_tolerance_default",
                 {},
-                "CHF:0.01",
+                "CHF:0.005",
                 converter=options_validate_tolerance_map,
             )
         ],
@@ -498,7 +532,31 @@ PUBLIC_OPTION_GROUPS = [
       For detailed documentation about how tolerances are handled, see this doc:
       http://furius.ca/beancount/doc/tolerances
     """,
-        [Opt("inferred_tolerance_multiplier", D("0.5"), "1.1", converter=D)],
+        [
+            Opt(
+                "tolerance_multiplier",
+                D("0.5"),
+                "0.5",
+                converter=D,
+            )
+        ],
+    ),
+    OptGroup(
+        """
+      This option is deprecated; it has been renaemd to the more
+      "tolerance_multiplier" because it is used to convert precision numbers
+      like '0.01' to a tolerance by multiplying them by this value.
+    """,
+        [
+            Opt(
+                "inferred_tolerance_multiplier",
+                D("0.5"),
+                "0.5",
+                converter=D,
+                deprecated="Renamed to 'tolerance_multiplier'.",
+                alias="tolerance_multiplier",
+            )
+        ],
     ),
     OptGroup(
         """
@@ -510,7 +568,7 @@ PUBLIC_OPTION_GROUPS = [
 
       For example, if a posting has an amount of "2.345 RGAGX {45.00 USD}"
       attached to it, it implies a tolerance of 0.001 x 45.00 * M = 0.045 USD
-      (where M is the inferred_tolerance_multiplier) and this is added to the
+      (where M is the tolerance_multiplier) and this is added to the
       mix to enlarge the tolerance allowed for units of USD on that transaction.
       All the normally inferred tolerances (see
       http://furius.ca/beancount/doc/tolerances) are still taken into account.

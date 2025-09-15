@@ -6,7 +6,7 @@
 # GitHub:  https://github.com/szczyglis-dev/py-gpt   #
 # MIT License                                        #
 # Created By  : Marcin Szczygliński                  #
-# Updated Date: 2025.09.05 18:00:00                  #
+# Updated Date: 2025.09.14 20:00:00                  #
 # ================================================== #
 
 from datetime import datetime
@@ -109,7 +109,7 @@ class Tab:
     def cleanup(self):
         """Clean up on delete"""
         try:
-            if self.on_delete:
+            if self.on_delete and callable(self.on_delete):
                 self.on_delete(self)
             self.delete_refs()
         except Exception as e:
@@ -131,7 +131,7 @@ class Tab:
         Delete all references to widgets in this tab
         """
         # cleanup children
-        if self.child:
+        if self.child and hasattr(self.child, 'cleanup'):
             self.child.cleanup()
 
         # cleanup parent
@@ -139,6 +139,19 @@ class Tab:
             if ref and hasattr(ref, 'deleteLater'):
                 ref.deleteLater()
         del self.refs[:]
+
+    def delete_ref(self, widget: Any) -> None:
+        """
+        Unpin reference to widget in this tab
+
+        :param widget: widget reference
+        """
+        for ref in self.refs:
+            if ref and ref is widget:
+                self.refs.remove(ref)
+                break
+        if self.child and hasattr(self.child, 'delete_ref'):
+            self.child.delete_ref(widget)
 
     def to_dict(self) -> Dict[str, Any]:
         """

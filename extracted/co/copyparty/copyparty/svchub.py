@@ -842,6 +842,10 @@ class SvcHub(object):
         if w8:
             time.sleep(w8)
             self.log("qr-code", qr)
+        if self.args.qr_stdout:
+            self.pr(self.tcpsrv.qr)
+        if self.args.qr_stderr:
+            self.pr(self.tcpsrv.qr, file=sys.stderr)
         w8 = self.args.qr_every
         msg = "%s\033[%dA" % (qr, len(qr.split("\n")))
         while w8:
@@ -875,8 +879,13 @@ class SvcHub(object):
                 self.sticky_qr()
             if self.args.qr_wait or self.args.qr_every or self.args.qr_winch:
                 Daemon(self._qr_thr, "qr")
-            elif not self.args.qr_pin:
-                self.log("qr-code", self.tcpsrv.qr)
+            else:
+                if not self.args.qr_pin:
+                    self.log("qr-code", self.tcpsrv.qr)
+                if self.args.qr_stdout:
+                    self.pr(self.tcpsrv.qr)
+                if self.args.qr_stderr:
+                    self.pr(self.tcpsrv.qr, file=sys.stderr)
         else:
             self.log("root", "workers OK\n")
 

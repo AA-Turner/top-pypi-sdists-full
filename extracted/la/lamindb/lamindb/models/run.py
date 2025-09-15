@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, overload
 
-import numpy as np
 from django.db import models
 from django.db.models import (
     CASCADE,
@@ -18,7 +17,6 @@ from lamindb.base.fields import (
     ForeignKey,
 )
 from lamindb.base.users import current_user_id
-from lamindb.errors import InvalidArgument
 
 from ..base.ids import base62_16
 from .can_curate import CanCurate
@@ -142,6 +140,9 @@ class User(BaseSQLRecord, CanCurate):
         >>> user
     """
 
+    class Meta:
+        app_label = "lamindb"
+
     _name_field: str = "handle"
 
     id: int = models.AutoField(primary_key=True)
@@ -222,6 +223,9 @@ class Run(SQLRecord):
         >>> ln.track()  # Jupyter notebook metadata is automatically parsed
         >>> ln.context.run
     """
+
+    class Meta:
+        app_label = "lamindb"
 
     _name_field: str = "started_at"
 
@@ -368,11 +372,6 @@ class Run(SQLRecord):
             reference_type=reference_type,
         )
 
-    def delete(self) -> None:
-        """Delete."""
-        delete_run_artifacts(self)
-        super().delete()
-
     @property
     @deprecated("features")
     def params(self) -> FeatureManager:
@@ -427,31 +426,8 @@ class Run(SQLRecord):
 
                 ln.Run.filter(hyperparam_x=100)
         """
-        from ._feature_manager import filter_base
-        from .feature import Feature
-        from .query_set import QuerySet
-
-        if expressions:
-            keys_normalized = [key.split("__")[0] for key in expressions]
-            field_or_feature_or_param = keys_normalized[0].split("__")[0]
-            if field_or_feature_or_param in Run.__get_available_fields__():
-                return QuerySet(model=cls).filter(*queries, **expressions)
-            elif all(
-                params_validated := Feature.validate(
-                    keys_normalized, field="name", mute=True
-                )
-            ):
-                return filter_base(Run, **expressions)
-            else:
-                params = ", ".join(sorted(np.array(keys_normalized)[~params_validated]))
-                message = f"feature names: {params}"
-                fields = ", ".join(sorted(cls.__get_available_fields__()))
-                raise InvalidArgument(
-                    f"You can query either by available fields: {fields}\n"
-                    f"Or fix invalid {message}"
-                )
-        else:
-            return QuerySet(model=cls).filter(*queries, **expressions)
+        # from Registry metaclass
+        return type(cls).filter(cls, *queries, **expressions)
 
 
 def delete_run_artifacts(run: Run) -> None:
@@ -470,7 +446,7 @@ def delete_run_artifacts(run: Run) -> None:
         if environment._environment_of.count() == 0:
             environment.delete(permanent=True)
     if report is not None:
-        # only delete if there are no other runs attached to this environment
+        # only delete if there are no other runs attached to this report
         if report._report_of.count() == 0:
             report.delete(permanent=True)
 
@@ -492,4 +468,5 @@ class RunFeatureValue(BaseSQLRecord, IsLink):
     """Creator of record."""
 
     class Meta:
+        app_label = "lamindb"
         unique_together = ("run", "featurevalue")

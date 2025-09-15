@@ -3,7 +3,6 @@ from numpy import sign
 from pandas import Series
 from pandas_ta._typing import DictLike, Int, IntFloat
 from pandas_ta.utils import (
-    nb_idiff,
     v_drift,
     v_offset,
     v_pos_default,

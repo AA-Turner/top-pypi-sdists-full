@@ -60,6 +60,7 @@ from .util import (
     sfsenc,
     spack,
     statdir,
+    trystat_shutil_copy2,
     ub64enc,
     unhumanize,
     vjoin,
@@ -1132,7 +1133,7 @@ class Up2k(object):
         ft = "\033[0;32m{}{:.0}"
         ff = "\033[0;35m{}{:.0}"
         fv = "\033[0;36m{}:\033[90m{}"
-        zs = "du_iwho ext_th_d html_head put_name2 mv_re_r mv_re_t rm_re_r rm_re_t srch_re_dots srch_re_nodot zipmax zipmaxn_v zipmaxs_v"
+        zs = "bcasechk du_iwho ext_th_d html_head put_name2 mv_re_r mv_re_t rm_re_r rm_re_t srch_re_dots srch_re_nodot zipmax zipmaxn_v zipmaxs_v"
         fx = set(zs.split())
         fd = vf_bmap()
         fd.update(vf_cmap())
@@ -2753,7 +2754,7 @@ class Up2k(object):
         cur.close()
         db.close()
 
-        shutil.copy2(fsenc(db_path), fsenc(bak))
+        trystat_shutil_copy2(self.log, fsenc(db_path), fsenc(bak))
         return self._orz(db_path)
 
     def _read_ver(self, cur )  :
@@ -3575,7 +3576,7 @@ class Up2k(object):
                 t = "BUG: no valid sources to link from! orig(%r) fsrc(%r) link(%r)"
                 self.log(t, 1)
                 raise Exception(t % (src, fsrc, dst))
-            shutil.copy2(fsenc(csrc), fsenc(dst))
+            trystat_shutil_copy2(self.log, fsenc(csrc), fsenc(dst))
 
         if lmod and (not linked or SYMTIME):
             bos.utime_c(self.log, dst, int(lmod), False)
@@ -4124,6 +4125,9 @@ class Up2k(object):
         except:
             raise Pebkac(400, "file not found on disk (already deleted?)")
 
+        if "bcasechk" in vn.flags and not vn.casechk(rem, False):
+            raise Pebkac(400, "file does not exist case-sensitively")
+
         scandir = not self.args.no_scandir
         if is_dir:
             # note: deletion inside shares would require a rewrite here;
@@ -4248,6 +4252,9 @@ class Up2k(object):
         self.db_act = self.vol_act[svn_dbv.realpath] = time.time()
 
         st = bos.stat(sabs)
+        if "bcasechk" in svn.flags and not svn.casechk(srem, False):
+            raise Pebkac(400, "file does not exist case-sensitively")
+
         if stat.S_ISREG(st.st_mode) or stat.S_ISLNK(st.st_mode):
             with self.mutex:
                 try:
@@ -4405,7 +4412,7 @@ class Up2k(object):
             b1, b2 = fsenc(sabs), fsenc(dabs)
             is_link = os.path.islink(b1)  # due to _relink
             try:
-                shutil.copy2(b1, b2)
+                trystat_shutil_copy2(self.log, b1, b2)
             except:
                 try:
                     wunlink(self.log, dabs, dvn.flags)
@@ -4465,6 +4472,9 @@ class Up2k(object):
             raise Pebkac(400, "mv: cannot move a mountpoint")
 
         st = bos.lstat(sabs)
+        if "bcasechk" in svn.flags and not svn.casechk(srem, False):
+            raise Pebkac(400, "file does not exist case-sensitively")
+
         if stat.S_ISREG(st.st_mode) or stat.S_ISLNK(st.st_mode):
             with self.mutex:
                 try:
@@ -4710,7 +4720,7 @@ class Up2k(object):
             b1, b2 = fsenc(sabs), fsenc(dabs)
             is_link = os.path.islink(b1)  # due to _relink
             try:
-                shutil.copy2(b1, b2)
+                trystat_shutil_copy2(self.log, b1, b2)
             except:
                 try:
                     wunlink(self.log, dabs, dvn.flags)

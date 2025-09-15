@@ -30,7 +30,6 @@
  *
  *  - `similarities.{hpp,cuh}` - similarity measures, like Levenshtein, Needleman-Wunsch, & Smith-Waterman scores.
  *  - `fingerprints.{hpp,cuh}` - feature extraction for TF-IDF and other Machine Learning algorithms.
- *  - `find_many.{hpp,cuh}` - Aho-Corasick multi-pattern search.
  *
  *  The core implementations of those algorithms are mostly structured as callable structure templates, as opposed to
  *  template functions to simplify specialized overloads and reusing the state between invocations.
@@ -67,7 +66,7 @@
 
 #define STRINGZILLA_H_VERSION_MAJOR 4
 #define STRINGZILLA_H_VERSION_MINOR 0
-#define STRINGZILLA_H_VERSION_PATCH 7
+#define STRINGZILLA_H_VERSION_PATCH 8
 
 #include "types.h"        // `sz_size_t`, `sz_bool_t`, `sz_ordering_t`
 #include "compare.h"      // `sz_equal`, `sz_order`

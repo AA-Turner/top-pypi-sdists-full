@@ -152,10 +152,10 @@ def test_df_cat_manager(df):
         # no need to standardize
         cat_manager.standardize("cell_type")
     finally:
-        ln.ULabel.filter().delete()
-        bt.ExperimentalFactor.filter().delete()
-        bt.CellType.filter().delete()
-        ln.Schema.filter().delete()
+        ln.ULabel.filter().delete(permanent=True)
+        bt.ExperimentalFactor.filter().delete(permanent=True)
+        bt.CellType.filter().delete(permanent=True)
+        ln.Schema.filter().delete(permanent=True)
 
 
 def test_custom_using_invalid_field_lookup(curate_lookup):
@@ -166,7 +166,7 @@ def test_custom_using_invalid_field_lookup(curate_lookup):
 
 
 def test_additional_args_with_all_key(df, categoricals):
-    curator = ln.Curator.from_df(df, categoricals=categoricals)
+    curator = ln.Curator.from_dataframe(df, categoricals=categoricals)
     with pytest.raises(
         ValueError, match="Cannot pass additional arguments to 'all' key!"
     ):
@@ -177,7 +177,7 @@ def test_additional_args_with_all_key(df, categoricals):
 
 
 def test_unvalidated_data_object(df, categoricals):
-    curator = ln.Curator.from_df(df, categoricals=categoricals)
+    curator = ln.Curator.from_dataframe(df, categoricals=categoricals)
     with pytest.raises(
         ValidationError, match="Dataset does not validate. Please curate."
     ):
@@ -186,7 +186,7 @@ def test_unvalidated_data_object(df, categoricals):
 
 def test_df_curator(df, categoricals):
     try:
-        curator = ln.Curator.from_df(df, categoricals=categoricals)
+        curator = ln.Curator.from_dataframe(df, categoricals=categoricals)
         with pytest.raises(ValidationError):
             _ = curator.non_validated
         validated = curator.validate()
@@ -230,14 +230,14 @@ def test_df_curator(df, categoricals):
 
         assert (
             artifact.cell_types.through.filter(artifact_id=artifact.id)
-            .df()["label_ref_is_name"]
+            .to_dataframe()["label_ref_is_name"]
             .values.sum()
             == 5
         )
 
         assert (
             artifact.experimental_factors.through.filter(artifact_id=artifact.id)
-            .df()["label_ref_is_name"]
+            .to_dataframe()["label_ref_is_name"]
             .values.sum()
             == 0
         )
@@ -254,19 +254,24 @@ def test_df_curator(df, categoricals):
     finally:
         # clean up
         artifact.delete(permanent=True)
-        ln.ULabel.filter().delete()
-        bt.ExperimentalFactor.filter().delete()
-        bt.CellType.filter().delete()
-        ln.Schema.filter().delete()
+        ln.ULabel.filter().delete(permanent=True)
+        bt.ExperimentalFactor.filter().delete(permanent=True)
+        bt.CellType.filter().delete(permanent=True)
+        ln.Schema.filter().delete(permanent=True)
 
 
 def test_pass_artifact(df):
     try:
-        artifact = ln.Artifact.from_df(df, key="test_cat_curators/df.parquet").save()
-        curator = ln.Curator.from_df(artifact, categoricals={"donor": ln.ULabel.name})
+        artifact = ln.Artifact.from_dataframe(
+            df, key="test_cat_curators/df.parquet"
+        ).save()
+        curator = ln.Curator.from_dataframe(
+            artifact, categoricals={"donor": ln.ULabel.name}
+        )
         curator.validate()
         with pytest.raises(
-            RuntimeError, match="can't mutate the dataset when an artifact is passed!"
+            RuntimeError,
+            match="can't mutate the dataset when an artifact is passed!",
         ):
             curator.standardize("all")
         curator.add_new_from("donor")
@@ -275,8 +280,8 @@ def test_pass_artifact(df):
     finally:
         # clean up
         artifact.delete(permanent=True)
-        ln.ULabel.filter().delete()
-        ln.Schema.filter().delete()
+        ln.ULabel.filter().delete(permanent=True)
+        ln.Schema.filter().delete(permanent=True)
 
 
 @pytest.mark.parametrize("to_add", ["donor", "all"])
@@ -334,11 +339,11 @@ def test_anndata_curator(adata, categoricals, to_add):
     finally:
         # clean up
         artifact.delete(permanent=True)
-        ln.ULabel.filter().delete()
-        bt.ExperimentalFactor.filter().delete()
-        bt.CellType.filter().delete()
-        ln.Schema.filter().delete()
-        bt.Gene.filter().delete()
+        ln.ULabel.filter().delete(permanent=True)
+        bt.ExperimentalFactor.filter().delete(permanent=True)
+        bt.CellType.filter().delete(permanent=True)
+        ln.Schema.filter().delete(permanent=True)
+        bt.Gene.filter().delete(permanent=True)
 
 
 def test_str_var_index(adata):
@@ -446,11 +451,11 @@ def test_mudata_curator(mdata):
         # clean up
         if artifact:
             artifact.delete(permanent=True)
-        ln.ULabel.filter().delete()
-        bt.ExperimentalFactor.filter().delete()
-        bt.CellType.filter().delete()
-        ln.Schema.filter().delete()
-        bt.Gene.filter().delete()
+        ln.ULabel.filter().delete(permanent=True)
+        bt.ExperimentalFactor.filter().delete(permanent=True)
+        bt.CellType.filter().delete(permanent=True)
+        ln.Schema.filter().delete(permanent=True)
+        bt.Gene.filter().delete(permanent=True)
 
 
 def test_soma_curator(adata, categoricals, clean_soma_files):  # noqa: F811
@@ -586,12 +591,12 @@ def test_soma_curator(adata, categoricals, clean_soma_files):  # noqa: F811
         # clean up
         if artifact:
             artifact.delete(permanent=True)
-        ln.ULabel.filter().delete()
-        bt.ExperimentalFactor.filter().delete()
-        bt.CellType.filter().delete()
-        ln.Schema.filter().delete()
-        ln.Feature.filter().delete()
-        bt.Gene.filter().delete()
+        ln.ULabel.filter().delete(permanent=True)
+        bt.ExperimentalFactor.filter().delete(permanent=True)
+        bt.CellType.filter().delete(permanent=True)
+        ln.Schema.filter().delete(permanent=True)
+        ln.Feature.filter().delete(permanent=True)
+        bt.Gene.filter().delete(permanent=True)
 
 
 def test_soma_curator_genes_columns(adata, clean_soma_files):  # noqa: F811
@@ -623,12 +628,12 @@ def test_soma_curator_genes_columns(adata, clean_soma_files):  # noqa: F811
     finally:
         # clean up
         artifact.delete(permanent=True)
-        ln.ULabel.filter().delete()
-        bt.ExperimentalFactor.filter().delete()
-        bt.CellType.filter().delete()
-        ln.Schema.filter().delete()
-        ln.Feature.filter().delete()
-        bt.Gene.filter().delete()
+        ln.ULabel.filter().delete(permanent=True)
+        bt.ExperimentalFactor.filter().delete(permanent=True)
+        bt.CellType.filter().delete(permanent=True)
+        ln.Schema.filter().delete(permanent=True)
+        ln.Feature.filter().delete(permanent=True)
+        bt.Gene.filter().delete(permanent=True)
 
 
 def test_spatialdata_curator():
@@ -756,10 +761,10 @@ def test_spatialdata_curator():
 
     finally:
         artifact.delete(permanent=True)
-        ln.ULabel.filter().delete()
-        bt.ExperimentalFactor.filter().delete()
-        bt.Disease.filter().delete()
-        bt.DevelopmentalStage.filter().delete()
-        ln.Schema.filter().delete()
-        bt.Gene.filter().delete()
-        ln.Feature.filter().delete()
+        ln.ULabel.filter().delete(permanent=True)
+        bt.ExperimentalFactor.filter().delete(permanent=True)
+        bt.Disease.filter().delete(permanent=True)
+        bt.DevelopmentalStage.filter().delete(permanent=True)
+        ln.Schema.filter().delete(permanent=True)
+        bt.Gene.filter().delete(permanent=True)
+        ln.Feature.filter().delete(permanent=True)

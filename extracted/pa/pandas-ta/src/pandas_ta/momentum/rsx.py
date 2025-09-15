@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 from numpy import nan
+from pandas import DataFrame, Series, concat
 from pandas_ta._typing import DictLike, Int
-from pandas import concat, DataFrame, Series
 from pandas_ta.utils import (
     signals,
     v_drift,
@@ -9,7 +9,6 @@ from pandas_ta.utils import (
     v_pos_default,
     v_series
 )
-from shutil import which
 
 
 

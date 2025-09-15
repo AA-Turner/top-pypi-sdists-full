@@ -6,9 +6,9 @@ from pandas import DataFrame, Series
 from pandas.api.types import is_datetime64_ns_dtype
 from pytest import mark, param
 
+from tests.conftest import all_study, common_study
+
 import pandas_ta as ta
-
-
 
 CROSS_E1 = {
     "zero": [0, 0],
@@ -18,6 +18,12 @@ CROSS_E1 = {
     "crossed": [0, 1],
 }
 crosseddf = DataFrame(CROSS_E1)
+
+SCALARS = [
+    np.ones(0), np.ones(1), np.array([1, 2]), np.array([1.5, 2.5]),
+    np.array([2, 3, 4]), np.array([0.01, 0.1, 10, 100]),
+    np.array([-10, -1, 10])
+]
 
 
 def test_above():
@@ -293,9 +299,10 @@ def test_hpoly(array, degree, result):
 
 
 
-def test_remap(df):
+def test_remap():
     result = ta.remap(Series([100, 50, 0, 25, 0, 60]))
     assert result.name == "REMAP_0.0_100.0_-1.0_1.0"
+
 
 
 def test_signals(df):

@@ -50,7 +50,7 @@ def install(session):
         "./sub/bionty",
     ]
     top_deps = [
-        ".[dev,bionty,jupyter]",
+        ".[dev]",
     ]
     cmds = [
         f"uv pip install {'--system' if CI else ''} --no-cache-dir {' '.join(base_deps)}",
@@ -81,7 +81,7 @@ def install(session):
 def install_ci(session, group):
     extras = ""
     if group == "unit-core":
-        extras += "bionty,zarr,fcs,jupyter"
+        extras += "zarr,fcs"
         # tiledbsoma dependency, specifying it here explicitly
         # otherwise there are problems with uv resolver
         run(session, "uv pip install --system scanpy")
@@ -100,26 +100,25 @@ def install_ci(session, group):
         run(session, "uv pip install --system tiledbsoma")
         run(session, "uv pip install --system polars")
     elif group == "tutorial":
-        extras += "jupyter,bionty"
         # anndata here to prevent installing older version on release
         run(session, "uv pip install --system huggingface_hub polars anndata==0.12.1")
     elif group == "guide":
-        extras += "bionty,zarr,jupyter"
+        extras += "zarr"
         run(session, "uv pip install --system scanpy mudata spatialdata tiledbsoma")
     elif group == "biology":
-        extras += "bionty,fcs,jupyter"
+        extras += "fcs"
         run(session, "uv pip install --system ipywidgets")
     elif group == "faq":
-        extras += "bionty,jupyter,zarr"
+        extras += "zarr"
     elif group == "storage":
-        extras += "zarr,bionty,jupyter"
+        extras += "zarr"
         run(
             session,
             "uv pip install --system --no-deps ./sub/wetlab",
         )
         run(session, "uv pip install --system vitessce")
     elif group == "curator":
-        extras += "zarr,jupyter,bionty"
+        extras += "zarr"
         run(
             session,
             "uv pip install --system --no-deps ./sub/wetlab",
@@ -143,10 +142,10 @@ def install_ci(session, group):
         )
         run(
             session,
-            "uv pip install --system --no-deps ./sub/wetlab ./sub/clinicore",
+            "uv pip install --system --no-deps ./sub/wetlab",
         )
     elif group == "cli":
-        extras += "jupyter,bionty"
+        pass
     elif group == "permissions":
         run(
             session,
@@ -237,8 +236,6 @@ def configure_coverage(session) -> None:
     ],
 )
 def test(session, group):
-    import lamindb as ln
-
     login_testuser2(session)
     login_testuser1(session)
     run(session, "lamin settings set private-django-api true")
@@ -250,6 +247,7 @@ def test(session, group):
             f"pytest {coverage_args} ./tests/core {duration_args}",
         )
     elif group == "unit-storage":
+        login_testuser2(session)  # shouldn't be necessary but is for now
         run(session, f"pytest -s {coverage_args} ./tests/storage {duration_args}")
     elif group == "tutorial":
         run(session, "lamin logout")
@@ -257,7 +255,6 @@ def test(session, group):
             session, f"pytest -s {coverage_args} ./docs/test_notebooks.py::test_{group}"
         )
     elif group == "guide":
-        ln.setup.settings.auto_connect = True
         run(
             session,
             f"pytest -s {coverage_args} ./docs/test_notebooks.py::test_{group}",
@@ -268,7 +265,6 @@ def test(session, group):
             f"pytest -s {coverage_args} ./docs/test_notebooks.py::test_{group}",
         )
     elif group == "faq":
-        ln.setup.settings.auto_connect = True
         run(session, f"pytest -s {coverage_args} ./docs/faq")
     elif group == "storage":
         run(session, f"pytest -s {coverage_args} ./docs/storage")
@@ -335,15 +331,13 @@ def clidocs(session):
                     help_dict = helps[full_key]
                     processed_commands.add(command_name)
 
-                    help_string = help_dict["help"].replace(
-                        "Usage: main", "Usage: lamin"
-                    )
+                    help_string = help_dict["help"].replace("Usage: main", "lamin")
                     help_docstring = help_dict["docstring"]
 
-                    page += f"### lamin {command_name}\n\n"
+                    page += f"### {command_name}\n\n"
                     if help_docstring:
                         page += f"{help_docstring}\n\n"
-                    page += f"```text\n{help_string}\n```\n\n"
+                    page += f"Usage:\n```text\n{help_string}\n```\n\n"
 
         # Add any remaining commands that aren't in groups
         remaining_commands = []
@@ -382,7 +376,7 @@ def docs(session):
                 path.rename(f"./docs/{path.name}")
     run(
         session,
-        "lamin init --storage ./docsbuild --modules bionty,wetlab,clinicore",
+        "lamin init --storage ./docsbuild --modules bionty,wetlab",
     )
     build_docs(session, strip_prefix=True, strict=False)
     upload_docs_artifact(aws=True)

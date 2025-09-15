@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.3
 Name: lamindb
-Version: 1.10.2
+Version: 1.11.0
 Summary: A data framework for biology.
 Author-email: Lamin Labs <open-source@lamin.ai>
 Requires-Python: >=3.10,<3.14
@@ -9,10 +9,15 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-License-File: LICENSE
 Requires-Dist: lamin_utils==0.15.0
-Requires-Dist: lamin_cli==1.6.1
-Requires-Dist: lamindb_setup[aws]==1.9.1
+Requires-Dist: lamin_cli==1.7.1
+Requires-Dist: lamindb_setup[aws]==1.10.1
+Requires-Dist: bionty>=1.7a1
+Requires-Dist: wetlab>=1.5a1
+Requires-Dist: nbproject==0.11.1
+Requires-Dist: jupytext
+Requires-Dist: nbconvert>=7.2.1
+Requires-Dist: mistune!=3.1.0
 Requires-Dist: pyyaml
 Requires-Dist: pyarrow
 Requires-Dist: pandera>=0.24.0
@@ -24,8 +29,6 @@ Requires-Dist: anndata>=0.8.0,<=0.12.1
 Requires-Dist: fsspec
 Requires-Dist: graphviz
 Requires-Dist: psycopg2-binary
-Requires-Dist: bionty>=1.6.1rc1 ; extra == "bionty"
-Requires-Dist: clinicore>=1.2.1 ; extra == "clinicore"
 Requires-Dist: tomlkit ; extra == "dev"
 Requires-Dist: line_profiler ; extra == "dev"
 Requires-Dist: pre-commit ; extra == "dev"
@@ -33,28 +36,19 @@ Requires-Dist: nox ; extra == "dev"
 Requires-Dist: laminci>=0.3 ; extra == "dev"
 Requires-Dist: pytest>=6.0 ; extra == "dev"
 Requires-Dist: coverage ; extra == "dev"
-Requires-Dist: pytest-cov ; extra == "dev"
+Requires-Dist: pytest-cov<7.0.0 ; extra == "dev"
 Requires-Dist: mudata ; extra == "dev"
 Requires-Dist: nbproject_test>=0.6.0 ; extra == "dev"
 Requires-Dist: faker-biology ; extra == "dev"
 Requires-Dist: pronto ; extra == "dev"
 Requires-Dist: readfcs>=2.0.1 ; extra == "fcs"
 Requires-Dist: lamindb_setup[gcp] ; extra == "gcp"
-Requires-Dist: nbproject==0.11.1 ; extra == "jupyter"
-Requires-Dist: jupytext ; extra == "jupyter"
-Requires-Dist: nbconvert>=7.2.1 ; extra == "jupyter"
-Requires-Dist: mistune!=3.1.0 ; extra == "jupyter"
-Requires-Dist: wetlab>=1.3.1 ; extra == "wetlab"
 Requires-Dist: numcodecs<0.16.0 ; extra == "zarr"
 Requires-Dist: zarr>=2.16.0,<3.0.0a0 ; extra == "zarr"
 Project-URL: Home, https://github.com/laminlabs/lamindb
-Provides-Extra: bionty
-Provides-Extra: clinicore
 Provides-Extra: dev
 Provides-Extra: fcs
 Provides-Extra: gcp
-Provides-Extra: jupyter
-Provides-Extra: wetlab
 Provides-Extra: zarr
 
 [![Stars](https://img.shields.io/github/stars/laminlabs/lamindb?logo=GitHub)](https://github.com/laminlabs/lamindb)
@@ -78,7 +72,7 @@ It lets you track data transformations, validate & annotate datasets, and query 
 Install the `lamindb` Python package:
 
 ```shell
-pip install 'lamindb[jupyter,bionty]'  # support notebooks & biological ontologies
+pip install lamindb
 ```
 
 Create a LaminDB instance:

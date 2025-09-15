@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
-from numpy import isnan, nan, uintc, zeros_like
 from numba import njit
+from numpy import isnan, nan, uintc, zeros_like
 from pandas import Series
-from pandas_ta._typing import Array, DictLike, Int, IntFloat
+from pandas_ta._typing import DictLike, Int, IntFloat
 from pandas_ta.ma import ma as _ma
 from pandas_ta.maps import Imports
 from pandas_ta.utils import (

@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-# from numpy.version import version as np_version
 from pandas import Series
 from pandas_ta._typing import DictLike, Int
 from pandas_ta.utils import (

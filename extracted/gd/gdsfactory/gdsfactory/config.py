@@ -16,8 +16,8 @@ from rich.table import Table
 if TYPE_CHECKING:
     pass
 
-__version__ = "9.14.2"
-__next_major_version__ = "9.14.2"
+__version__ = "9.15.0"
+__next_major_version__ = "9.15.0"
 
 PathType = str | pathlib.Path
 
@@ -121,7 +121,7 @@ CONF.difftest_ignore_cell_name_differences = True
 CONF.bend_radius_error_type = ErrorType.ERROR
 CONF.layer_error_path = (1000, 0)
 CONF.connect_use_mirror = False
-CONF.max_cellname_length = 32
+CONF.max_cellname_length = 64
 CONF.cell_layout_cache = True
 CONF.pdk = "generic"
 CONF.layer_label = (100, 0)

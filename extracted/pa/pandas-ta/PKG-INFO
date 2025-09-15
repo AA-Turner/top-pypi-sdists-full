@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pandas-ta
-Version: 0.4.67b0
+Version: 0.4.71b0
 Summary: A Comprehensive Python 3 Technical Analysis Library with Pandas Dataframe Extension for Quantitative Researchers, Traders, and Investors.
 Project-URL: Homepage, https://www.pandas-ta.dev
 Project-URL: Documentation, https://www.pandas-ta.dev/api
@@ -27,7 +27,7 @@ Requires-Dist: tqdm>=4.67.1
 Description-Content-Type: text/markdown
 
 <p align="center">
-  <a href="https://www.pandas-ta.dev"><img src="images/pta-logo.webp" alt="Pandas TA"></a>
+  <a href="https://www.pandas-ta.dev"><img src="https://www.pandas-ta.dev/assets/images/pta-logo.webp" alt="Pandas TA"></a>
 </p>
 
 # Pandas TA
@@ -35,8 +35,8 @@ A popular and comprehensive Technical Analysis Library in Python 3 that leverage
 
 <br>
 
-![Price Chart](/images/SPY_Chart.png)
-![Volume Chart](/images/SPY_VOL.png)
+![Price Chart](https://www.pandas-ta.dev/assets/images/SPY_Chart.png)
+![Volume Chart](https://www.pandas-ta.dev/assets/images/SPY_VOL.png)
 
 <br>
 

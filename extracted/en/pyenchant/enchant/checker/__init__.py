@@ -36,7 +36,7 @@ This package is designed to host higher-level spellchecking functionality
 than is available in the base enchant package.  It should make writing
 applications that follow common usage idioms significantly easier.
 
-The most useful class is SpellChecker, which implements a spellchecking
+The most useful class is :py:class:`SpellChecker`, which implements a spellchecking
 loop over a block of text.  It is capable of modifying the text in-place
 if given an array of characters to work with.
 
@@ -47,14 +47,17 @@ such as a wxPython GUI dialog and a command-line interface.
 
 import array
 import warnings
+from typing import List, Optional, Type, Union
 
 import enchant
+from enchant import Dict
+from enchant.errors import *  # noqa F401,F403
 from enchant.errors import (
     DefaultLanguageNotFoundError,
     DictNotFoundError,
     TokenizerNotFoundError,
 )
-from enchant.tokenize import get_tokenizer
+from enchant.tokenize import Chunker, Filter, get_tokenizer, tokenize
 from enchant.utils import get_default_language
 
 
@@ -66,13 +69,13 @@ class SpellChecker:
     This loop is implemented using an iterator paradigm so it can be
     embedded inside other loops of control.
 
-    The SpellChecker object is stateful, and the appropriate methods
+    The `SpellChecker` object is stateful, and the appropriate methods
     must be called to alter its state and affect the progress of
     the spell checking session.  At any point during the checking
-    session, the attribute 'word' will hold the current erroneously
+    session, the attribute :py:attr:`word` will hold the current erroneously
     spelled word under consideration.  The action to take on this word
-    is determined by calling methods such as 'replace', 'replace_always'
-    and 'ignore_always'.  Once this is done, calling 'next' advances
+    is determined by calling methods such as :py:meth:`replace`, :py:meth:`replace_always`
+    and :py:meth:`ignore_always`.  Once this is done, calling :py:meth:`next` advances
     to the next misspelled word.
 
     As a quick (and rather silly) example, the following code replaces
@@ -87,22 +90,22 @@ class SpellChecker:
         'This is SPAM text with a SPAM SPAM errors in it.'
         >>>
 
-    Internally, the SpellChecker always works with arrays of (possibly
+    Internally, the `SpellChecker` always works with arrays of (possibly
     unicode) character elements.  This allows the in-place modification
     of the string as it is checked, and is the closest thing Python has
     to a mutable string.  The text can be set as any of a normal string,
     unicode string, character array or unicode character array. The
-    'get_text' method will return the modified array object if an
+    :py:meth:`get_text` method will return the modified array object if an
     array is used, or a new string object if a string it used.
 
-    Words input to the SpellChecker may be either plain strings or
+    Words input to the `SpellChecker` may be either plain strings or
     unicode objects.  They will be converted to the same type as the
     text being checked, using python's default encoding/decoding
     settings.
 
     If using an array of characters with this object and the
     array is modified outside of the spellchecking loop, use the
-    'set_offset' method to reposition the internal loop pointer
+    method :py:meth:`set_offset` to reposition the internal loop pointer
     to make sure it doesn't skip any words.
 
     """
@@ -110,24 +113,29 @@ class SpellChecker:
     _DOC_ERRORS = ["sme", "fw", "speling", "chkr", "chkr", "chkr"]
 
     def __init__(
-        self, lang=None, text=None, tokenize=None, chunkers=None, filters=None
-    ):
-        """Constructor for the SpellChecker class.
+        self,
+        lang: Union[Dict, str] = None,
+        text: Optional[str] = None,
+        tokenize: Union[Type[tokenize], Filter] = None,
+        chunkers: List[Chunker] = None,
+        filters: List[Filter] = None,
+    ) -> None:
+        """Constructor for the `SpellChecker` class.
 
-        SpellChecker objects can be created in two ways, depending on
+        `SpellChecker` objects can be created in two ways, depending on
         the nature of the first argument.  If it is a string, it
         specifies a language tag from which a dictionary is created.
-        Otherwise, it must be an enchant Dict object to be used.
+        Otherwise, it must be an :py:class:`enchant.Dict` object to be used.
 
         Optional keyword arguments are:
 
-            * text:  to set the text to be checked at creation time
-            * tokenize:  a custom tokenization function to use
-            * chunkers:  a list of chunkers to apply during tokenization
-            * filters:  a list of filters to apply during tokenization
+        :param text: to set the text to be checked at creation time
+        :param tokenize: a custom tokenization function to use
+        :param chunkers: a list of chunkers to apply during tokenization
+        :param filters: a list of filters to apply during tokenization
 
-        If <tokenize> is not given and the first argument is a Dict,
-        its 'tag' attribute must be a language tag so that a tokenization
+        If `tokenize` is not given and the first argument is a :py:class:`Dict`,
+        its `tag` attribute must be a language tag so that a tokenization
         function can be created automatically.  If this attribute is missing
         the user's default language will be used.
         """
@@ -172,11 +180,11 @@ class SpellChecker:
         """Each SpellChecker object is its own iterator"""
         return self
 
-    def set_text(self, text):
+    def set_text(self, text: str) -> None:
         """Set the text to be spell-checked.
 
-        This method must be called, or the 'text' argument supplied
-        to the constructor, before calling the 'next()' method.
+        This method must be called, or the `text` argument supplied
+        to the constructor, before calling the method :py:meth:`next()`.
         """
         # Convert to an array object if necessary
         if isinstance(text, (str, bytes)):
@@ -190,7 +198,7 @@ class SpellChecker:
             self._use_tostring = False
         self._tokens = self._tokenize(self._text)
 
-    def get_text(self):
+    def get_text(self) -> str:
         """Return the spell-checked text."""
         if self._use_tostring:
             return self._array_to_string(self._text)
@@ -202,18 +210,16 @@ class SpellChecker:
             return text.tounicode()
         return text.tostring()
 
-    def wants_unicode(self):
+    def wants_unicode(self) -> bool:
         """Check whether the checker wants unicode strings.
 
-        This method will return True if the checker wants unicode strings
-        as input, False if it wants normal strings.  It's important to
+        This method will return `True` if the checker wants unicode strings
+        as input, `False` if it wants normal strings.  It's important to
         provide the correct type of string to the checker.
         """
-        if self._text.typecode == "u":
-            return True
-        return False
+        return self._text.typecode == "u"
 
-    def coerce_string(self, text, enc=None):
+    def coerce_string(self, text: str, enc: Optional[str] = None) -> str:
         """Coerce string into the required type.
 
         This method can be used to automatically ensure that strings
@@ -238,16 +244,16 @@ class SpellChecker:
     def __next__(self):
         return self.next()
 
-    def next(self):
+    def next(self) -> "SpellChecker":
         """Process text up to the next spelling error.
 
         This method is designed to support the iterator protocol.
-        Each time it is called, it will advance the 'word' attribute
+        Each time it is called, it will advance the :py:attr:`word` attribute
         to the next spelling error in the text.  When no more errors
-        are found, it will raise StopIteration.
+        are found, it will raise :py:exc:`StopIteration`.
 
-        The method will always return self, so that it can be used
-        sensibly in common idioms such as:
+        The method will always return `self`, so that it can be used
+        sensibly in common idioms such as::
 
             for err in checker:
                 err.do_something()
@@ -272,7 +278,7 @@ class SpellChecker:
             break
         return self
 
-    def replace(self, repl):
+    def replace(self, repl: str) -> None:
         """Replace the current erroneous word with the given string."""
         repl = self.coerce_string(repl)
         a_repl = array.array(self._text.typecode, repl)
@@ -282,7 +288,7 @@ class SpellChecker:
         incr = len(repl) - len(self.word)
         self._tokens.set_offset(self._tokens.offset + incr, replaced=True)
 
-    def replace_always(self, word, repl=None):
+    def replace_always(self, word: str, repl: Optional[str] = None) -> None:
         """Always replace given word with given replacement.
 
         If a single argument is given, this is used to replace the
@@ -298,7 +304,7 @@ class SpellChecker:
         if self.word == word:
             self.replace(repl)
 
-    def ignore_always(self, word=None):
+    def ignore_always(self, word: Optional[str] = None) -> None:
         """Add given word to list of words to ignore.
 
         If no word is given, the current erroneous word is added.
@@ -309,7 +315,7 @@ class SpellChecker:
         if word not in self._ignore_words:
             self._ignore_words[word] = True
 
-    def add_to_personal(self, word=None):
+    def add_to_personal(self, word: Optional[str] = None) -> None:
         """Add given word to the personal word list.
 
         If no word is given, the current erroneous word is added.
@@ -322,7 +328,7 @@ class SpellChecker:
         )
         self.add(word)
 
-    def add(self, word=None):
+    def add(self, word: Optional[str] = None) -> None:
         """Add given word to the personal word list.
 
         If no word is given, the current erroneous word is added.
@@ -331,7 +337,7 @@ class SpellChecker:
             word = self.word
         self.dict.add(word)
 
-    def suggest(self, word=None):
+    def suggest(self, word: Optional[str] = None) -> List[str]:
         """Return suggested spellings for the given word.
 
         If no word is given, the current erroneous word is used.
@@ -341,21 +347,21 @@ class SpellChecker:
         suggs = self.dict.suggest(word)
         return suggs
 
-    def check(self, word):
+    def check(self, word: str) -> bool:
         """Check correctness of the given word."""
         return self.dict.check(word)
 
-    def set_offset(self, off, whence=0):
+    def set_offset(self, off: int, whence: int = 0) -> None:
         """Set the offset of the tokenization routine.
 
         For more details on the purpose of the tokenization offset,
-        see the documentation of the 'enchant.tokenize' module.
-        The optional argument whence indicates the method by
+        see the documentation of the module :py:mod:`enchant.tokenize`.
+        The optional argument `whence` indicates the method by
         which to change the offset:
 
-            * 0 (the default) treats <off> as an increment
-            * 1 treats <off> as a distance from the start
-            * 2 treats <off> as a distance from the end
+            * 0 (the default) treats `off` as an increment
+            * 1 treats `off` as a distance from the start
+            * 2 treats `off` as a distance from the end
         """
         if whence == 0:
             self._tokens.set_offset(self._tokens.offset + off)
@@ -368,10 +374,10 @@ class SpellChecker:
         else:
             raise ValueError("Invalid value for whence: %s" % (whence,))
 
-    def leading_context(self, chars):
-        """Get <chars> characters of leading context.
+    def leading_context(self, chars: int) -> str:
+        """Get `chars` characters of leading context.
 
-        This method returns up to <chars> characters of leading
+        This method returns up to `chars` characters of leading
         context - the text that occurs in the string immediately
         before the current erroneous word.
         """
@@ -379,10 +385,10 @@ class SpellChecker:
         context = self._text[start : self.wordpos]
         return self._array_to_string(context)
 
-    def trailing_context(self, chars):
-        """Get <chars> characters of trailing context.
+    def trailing_context(self, chars: int) -> str:
+        """Get `chars` characters of trailing context.
 
-        This method returns up to <chars> characters of trailing
+        This method returns up to `chars` characters of trailing
         context - the text that occurs in the string immediately
         after the current erroneous word.
         """

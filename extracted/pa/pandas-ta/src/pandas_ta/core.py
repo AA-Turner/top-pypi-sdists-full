@@ -8,7 +8,7 @@ from warnings import simplefilter
 from numpy import log, log10, ndarray
 from pandas.api.extensions import register_dataframe_accessor
 from pandas.errors import PerformanceWarning
-from pandas import DataFrame, Series, concat
+from pandas import DataFrame, Series
 from pandas import options as pd_options
 from tqdm import tqdm
 
@@ -550,7 +550,6 @@ class AnalysisIndicators(object):
         # Remove the unwanted indicators
         [ta_indicators.remove(x) for x in removed]
 
-        # If as a list, immediately return
         if as_list:
             return ta_indicators
 
@@ -609,7 +608,7 @@ class AnalysisIndicators(object):
 
         Note: Multiprocessing
             Multiprocessing is **not** viable or efficient for some cases.
-            Testing is required per case. See [Multiprocessing](https://docs.python.org/3.12/library/multiprocessing.html)
+            Customize for production. See [Multiprocessing](https://docs.python.org/3.12/library/multiprocessing.html)
             for more information.
         """
         all_ordered = kwargs.pop("ordered", True)

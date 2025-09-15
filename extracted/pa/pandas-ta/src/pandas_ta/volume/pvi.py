@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 from numba import njit
-from numpy import empty, float64, zeros_like
+from numpy import float64, zeros_like
 from pandas import DataFrame, Series
 from pandas_ta._typing import DictLike, Int
 from pandas_ta.ma import ma

@@ -70,6 +70,7 @@ import io
 from decimal import Decimal
 from typing import TYPE_CHECKING
 from typing import Any
+from typing import cast
 
 from beancount.core import distribution
 
@@ -92,25 +93,22 @@ class Align(enum.Enum):
     RIGHT = 3
 
 
-class _CurrencyContext:
-    """A container of information for a single currency.
-
-    This object accumulates aggregate information about numbers that is then
-    used by the DisplayContext to manufacture appropriate Formatter
-    objects.
+class _ContextBase:
+    """Base class for currency contexts.
 
     Attributes:
       has_sign: A boolean, true if at least one of the numbers has a negative or
         explicit positive sign.
       integer_max: The maximum number of digits for the integer part.
-      fractional_dist: A frequency distribution of fractionals seen in the input file.
-
     """
 
     def __init__(self) -> None:
-        self.has_sign = False
+        # Note: has_sign should always be assume when formatting numbers; you
+        # never know if a new number may require a sign even though one was
+        # never witnessed. So we now we harcode to True. (Note to self: remove
+        # this later.)
+        self.has_sign = True
         self.integer_max = 1
-        self.fractional_dist = distribution.Distribution()
 
     def __str__(self) -> str:
         fmt = (
@@ -118,7 +116,6 @@ class _CurrencyContext:
             "fractional_common={:<2}  fractional_max={:<2}  "
             '"{}" "{}"'
         )
-        dist = self.fractional_dist
 
         example = ""
         if self.has_sign:
@@ -142,8 +139,8 @@ class _CurrencyContext:
         return fmt.format(
             int(self.has_sign),
             self.integer_max,
-            "_" if dist.empty() else dist.mode(),
-            "_" if dist.empty() else dist.max(),
+            self.get_fractional_digits_common(),
+            self.get_fractional_digits_max(),
             example_common,
             example_max,
         )
@@ -161,17 +158,56 @@ class _CurrencyContext:
         if num_tuple.sign:
             self.has_sign = True
 
-        # Update the precision.
-        self.fractional_dist.update(-num_tuple.exponent)  # type: ignore[operator]
-
         # Update the maximum number of integral digits.
         integer_digits = len(num_tuple.digits) + num_tuple.exponent  # type: ignore[operator]
         self.integer_max = max(self.integer_max, integer_digits)
 
-    def update_from(self, other: _CurrencyContext) -> None:
+    def update_from(self, other: _ContextBase) -> None:
         self.has_sign = self.has_sign or other.has_sign
-        self.fractional_dist.update_from(other.fractional_dist)
         self.integer_max = max(self.integer_max, other.integer_max)
+
+    def get_fractional_digits_common(self) -> int:
+        raise NotImplementedError
+
+    def get_fractional_digits_max(self) -> int:
+        raise NotImplementedError
+
+    def get_fractional(self, precision: Precision) -> int | None:
+        raise NotImplementedError
+
+
+class _CurrencyContext(_ContextBase):
+    """Precision data for a single currency from a population of numbers.
+
+    This object accumulates aggregate precision data about numbers that is then
+    used by the DisplayContext to manufacture appropriate Formatter objects.
+
+    Attributes:
+      fractional_dist: A frequency distribution of fractionals seen in the input file.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.fractional_dist = distribution.Distribution()
+
+    def get_fractional_digits_common(self):
+        dist = self.fractional_dist
+        return "_" if dist.empty() else dist.mode()
+
+    def get_fractional_digits_max(self):
+        dist = self.fractional_dist
+        return "_" if dist.empty() else dist.max()
+
+    def update(self, number: Decimal) -> None:
+        super().update(number)
+        # Update the precision.
+        num_tuple = number.as_tuple()
+        self.fractional_dist.update(-num_tuple.exponent)  # type: ignore[operator]
+
+    def update_from(self, other: _ContextBase) -> None:
+        super().update_from(other)
+        other_ = cast("_CurrencyContext", other)
+        self.fractional_dist.update_from(other_.fractional_dist)
 
     def get_fractional(self, precision: Precision) -> int | None:
         """
@@ -188,6 +224,31 @@ class _CurrencyContext:
             raise ValueError("Unknown precision: {}".format(precision))
 
 
+class _FixedPrecisionContext(_ContextBase):
+    """Fixed precision data for a single currency. Sign and max integer are still learned.
+
+    This object stores fixed precision data about numbers for a single currency.
+    This is used by the DisplayContext to manufacture appropriate Formatter
+    objects.
+
+    Attributes:
+      fractional_digits: An integer, the precision for both MOST_COMMON and MAXIMUM.
+    """
+
+    def __init__(self, fractional_digits: int) -> None:
+        super().__init__()
+        self.fractional_digits: int = fractional_digits
+
+    def get_fractional_digits_common(self):
+        return self.fractional_digits
+
+    def get_fractional_digits_max(self):
+        return self.fractional_digits
+
+    def get_fractional(self, precision: Precision) -> int | None:
+        return self.fractional_digits
+
+
 class DisplayContext:
     """A builder object used to construct a DisplayContext from a series of numbers.
 
@@ -198,7 +259,7 @@ class DisplayContext:
     """
 
     def __init__(self) -> None:
-        self.ccontexts = collections.defaultdict(_CurrencyContext)
+        self.ccontexts: dict[str, _ContextBase] = collections.defaultdict(_CurrencyContext)
         self.ccontexts["__default__"] = _CurrencyContext()
         self.commas = False
 
@@ -230,6 +291,9 @@ class DisplayContext:
         """
         for currency, ccontext in other.ccontexts.items():
             self.ccontexts[currency].update_from(ccontext)
+
+    def set_fixed_precision(self, currency: Currency, fractional_digits: int) -> None:
+        self.ccontexts[currency] = _FixedPrecisionContext(fractional_digits)
 
     def quantize(
         self,

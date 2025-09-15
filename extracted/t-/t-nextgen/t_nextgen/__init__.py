@@ -14,7 +14,7 @@ from t_nextgen.ng_pm.core import NextGenPMCore
 
 __author__ = """Thoughtful"""
 __email__ = "support@thoughtful.ai"
-__version__ = "__version__ = '0.5.1'"
+__version__ = "__version__ = '0.5.2'"
 
 __all__ = [
     "NextGenWindow",

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from numpy import arctan, pi, rad2deg
+from numpy import arctan, rad2deg
 from pandas import Series
 from pandas_ta._typing import DictLike, Int
 from pandas_ta.utils import (

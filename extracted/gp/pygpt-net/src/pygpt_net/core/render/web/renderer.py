@@ -6,7 +6,7 @@
 # GitHub:  https://github.com/szczyglis-dev/py-gpt   #
 # MIT License                                        #
 # Created By  : Marcin Szczygliński                  #
-# Updated Date: 2025.09.13 06:10:00                  #
+# Updated Date: 2025.09.14 20:00:00                  #
 # ================================================== #
 
 import gc
@@ -210,6 +210,8 @@ class Renderer(BaseRenderer):
         :param meta: context meta
         """
         node = self.get_output_node(meta)
+        if not node:
+            return
         node.set_meta(meta)
         self.reset(meta)
         try:
@@ -884,6 +886,7 @@ class Renderer(BaseRenderer):
         :param pid: context PID
         :param payload: payload to append
         :param flush: True if flush immediately (legacy HTML path)
+        :param replace: True if replace whole output (legacy HTML path)
         """
         if self.pids[pid].loaded and not self.pids[pid].use_buffer:
             self.clear_chunks(pid)
@@ -1291,10 +1294,10 @@ class Renderer(BaseRenderer):
         :param meta: context meta
         """
         tab = node.get_tab()
+        tab.delete_ref(node)
         layout = tab.child.layout()
         layout.removeWidget(node)
         self.window.ui.nodes['output'].pop(tab.pid, None)
-        tab.child.delete_refs()
 
         node.on_delete()
 

@@ -4,15 +4,15 @@ requires = ["setuptools>=77.0.3"]
 
 [project]
 name = "types-psycopg2"
-version = "2.9.21.20250809"
+version = "2.9.21.20250915"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for psycopg2"
 readme = { text = """\
 ## Typing stubs for psycopg2
 
-This is a [PEP 561](https://peps.python.org/pep-0561/) type stub package for
-the [`psycopg2`](https://github.com/psycopg/psycopg2) package. It can be used by type checkers
+This is a [type stub package](https://typing.python.org/en/latest/tutorials/external_libraries.html)
+for the [`psycopg2`](https://github.com/psycopg/psycopg2) package. It can be used by type checkers
 to check code that uses `psycopg2`. This version of
 `types-psycopg2` aims to provide accurate annotations for
 `psycopg2~=2.9.10`.
@@ -25,11 +25,11 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 1.16.1
-* [pyright](https://github.com/microsoft/pyright) 1.1.403
+* [mypy](https://github.com/python/mypy/) 1.18.1
+* [pyright](https://github.com/microsoft/pyright) 1.1.405
 
 It was generated from typeshed commit
-[`91ba0da4aad754c912a82b9e052cb4f8191ce520`](https://github.com/python/typeshed/commit/91ba0da4aad754c912a82b9e052cb4f8191ce520).
+[`703f7d074ccd3776f20c77eaeb4563a197948ed9`](https://github.com/python/typeshed/commit/703f7d074ccd3776f20c77eaeb4563a197948ed9).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",

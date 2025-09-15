@@ -1,15 +1,15 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: aiohomekit
-Version: 3.2.16
+Version: 3.2.17
 Summary: An asyncio HomeKit client
-License: Apache-2.0
+License-Expression: Apache-2.0
+License-File: LICENSE.md
 Keywords: HomeKit,home,automation
 Author: John Carr
 Author-email: john.carr@unrouted.co.uk
 Requires-Python: >=3.10
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: End Users/Desktop
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11

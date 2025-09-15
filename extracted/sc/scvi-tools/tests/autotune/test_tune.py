@@ -8,7 +8,8 @@ from scvi.model import SCANVI, SCVI, TOTALVI
 
 
 @pytest.mark.autotune
-def test_run_autotune_scvi_basic(save_path: str):
+@pytest.mark.parametrize("save_checkpoints", [True, False])
+def test_run_autotune_scvi_basic(save_path: str, save_checkpoints: bool):
     from ray import tune
     from ray.tune import ResultGrid
 
@@ -33,6 +34,7 @@ def test_run_autotune_scvi_basic(save_path: str):
         },
         num_samples=2,
         seed=0,
+        save_checkpoints=save_checkpoints,
         scheduler="asha",
         searcher="hyperopt",
         ignore_reinit_error=True,
@@ -86,7 +88,8 @@ def test_run_autotune_scvi_no_anndata(save_path: str, n_batches: int):
 @pytest.mark.autotune
 @pytest.mark.parametrize("metric", ["Total", "Bio conservation", "iLISI"])
 @pytest.mark.parametrize("model_cls", [SCVI, SCANVI, TOTALVI, TOTALANVI])
-def test_run_autotune_scvi_with_scib(model_cls, metric: str, save_path: str):
+@pytest.mark.parametrize("solver", ["arpack", "randomized"])
+def test_run_autotune_scvi_with_scib(model_cls, metric: str, solver: str, save_path: str):
     from ray import tune
     from ray.tune import ResultGrid
 
@@ -144,6 +147,7 @@ def test_run_autotune_scvi_with_scib(model_cls, metric: str, save_path: str):
         searcher="hyperopt",
         local_mode=True,
         ignore_reinit_error=True,
+        solver=solver,
     )
     assert isinstance(experiment, AutotuneExperiment)
     assert hasattr(experiment, "result_grid")

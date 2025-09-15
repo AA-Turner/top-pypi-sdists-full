@@ -88,7 +88,7 @@ _load_file: Callable[
 
 def load_file(
     filename: str | Path,
-    log_timings: Any = None,
+    log_timings: Callable[[str], None] | None = None,
     log_errors: Any = None,
     extra_validations: list[Any] | None = None,
     encoding: str | None = None,
@@ -829,8 +829,7 @@ def initialize(use_cache: bool, cache_filename: str | None = None) -> None:
     else:
         if cache_filename is not None:
             logging.warning(
-                "Cache disabled; "
-                "Explicitly overridden cache filename %s will be ignored.",
+                "Cache disabled; Explicitly overridden cache filename %s will be ignored.",
                 cache_filename,
             )
         _load_file = delete_cache_function(cache_getter, _uncached_load_file)

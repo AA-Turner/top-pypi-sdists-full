@@ -9,10 +9,10 @@ from lamindb.models._django import get_artifact_with_related
 def test_transfer_from_remote_to_local(ccaplog):
     """Test transfer from remote to local instance."""
 
-    bt.Gene.filter().delete()
-    bt.Organism.filter().delete()
-    ln.ULabel.filter().delete()
-    bt.CellType.filter().delete()
+    bt.Gene.filter().delete(permanent=True)
+    bt.Organism.filter().delete(permanent=True)
+    ln.ULabel.filter().delete(permanent=True)
+    bt.CellType.filter().delete(permanent=True)
 
     # test transfer from an instance with an extra schema module: wetlab
     # we also made sure that the artifact here has a wetlab label attached
@@ -103,9 +103,11 @@ def test_transfer_from_remote_to_local(ccaplog):
     artifact3.load()
 
     # delete with storage=False, because these are all stored in the source instances
-    artifact1.delete(storage=False)
-    artifact2.delete(storage=False)
-    artifact3.delete(storage=False)
+    artifact1.delete(storage=False, permanent=True)
+    artifact2.delete(storage=False, permanent=True)
+    artifact3.delete(
+        storage=False
+    )  # there is an issue here with permanent deletion because of schema module mismatch
 
 
 def test_transfer_into_space():
@@ -117,7 +119,7 @@ def test_transfer_into_space():
         ulabel.save()
     assert ulabel.space_id == space.id
 
-    ulabel.delete()
+    ulabel.delete(permanent=True)
     space.delete()
 
 
@@ -167,3 +169,7 @@ def test_using_record_organism():
         "record must be a bionty.Source record from instance 'laminlabs/lamin-dev'"
         in str(error.value)
     )
+
+
+def test_using_query_by_feature():
+    assert ln.Artifact.using("laminlabs/cellxgene").filter(n_of_donors__gte=100)

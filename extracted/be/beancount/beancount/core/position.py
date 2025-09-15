@@ -28,13 +28,16 @@ from beancount.core.number import D
 class Cost(NamedTuple):
     """A variant of Amount that also includes a date and a label."""
 
-    # the per-unit cost
+    # The per-unit cost.
     number: Decimal
-    # the cost currency.
+
+    # The cost currency.
     currency: str
-    # for the date that the lot was created at.
+
+    # For the date that the lot was created at.
     # There should always be a valid date.
     date: datetime.date
+
     # A string for the label of this lot, or None, if there is no label.
     label: Optional[str]
 
@@ -168,12 +171,12 @@ class Position(NamedTuple("Position", [("units", Amount), ("cost", Optional[Cost
     cost_types = (Cost, CostSpec)
 
     def __new__(cls, units: Amount, cost: Cost | None = None):
-        assert isinstance(
-            units, Amount
-        ), "Expected an Amount for units; received '{}'".format(units)
-        assert cost is None or isinstance(
-            cost, Position.cost_types
-        ), "Expected a Cost for cost; received '{}'".format(cost)
+        assert isinstance(units, Amount), (
+            "Expected an Amount for units; received '{}'".format(units)
+        )
+        assert cost is None or isinstance(cost, Position.cost_types), (
+            "Expected a Cost for cost; received '{}'".format(cost)
+        )
         return super().__new__(cls, units, cost)
 
     def __hash__(self) -> int:
@@ -381,9 +384,9 @@ class Position(NamedTuple("Position", [("units", Amount), ("cost", Optional[Cost
         Returns:
           A Position instance.
         """
-        assert cost_amount is None or isinstance(
-            cost_amount, Amount
-        ), "Invalid type for cost: {}".format(cost_amount)
+        assert cost_amount is None or isinstance(cost_amount, Amount), (
+            "Invalid type for cost: {}".format(cost_amount)
+        )
         cost = (
             Cost(cost_amount.number, cost_amount.currency, None, None)
             if cost_amount

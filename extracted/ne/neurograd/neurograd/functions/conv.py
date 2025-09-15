@@ -17,6 +17,7 @@ if xp is not np:
 
 # Implementation with cuDNN backend
 class Convolver(Function):
+    """2D Convolution operation using cuDNN backend for GPU acceleration."""
     name = "Convolver"
     def __init__(self, strides: Union[int, Tuple[int, int]] = (1, 1),
                  padding: Union[int, Tuple[int, int], Literal["valid", "same"]] = (0, 0),

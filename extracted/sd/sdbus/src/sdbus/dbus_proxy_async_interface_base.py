@@ -22,7 +22,6 @@ from __future__ import annotations
 from collections.abc import Callable
 from copy import copy
 from itertools import chain
-from types import MethodType
 from typing import TYPE_CHECKING, Any, cast
 from warnings import warn
 from weakref import WeakKeyDictionary, WeakValueDictionary
@@ -73,21 +72,23 @@ class DbusInterfaceMetaAsync(DbusInterfaceMetaCommon):
         mro_dbus_elements: dict[str, DbusMemberAsync],
     ) -> DbusMethodAsync:
         try:
-            original_method = mro_dbus_elements[override_attr_name]
+            original_dbus_method = mro_dbus_elements[override_attr_name]
         except KeyError:
             raise ValueError(
                 f"No D-Bus method {override_attr_name!r} found "
                 f"to override."
             )
 
-        if not isinstance(original_method, DbusMethodAsync):
+        if not isinstance(original_dbus_method, DbusMethodAsync):
             raise TypeError(
-                f"Expected {DbusMethodAsync!r} got {original_method!r} "
+                f"Expected {DbusMethodAsync!r} got {original_dbus_method!r} "
                 f"under name {override_attr_name!r}"
             )
 
-        new_method = copy(original_method)
-        new_method.original_method = cast(MethodType, override.override_method)
+        new_method = copy(original_dbus_method)
+        new_method.original_method = (
+            override.override_method  # type: ignore[assignment]
+        )
         return new_method
 
     @staticmethod
@@ -294,7 +295,7 @@ class DbusInterfaceBaseAsync(metaclass=DbusInterfaceMetaAsync):
         cls,
     ) -> Iterator[tuple[str, DbusClassMeta]]:
 
-        for base in cls.__mro__:
+        for base in reversed(cls.__mro__):
             meta = DBUS_CLASS_TO_META.get(base)
             if meta is None:
                 continue
@@ -384,7 +385,7 @@ class DbusInterfaceBaseAsync(metaclass=DbusInterfaceMetaAsync):
                     )
                 else:
                     raise TypeError(
-                        "Expected D-Bus element, got: {dbus_something!r}"
+                        f"Expected D-Bus element, got: {dbus_something!r}"
                     )
 
             bus.add_interface(new_interface, object_path, interface_name)
@@ -451,6 +452,7 @@ class DbusInterfaceBaseAsync(metaclass=DbusInterfaceMetaAsync):
 
 class DbusExportHandle:
     def __init__(self, local_meta: DbusLocalObjectMeta):
+        self._tasks = local_meta.tasks
         self._dbus_slots: list[SdBusSlot] = [
             i.slot
             for i in local_meta.activated_interfaces
@@ -480,5 +482,8 @@ class DbusExportHandle:
         self.stop()
 
     def stop(self) -> None:
+        for task in self._tasks:
+            task.cancel("D-Bus export stopped")
+
         for slot in self._dbus_slots:
             slot.close()

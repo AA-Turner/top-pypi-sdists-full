@@ -10,15 +10,10 @@ from __future__ import print_function
 import os
 import platform
 import sys
+import sysconfig
 
+from packaging.version import Version
 from setuptools import setup
-
-# Python 3.12 dropped distutils from the stdlib. Try to access it via
-# setuptools.
-try:
-    from setuptools._distutils.version import LooseVersion
-except ImportError:
-    from distutils.version import LooseVersion
 
 if sys.version_info[0:2] < (3, 9):
     print("Python 3.9+ is required", file=sys.stderr)
@@ -30,7 +25,8 @@ if sys.version_info[0:2] < (3, 9):
 # garbage collection pitfalls.
 # Require 1.17 everywhere so we don't have to think about supporting older
 # versions.
-MINIMUM_CFFI_VERSION = "1.17"
+# Require 2.0 for Python 3.14+ to add improved free-threading support
+MINIMUM_CFFI_VERSION = "2.0" if sys.version_info[0:2] >= (3, 14) else "1.17"
 
 ext_suffix = os.environ.get("SETUPTOOLS_EXT_SUFFIX")
 if ext_suffix:
@@ -59,8 +55,8 @@ try:
 
     # PyPy (and possibly other distros) have CFFI distributed as part of
     # them.
-    cffi_version = LooseVersion(cffi.__version__)
-    if cffi_version < LooseVersion(MINIMUM_CFFI_VERSION):
+    cffi_version = Version(Version(cffi.__version__).base_version)
+    if cffi_version < Version(MINIMUM_CFFI_VERSION):
         print(
             "CFFI %s or newer required (%s found); "
             "not building CFFI backend" % (MINIMUM_CFFI_VERSION, cffi_version),
@@ -88,6 +84,16 @@ if os.environ.get("ZSTD_WARNINGS_AS_ERRORS", ""):
 # PyPy doesn't support the C backend.
 if platform.python_implementation() == "PyPy":
     C_BACKEND = False
+
+# cffi 2.0 only introduced no-GIL support for 3.14+.
+if sys.version_info[0:2] < (3, 14) and sysconfig.get_config_var(
+    "Py_GIL_DISABLED"
+):
+    print(
+        "cffi backend requires 3.14+ for nogil Python; disabling cffi",
+        file=sys.stderr,
+    )
+    CFFI_BACKEND = False
 
 if "--legacy" in sys.argv:
     SUPPORT_LEGACY = True
@@ -146,7 +152,7 @@ with open("c-ext/python-zstandard.h", "r") as fh:
 
 if not version:
     raise Exception(
-        "could not resolve package version; " "this should never happen"
+        "could not resolve package version; this should never happen"
     )
 
 setup(

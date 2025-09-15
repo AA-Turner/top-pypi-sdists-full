@@ -63,11 +63,12 @@ def format_characteristic_list(
     # Handle global error status first - set defaults for all requested characteristics
     if "status" in data and data["status"] != 0:
         # Device returned a global error status
-        try:
-            description = to_status_code(data["status"]).description
-        except ValueError:
-            # Unknown status code
+        status_code = to_status_code(data["status"])
+        # For unknown codes, include the actual code in the description
+        if status_code == HapStatusCode.UNKNOWN:
             description = f"Unknown error code: {data['status']}"
+        else:
+            description = status_code.description
 
         logger.debug(
             "Device returned error status %s (%s) for characteristics request",
@@ -81,9 +82,9 @@ def format_characteristic_list(
 
     # Process any characteristics that are present - these override the defaults
     for c in data.get("characteristics", []):
-        # Skip malformed characteristics missing aid or iid
-        if "aid" not in c or "iid" not in c:
-            logger.debug("Skipping characteristic missing aid or iid: %s", c)
+        # Skip malformed characteristics (e.g., boolean values) or missing aid/iid
+        if not isinstance(c, dict) or "aid" not in c or "iid" not in c:
+            logger.debug("Skipping malformed characteristic: %s", c)
             continue
 
         key = (c["aid"], c["iid"])
@@ -93,11 +94,11 @@ def format_characteristic_list(
         if "status" in c and c["status"] == 0:
             del c["status"]
         if "status" in c and c["status"] != 0:
-            try:
-                c["description"] = to_status_code(c["status"]).description
-            except ValueError:
-                # Unknown status code
+            status_code = to_status_code(c["status"])
+            if status_code == HapStatusCode.UNKNOWN:
                 c["description"] = f"Unknown error code: {c['status']}"
+            else:
+                c["description"] = status_code.description
         tmp[key] = c
 
     return tmp
@@ -339,6 +340,14 @@ class IpPairing(ZeroconfPairing):
             # we need to remove the listener update for the failed
             # characteristics.
             for characteristic in response["characteristics"]:
+                # Skip malformed characteristics (e.g., boolean values)
+                if (
+                    not isinstance(characteristic, dict)
+                    or "aid" not in characteristic
+                    or "iid" not in characteristic
+                ):
+                    logger.debug("Skipping malformed characteristic in response: %s", characteristic)
+                    continue
                 aid, iid = characteristic["aid"], characteristic["iid"]
                 key = (aid, iid)
                 status = characteristic["status"]

@@ -13,7 +13,7 @@ import threading
 import time
 from datetime import datetime
 
-from .__init__ import ANYWIN, PY2, TYPE_CHECKING, WINDOWS, E
+from .__init__ import ANYWIN, MACOS, PY2, TYPE_CHECKING, WINDOWS, E
 from .bos import bos
 from .cfg import flagdescs, permdescs, vf_bmap, vf_cmap, vf_vmap
 from .pwhash import PWHash
@@ -92,6 +92,8 @@ SBADCFG = " ({})".format(BAD_CFG)
 
 PTN_U_GRP = re.compile(r"\$\{u(%[+-][^}]+)\}")
 PTN_G_GRP = re.compile(r"\$\{g(%[+-][^}]+)\}")
+PTN_U_ANY = re.compile(r"(\${[u][}%])")
+PTN_G_ANY = re.compile(r"(\${[g][}%])")
 PTN_SIGIL = re.compile(r"(\${[ug][}%])")
 
 
@@ -417,15 +419,17 @@ class VFS(object):
             self.all_nodes[vpath] = self
             self.all_aps = [(rp, [self])]
             self.all_vps = [(vp, self)]
+            self.canonical = self._canonical
+            self.dcanonical = self._dcanonical
         else:
             self.histpath = self.dbpath = ""
             self.all_aps = []
             self.all_vps = []
+            self.canonical = self._canonical_null
+            self.dcanonical = self._dcanonical_null
 
         self.get_dbv = self._get_dbv
         self.ls = self._ls
-        self.canonical = self._canonical
-        self.dcanonical = self._dcanonical
 
     def __repr__(self)  :
         return "VFS(%s)" % (
@@ -619,6 +623,34 @@ class VFS(object):
         vrem = vjoin(self.vpath[len(dbv.vpath) :].lstrip("/"), vrem)
         return dbv, vrem
 
+    def casechk(self, rem , do_stat )  :
+        ap = self.canonical(rem, False)
+        if do_stat and not bos.path.exists(ap):
+            return True  # doesn't exist at all; good to go
+        dp, fn = os.path.split(ap)
+        try:
+            fns = os.listdir(dp)
+        except:
+            return True  # maybe chmod 111; assume ok
+        if fn in fns:
+            return True
+        hit = "<?>"
+        lfn = fn.lower()
+        for zs in fns:
+            if lfn == zs.lower():
+                hit = zs
+                break
+        if self.log:
+            t = "returning 404 due to underlying case-insensitive filesystem:\n  http-req: %r\n  local-fs: %r"
+            self.log("vfs", t % (fn, hit))
+        return False
+
+    def _canonical_null(self, rem , resolve  = True)  :
+        return ""
+
+    def _dcanonical_null(self, rem )  :
+        return ""
+
     def _canonical(self, rem , resolve  = True)  :
         """returns the canonical path (fully-resolved absolute fs path)"""
         ap = self.realpath
@@ -704,8 +736,12 @@ class VFS(object):
         """return user-readable [fsdir,real,virt] items at vpath"""
         virt_vis = {}  # nodes readable by user
         abspath = self.canonical(rem)
-        real = list(statdir(self.log, scandir, lstat, abspath, throw))
-        real.sort()
+        if abspath:
+            real = list(statdir(self.log, scandir, lstat, abspath, throw))
+            real.sort()
+        else:
+            real = []
+
         if not rem:
             # no vfs nodes in the list of real inodes
             real = [x for x in real if x[0] not in self.nodes]
@@ -1121,6 +1157,16 @@ class AuthSrv(object):
         src0 = src  # abspath
         dst0 = dst  # vpath
 
+        zsl = []
+        for ptn, sigil in ((PTN_U_ANY, "${u}"), (PTN_G_ANY, "${g}")):
+            if bool(ptn.search(src)) != bool(ptn.search(dst)):
+                zsl.append(sigil)
+        if zsl:
+            t = "ERROR: if %s is mentioned in a volume definition, it must be included in both the filesystem-path [%s] and the volume-url [/%s]"
+            t = "\n".join([t % (x, src, dst) for x in zsl])
+            self.log(t, 1)
+            raise Exception(t)
+
         un_gn = [(un, gn) for un, gns in un_gns.items() for gn in gns]
         if not un_gn:
             # ensure volume creation if there's no users
@@ -1213,8 +1259,8 @@ class AuthSrv(object):
             self.log(t, c=3)
             raise Exception(BAD_CFG)
 
-        if not bos.path.isdir(src):
-            self.log("warning: filesystem-path does not exist: {}".format(src), 3)
+        if not bos.path.exists(src):
+            self.log("warning: filesystem-path did not exist: %r" % (src,), 3)
 
         mount[dst] = (src, dst0)
         daxs[dst] = AXS()
@@ -1836,7 +1882,7 @@ class AuthSrv(object):
             vol.all_vps.sort(key=lambda x: len(x[0]), reverse=True)
             vol.root = vfs
 
-        zs = "neversymlink"
+        zs = "neversymlink du_iwho"
         k_ign = set(zs.split())
         for vol in vfs.all_vols.values():
             unknown_flags = set()
@@ -1987,6 +2033,8 @@ class AuthSrv(object):
         promote = []
         demote = []
         for vol in vfs.all_vols.values():
+            if not vol.realpath:
+                continue
             hid = self.hid_cache.get(vol.realpath)
             if not hid:
                 zb = hashlib.sha512(afsenc(vol.realpath)).digest()
@@ -2025,6 +2073,8 @@ class AuthSrv(object):
             vol.histpath = absreal(vol.histpath)
 
         for vol in vfs.all_vols.values():
+            if not vol.realpath:
+                continue
             hid = self.hid_cache[vol.realpath]
             vflag = vol.flags.get("dbpath")
             if vflag == "-":
@@ -2336,7 +2386,7 @@ class AuthSrv(object):
             vol.flags["du_iwho"] = n_du_who(vol.flags["du_who"])
 
             if not enshare:
-                vol.flags["shr_who"] = "no"
+                vol.flags["shr_who"] = self.args.shr_who = "no"
 
             if vol.flags.get("og"):
                 self.args.uqe = True
@@ -2512,6 +2562,47 @@ class AuthSrv(object):
                     t = 'volume "/{}" defines metadata tag "{}", but doesnt use it in "-mte" (or with "cmte" in its volflags)'
                     self.log(t.format(vol.vpath, mtp), 1)
                     errors = True
+
+        for vol in vfs.all_nodes.values():
+            if not vol.realpath or os.path.isfile(vol.realpath):
+                continue
+            ccs = vol.flags["casechk"][:1].lower()
+            if ccs in ("y", "n"):
+                if ccs == "y":
+                    vol.flags["bcasechk"] = True
+                continue
+            try:
+                bos.makedirs(vol.realpath, vf=vol.flags)
+                files = os.listdir(vol.realpath)
+                for fn in files:
+                    fn2 = fn.lower()
+                    if fn == fn2:
+                        fn2 = fn.upper()
+                    if fn == fn2 or fn2 in files:
+                        continue
+                    is_ci = os.path.exists(os.path.join(vol.realpath, fn2))
+                    ccs = "y" if is_ci else "n"
+                    break
+                if ccs not in ("y", "n"):
+                    ap = os.path.join(vol.realpath, "casechk")
+                    open(ap, "wb").close()
+                    ccs = "y" if os.path.exists(ap[:-1] + "K") else "n"
+                    os.unlink(ap)
+            except Exception as ex:
+                if ANYWIN:
+                    zs = "Windows"
+                    ccs = "y"
+                elif MACOS:
+                    zs = "Macos"
+                    ccs = "y"
+                else:
+                    zs = "Linux"
+                    ccs = "n"
+                t = "unable to determine if filesystem at %r is case-insensitive due to %r; assuming casechk=%s due to %s"
+                self.log(t % (vol.realpath, ex, ccs, zs), 3)
+            vol.flags["casechk"] = ccs
+            if ccs == "y":
+                vol.flags["bcasechk"] = True
 
         tags = self.args.mtp or []
         tags = [x.split("=")[0] for x in tags]
@@ -2784,6 +2875,8 @@ class AuthSrv(object):
                     shn.dcanonical = shn._dcanonical_shr
                 else:
                     shn.ls = shn._ls
+                    shn.canonical = shn._canonical
+                    shn.dcanonical = shn._dcanonical
 
                 shn.shr_owner = s_un
                 shn.shr_src = (s_vfs, s_rem)

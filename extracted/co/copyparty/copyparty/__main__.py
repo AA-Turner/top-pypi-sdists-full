@@ -1169,11 +1169,14 @@ def add_qr(ap, tty):
     ap2.add_argument("--qr-every", metavar="SEC", type=float, default=0, help="print the qr-code every \033[33mSEC\033[0m (try this with/without --qr-pin in case of issues)")
     ap2.add_argument("--qr-winch", metavar="SEC", type=float, default=0, help="when --qr-pin is enabled, check for terminal size change every \033[33mSEC\033[0m")
     ap2.add_argument("--qr-file", metavar="TXT", type=u, action="append", help="\033[34mREPEATABLE:\033[0m write qr-code to file.\n └─To create txt or svg, \033[33mTXT\033[0m is Filepath:Zoom:Pad, for example [\033[32mqr.txt:1:2\033[0m]\n └─To create png or gif, \033[33mTXT\033[0m is Filepath:Zoom:Pad:Foreground:Background, for example [\033[32mqr.png:8:2:333333:ffcc55\033[0m], or [\033[32mqr.png:8:2::ffcc55\033[0m] for transparent")
+    ap2.add_argument("--qr-stdout", action="store_true", help="always display the QR-code on STDOUT in the terminal, even if \033[33m-q\033[0m")
+    ap2.add_argument("--qr-stderr", action="store_true", help="always display the QR-code on STDERR in the terminal, even if \033[33m-q\033[0m")
 
 
 def add_fs(ap):
     ap2 = ap.add_argument_group("filesystem options")
     rm_re_def = "15/0.1" if ANYWIN else "0/0"
+    ap2.add_argument("--casechk", metavar="N", type=u, default="auto", help="detect and prevent CI (case-insensitive) behavior if the underlying filesystem is CI? [\033[32my\033[0m] = detect and prevent, [\033[32mn\033[0m] = ignore and allow, [\033[32mauto\033[0m] = \033[32my\033[0m if CI fs detected. NOTE: \033[32my\033[0m is very slow but necessary for correct WebDAV behavior on Windows/Macos (volflag=casechk)")
     ap2.add_argument("--rm-retry", metavar="T/R", type=u, default=rm_re_def, help="if a file cannot be deleted because it is busy, continue trying for \033[33mT\033[0m seconds, retry every \033[33mR\033[0m seconds; disable with 0/0 (volflag=rm_retry)")
     ap2.add_argument("--mv-retry", metavar="T/R", type=u, default=rm_re_def, help="if a file cannot be renamed because it is busy, continue trying for \033[33mT\033[0m seconds, retry every \033[33mR\033[0m seconds; disable with 0/0 (volflag=mv_retry)")
     ap2.add_argument("--iobuf", metavar="BYTES", type=int, default=256*1024, help="file I/O buffer-size; if your volumes are on a network drive, try increasing to \033[32m524288\033[0m or even \033[32m4194304\033[0m (and let me know if that improves your performance)")
@@ -1673,6 +1676,7 @@ def add_db_general(ap, hcores):
     ap2.add_argument("--hash-mt", metavar="CORES", type=int, default=hcores, help="num cpu cores to use for file hashing; set 0 or 1 for single-core hashing")
     ap2.add_argument("--re-maxage", metavar="SEC", type=int, default=0, help="rescan filesystem for changes every \033[33mSEC\033[0m seconds; 0=off (volflag=scan)")
     ap2.add_argument("--db-act", metavar="SEC", type=float, default=10.0, help="defer any scheduled volume reindexing until \033[33mSEC\033[0m seconds after last db write (uploads, renames, ...)")
+    ap2.add_argument("--srch-icase", action="store_true", help="case-insensitive search for all unicode characters (the default is icase for just ascii). NOTE: will make searches much slower (around 4x), and NOTE: only applies to filenames/paths, not tags")
     ap2.add_argument("--srch-time", metavar="SEC", type=int, default=45, help="search deadline -- terminate searches running for more than \033[33mSEC\033[0m seconds")
     ap2.add_argument("--srch-hits", metavar="N", type=int, default=7999, help="max search results to allow clients to fetch; 125 results will be shown initially")
     ap2.add_argument("--srch-excl", metavar="PTN", type=u, default="", help="regex: exclude files from search results if the file-URL matches \033[33mPTN\033[0m (case-sensitive). Example: [\033[32mpassword|logs/[0-9]\033[0m] any URL containing 'password' or 'logs/DIGIT' (volflag=srch_excl)")
@@ -1727,7 +1731,7 @@ def add_og(ap):
     ap2.add_argument("--uqe", action="store_true", help="query-string parceling; translate a request for \033[33m/foo/.uqe/BASE64\033[0m into \033[33m/foo?TEXT\033[0m, or \033[33m/foo/?TEXT\033[0m if the first character in \033[33mTEXT\033[0m is a slash. Automatically enabled for \033[33m--og\033[0m")
 
 
-def add_ui(ap, retry):
+def add_ui(ap, retry ):
     THEMES = 10
     ap2 = ap.add_argument_group("ui options")
     ap2.add_argument("--grid", action="store_true", help="show grid/thumbnails by default (volflag=grid)")
@@ -1869,18 +1873,21 @@ def run_argparse(
     for k, h, _ in sects:
         ap2.add_argument("--help-" + k, action="store_true", help=h)
 
-    try:
-        if not retry:
-            raise Exception()
-
+    if retry:
+        a = ["ascii", "replace"]
         for x in ap._actions:
-            if not x.help:
-                continue
+            try:
+                x.default = x.default.encode(*a).decode(*a)
+            except:
+                pass
 
-            a = ["ascii", "replace"]
-            x.help = x.help.encode(*a).decode(*a) + "\033[0m"
-    except:
-        pass
+            try:
+                if x.help and x.help is not argparse.SUPPRESS:
+                    x.help = x.help.replace("└─", "`-").encode(*a).decode(*a)
+                    if retry > 2:
+                        x.help = RE_ANSI.sub("", x.help)
+            except:
+                pass
 
     ret = ap.parse_args(args=argv[1:])
     for k, h, t in sects:
@@ -1990,7 +1997,7 @@ def main(argv  = None)  :
     except:
         nc = 486  # mdns/ssdp restart headroom; select() maxfd is 512 on windows
 
-    retry = False
+    retry = 0
     for fmtr in [RiceFormatter, RiceFormatter, Dodge11874, BasicDodge11874]:
         try:
             al = run_argparse(argv, fmtr, retry, nc)
@@ -1999,8 +2006,9 @@ def main(argv  = None)  :
         except SystemExit:
             raise
         except:
-            retry = True
-            lprint("\n[ {} ]:\n{}\n".format(fmtr, min_ex()))
+            retry += 1
+            t = "WARNING: due to limitations in your terminal and/or OS, the helptext cannot be displayed correctly. Will show a simplified version due to the following error:\n[ %s ]:\n%s\n"
+            lprint(t % (fmtr, min_ex()))
 
     try:
         assert al  # type: ignore

@@ -1,7 +1,8 @@
 Metadata-Version: 2.4
 Name: cdp-use
-Version: 1.4.0
+Version: 1.4.1
 Summary: Type safe generator/client library for CDP
+License-File: LICENSE
 Requires-Python: >=3.11
 Requires-Dist: httpx>=0.28.1
 Requires-Dist: websockets>=15.0.1

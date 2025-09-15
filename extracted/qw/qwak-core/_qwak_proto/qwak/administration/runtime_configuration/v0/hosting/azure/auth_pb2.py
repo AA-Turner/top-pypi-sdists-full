@@ -15,7 +15,7 @@ from _qwak_proto.qwak.administration.runtime_configuration.v0.creds import secre
 from _qwak_proto.qwak.administration.runtime_configuration.v0.external.databricks import auth_pb2 as qwak_dot_administration_dot_runtime__configuration_dot_v0_dot_external_dot_databricks_dot_auth__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nEqwak/administration/runtime_configuration/v0/hosting/azure/auth.proto\x12:qwak.administration.runtime_configuration.v0.hosting.azure\x1a?qwak/administration/runtime_configuration/v0/creds/secret.proto\x1aKqwak/administration/runtime_configuration/v0/external/databricks/auth.proto\"\xa1\x01\n\x13\x41zureAuthentication\x12\x81\x01\n\x15\x61zure_databricks_auth\x18\x01 \x01(\x0b\x32`.qwak.administration.runtime_configuration.v0.hosting.azure.AzureDatabricksServiceAuthenticationH\x00\x42\x06\n\x04type\"\xfc\x01\n$AzureDatabricksServiceAuthentication\x12\x61\n\x07\x64\x62_auth\x18\x01 \x01(\x0b\x32P.qwak.administration.runtime_configuration.v0.external.databricks.DatabricksAuth\x12q\n\x17\x61zure_blob_storage_auth\x18\x02 \x01(\x0b\x32P.qwak.administration.runtime_configuration.v0.hosting.azure.AzureBlobStorageAuth\"\x83\x01\n\x14\x41zureBlobStorageAuth\x12^\n\tsas_token\x18\x01 \x01(\x0b\x32I.qwak.administration.runtime_configuration.v0.hosting.azure.AzureSASTokenH\x00\x42\x0b\n\tauth_type\"v\n\rAzureSASToken\x12Y\n\x06secret\x18\x01 \x01(\x0b\x32G.qwak.administration.runtime_configuration.v0.creds.secret.SecretKeyRefH\x00\x42\n\n\x08locationB\xdd\x01\n3com.jfrog.ml.runtime_configuration.v0.hosting.azureP\x01Z\xa3\x01github.com/qwak-ai/qwak-platform/services/core/java/user-management/user-management-api/pb/qwak/administration/runtime_configuration/v0/hosting/azure;hosting_azureb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nEqwak/administration/runtime_configuration/v0/hosting/azure/auth.proto\x12:qwak.administration.runtime_configuration.v0.hosting.azure\x1a?qwak/administration/runtime_configuration/v0/creds/secret.proto\x1aKqwak/administration/runtime_configuration/v0/external/databricks/auth.proto\"\xa1\x01\n\x13\x41zureAuthentication\x12\x81\x01\n\x15\x61zure_databricks_auth\x18\x01 \x01(\x0b\x32`.qwak.administration.runtime_configuration.v0.hosting.azure.AzureDatabricksServiceAuthenticationH\x00\x42\x06\n\x04type\"\xfc\x01\n$AzureDatabricksServiceAuthentication\x12\x61\n\x07\x64\x62_auth\x18\x01 \x01(\x0b\x32P.qwak.administration.runtime_configuration.v0.external.databricks.DatabricksAuth\x12q\n\x17\x61zure_blob_storage_auth\x18\x02 \x01(\x0b\x32P.qwak.administration.runtime_configuration.v0.hosting.azure.AzureBlobStorageAuth\"\xf1\x01\n\x14\x41zureBlobStorageAuth\x12^\n\tsas_token\x18\x01 \x01(\x0b\x32I.qwak.administration.runtime_configuration.v0.hosting.azure.AzureSASTokenH\x00\x12l\n\x10managed_identity\x18\x02 \x01(\x0b\x32P.qwak.administration.runtime_configuration.v0.hosting.azure.AzureManagedIdentityH\x00\x42\x0b\n\tauth_type\"v\n\rAzureSASToken\x12Y\n\x06secret\x18\x01 \x01(\x0b\x32G.qwak.administration.runtime_configuration.v0.creds.secret.SecretKeyRefH\x00\x42\n\n\x08location\")\n\x14\x41zureManagedIdentity\x12\x11\n\tclient_id\x18\x01 \x01(\tB\xdd\x01\n3com.jfrog.ml.runtime_configuration.v0.hosting.azureP\x01Z\xa3\x01github.com/qwak-ai/qwak-platform/services/core/java/user-management/user-management-api/pb/qwak/administration/runtime_configuration/v0/hosting/azure;hosting_azureb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -29,7 +29,9 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   _globals['_AZUREDATABRICKSSERVICEAUTHENTICATION']._serialized_start=440
   _globals['_AZUREDATABRICKSSERVICEAUTHENTICATION']._serialized_end=692
   _globals['_AZUREBLOBSTORAGEAUTH']._serialized_start=695
-  _globals['_AZUREBLOBSTORAGEAUTH']._serialized_end=826
-  _globals['_AZURESASTOKEN']._serialized_start=828
-  _globals['_AZURESASTOKEN']._serialized_end=946
+  _globals['_AZUREBLOBSTORAGEAUTH']._serialized_end=936
+  _globals['_AZURESASTOKEN']._serialized_start=938
+  _globals['_AZURESASTOKEN']._serialized_end=1056
+  _globals['_AZUREMANAGEDIDENTITY']._serialized_start=1058
+  _globals['_AZUREMANAGEDIDENTITY']._serialized_end=1099
 # @@protoc_insertion_point(module_scope)

@@ -1,14 +1,14 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: sdbus
-Version: 0.14.0
+Version: 0.14.1
 Summary: Modern Python D-Bus library. Based on sd-bus from libsystemd.
-Home-page: https://github.com/igo95862/python-sdbus
+Home-page: https://github.com/python-sdbus/python-sdbus
 Author: igo95862
 Author-email: igo95862@yandex.ru
 License: LGPL-2.1-or-later
 Project-URL: Documentation, https://python-sdbus.readthedocs.io/en/latest/
-Project-URL: Source, https://github.com/igo95862/python-sdbus/
-Project-URL: Tracker, https://github.com/igo95862/python-sdbus/issues/
+Project-URL: Source, https://github.com/python-sdbus/python-sdbus/
+Project-URL: Tracker, https://github.com/python-sdbus/python-sdbus/issues/
 Keywords: dbus ipc linux freedesktop
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
@@ -28,12 +28,13 @@ Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: keywords
 Dynamic: license
+Dynamic: license-file
 Dynamic: project-url
 Dynamic: requires-python
 Dynamic: summary
 
-[![CodeQL](https://github.com/python-sdbus/python-sdbus/actions/workflows/codeql.yml/badge.svg)](https://github.com/python-sdbus/python-sdbus/actions/workflows/codeql.yml)
 [![Documentation Status](https://readthedocs.org/projects/python-sdbus/badge/?version=latest)](https://python-sdbus.readthedocs.io/en/latest/?badge=latest)
+[![PyPI - Version](https://img.shields.io/pypi/v/sdbus)](https://pypi.org/project/sdbus/)
 
 # Modern Python library for D-Bus
 

@@ -20,7 +20,7 @@ setup(
     python_requires=">=3.9",
     install_requires=[
         "prettytable<4",
-        "sqlglot>=24.0.0,<27.13",
+        "sqlglot>=24.0.0,<27.15",
         "typing_extensions",
         "more-itertools",
     ],
@@ -32,7 +32,7 @@ setup(
         "dev": [
             "duckdb>=1.2,<1.4",
             "findspark>=2,<3",
-            "mypy>=1.10.0,<1.18",
+            "mypy>=1.10.0,<1.19",
             "openai>=1.30,<2",
             "pandas>=2,<3",
             "pandas-stubs>=2,<3",
@@ -45,7 +45,7 @@ setup(
             "pytest-rerunfailures",
             "pytest-xdist>=3.6,<3.9",
             "pre-commit>=3.7,<5",
-            "ruff>=0.4.4,<0.13",
+            "ruff>=0.4.4,<0.14",
             "types-psycopg2>=2.9,<3",
         ],
         "docs": [

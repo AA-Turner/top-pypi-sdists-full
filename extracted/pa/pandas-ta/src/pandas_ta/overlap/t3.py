@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-from numpy import isnan
 from pandas import Series
 from pandas_ta._typing import DictLike, Int, IntFloat
 from pandas_ta.maps import Imports

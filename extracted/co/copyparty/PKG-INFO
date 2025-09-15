@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: copyparty
-Version: 1.19.8
+Version: 1.19.9
 Summary:   Portable file server with accelerated resumable uploads, deduplication, WebDAV, FTP, zeroconf, media indexer, video thumbnails, audio transcoding, and write-only folders
 Author-email: ed <copyparty@ocv.me>
 License: MIT
@@ -2769,6 +2769,10 @@ below are some tweaks roughly ordered by usefulness:
   ...however it also increases the server/filesystem/HDD load during uploads, and adds an overhead to internal communication, so it is usually a better idea to don't
 * using [pypy](https://www.pypy.org/) instead of [cpython](https://www.python.org/) *can* be 70% faster for some workloads, but slower for many others
   * and pypy can sometimes crash on startup with `-j0` (TODO make issue)
+
+* if you are running the copyparty server **on Windows or Macos:**
+  * `--casechk=y` makes it much faster, but also awakens [the usual surprises](https://github.com/9001/copyparty/issues/781) you expect from a case-insensitive filesystem
+    * this is the same as `casechk: n` in a config-file
 
 
 ## client-side

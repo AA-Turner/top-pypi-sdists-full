@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import shutil
+
+from collections import defaultdict
 from pathlib import Path
 from typing import TYPE_CHECKING
 from typing import Any
@@ -12,6 +15,7 @@ from packaging.utils import canonicalize_name
 from poetry.core.constraints.version import parse_constraint
 from poetry.core.factory import Factory
 from poetry.core.packages.dependency import Dependency
+from poetry.core.packages.dependency_group import MAIN_GROUP
 from poetry.core.packages.directory_dependency import DirectoryDependency
 from poetry.core.packages.file_dependency import FileDependency
 from poetry.core.packages.url_dependency import URLDependency
@@ -177,8 +181,13 @@ def test_create_poetry(project: str) -> None:
     assert package.description == "Some description."
     assert package.authors == ["Sébastien Eustace <sebastien@eustace.io>"]
     assert package.maintainers == ["Sébastien Eustace <sebastien@eustace.io>"]
-    assert package.license
-    assert package.license.id == "MIT"
+    if new_format:
+        assert package.license is None
+        assert package.license_expression == "MIT"
+    else:
+        assert package.license is not None
+        assert package.license.id == "MIT"
+        assert package.license_expression is None
     assert (
         package.readmes[0].relative_to(fixtures_dir).as_posix()
         == f"{project}/README.rst"
@@ -298,9 +307,49 @@ def test_create_poetry(project: str) -> None:
             "Programming Language :: Python :: 3.11",
             "Programming Language :: Python :: 3.12",
             "Programming Language :: Python :: 3.13",
+            "Programming Language :: Python :: 3.14",
             "Topic :: Software Development :: Build Tools",
             "Topic :: Software Development :: Libraries :: Python Modules",
         ]
+
+
+@pytest.mark.parametrize(
+    "project", ["sample_project_with_groups", "sample_project_with_groups_new"]
+)
+def test_create_poetry_with_groups(project: str) -> None:
+    poetry = Factory().create_poetry(fixtures_dir / project)
+
+    assert "docs" in poetry.package._dependency_groups
+    assert "test" in poetry.package._dependency_groups
+    assert poetry.package._dependency_groups["docs"].is_optional()  # type: ignore[index]
+    assert not poetry.package._dependency_groups["test"].is_optional()  # type: ignore[index]
+
+    package = poetry.package
+
+    expected_dependencies = {
+        "test": ["pytest", "coverage"],
+        "dev": ["pre-commit", "pytest", "coverage"],
+        "docs": ["mkdocs"],
+        "all": ["pytest", "coverage", "pre-commit", "pytest", "coverage", "mkdocs"],
+    }
+
+    dependencies = defaultdict(list)
+    for dep in package.all_requires:
+        assert len(dep.groups) == 1
+        for group in dep.groups:
+            if group != MAIN_GROUP:
+                dependencies[group].append(dep.name)
+
+    assert dependencies == expected_dependencies
+
+    for dep in package.all_requires:
+        if dep.name == "mkdocs":
+            assert isinstance(dep, VCSDependency)
+            # The "develop" flag of mkdocs from tool.poetry
+            # must also be set for the all extra!
+            assert dep.develop is True
+            assert dep.source_type == "git"
+            assert dep.source == "https://github.com/mkdocs/mkdocs.git"
 
 
 def test_create_poetry_with_dependencies_with_subdirectory() -> None:
@@ -401,24 +450,127 @@ def test_create_poetry_non_package_mode() -> None:
     assert not poetry.is_package_mode
 
 
-@pytest.mark.parametrize("license_type", ["file", "text", "str"])
-def test_create_poetry_with_license_type_file(license_type: str) -> None:
-    project_dir = fixtures_dir / f"with_license_type_{license_type}"
-    poetry = Factory().create_poetry(project_dir)
+@pytest.mark.parametrize(
+    "project", ["none", "file", "text", "text_spdx", "str", "str_empty", "str_no_spdx"]
+)
+@pytest.mark.parametrize("with_license_files", [False, True, "empty"])
+def test_create_poetry_with_license_type(
+    project: str, with_license_files: bool | str, tmp_path: Path
+) -> None:
+    project_dir = fixtures_dir / f"with_license_type_{project}"
+    expected_license_files: tuple[str, ...] | Path | None = None
+    if with_license_files:
+        if with_license_files == "empty":
+            content = ""
+            expected_license_files = ()
+        else:
+            content = '"LICEN[CS]E*", "AUTHORS*"'
+            expected_license_files = ("LICEN[CS]E*", "AUTHORS*")
 
-    if license_type == "file":
-        license_content = (project_dir / "LICENSE").read_text(encoding="utf-8")
-    elif license_type == "text":
-        license_content = (
-            (project_dir / "pyproject.toml").read_text(encoding="utf-8").split('"""')[1]
-        )
-    elif license_type == "str":
-        license_content = "MIT"
+        orig_project_dir = project_dir
+        project_dir = tmp_path / project
+        shutil.copytree(orig_project_dir, project_dir)
+        pyproject_file = project_dir / "pyproject.toml"
+        new_lines = []
+        for line in pyproject_file.read_text(encoding="utf-8").splitlines():
+            if line.startswith("keywords = "):
+                new_lines.append(f"license-files = [{content}]")
+            new_lines.append(line)
+        pyproject_file.write_text("\n".join(new_lines), encoding="utf-8")
+
+    license_type = project.split("_", 1)[0]
+    expected_license_id: str | None = None
+    expected_license_expression: str | None = None
+    if license_type == "none":
+        pass
+    elif license_type == "file":
+        expected_license_id = (project_dir / "LICENSE").read_text(encoding="utf-8")
+        expected_license_files = Path("LICENSE")
+    elif license_type in {"str", "text"}:
+        with (project_dir / "pyproject.toml").open("rb") as f:
+            data = tomllib.load(f)
+        project_license = data["project"]["license"]
+        if license_type == "text":
+            expected_license_id = project_license["text"]
+        elif project == "str_no_spdx":
+            expected_license_id = project_license
+        elif project == "str":
+            expected_license_expression = project_license
     else:
         raise RuntimeError("unexpected license type")
 
-    assert poetry.package.license
-    assert poetry.package.license.id == license_content
+    if with_license_files and license_type in {"file", "text"}:
+        with pytest.raises(ValueError) as e:
+            Factory().create_poetry(project_dir)
+        assert str(e.value) == (
+            "[project.license] must be of type string"
+            " if [project.license-files] is defined."
+        )
+    else:
+        poetry = Factory().create_poetry(project_dir)
+
+        if expected_license_id is None:
+            assert poetry.package.license is None
+        else:
+            assert poetry.package.license is not None
+            assert poetry.package.license.id == expected_license_id
+        assert poetry.package.license_expression == expected_license_expression
+        assert poetry.package.license_files == expected_license_files
+
+
+@pytest.mark.parametrize(
+    ("invalid_glob", "expected_message"),
+    [
+        (
+            r"sub\\LICENSE",
+            (
+                "Invalid entry in [project.license-files]: 'sub\\LICENSE'"
+                " (Path delimiters must be forward slashes.)"
+            ),
+        ),
+        (
+            "../LICENSE",
+            (
+                "Invalid entry in [project.license-files]: '../LICENSE'"
+                " ('..' must not be used.)"
+            ),
+        ),
+        (
+            "./../LICENSE",
+            (
+                "Invalid entry in [project.license-files]: './../LICENSE'"
+                " ('..' must not be used.)"
+            ),
+        ),
+        (
+            "sub/../../LICENSE",
+            (
+                "Invalid entry in [project.license-files]: 'sub/../../LICENSE'"
+                " ('..' must not be used.)"
+            ),
+        ),
+    ],
+)
+def test_create_poetry_with_invalid_license_files_glob(
+    tmp_path: Path, invalid_glob: str, expected_message: str
+) -> None:
+    project_file = tmp_path / "pyproject.toml"
+    project_file.write_text(
+        f"""\
+[project]
+name = "foo"
+version = "1"
+license-files = [
+    "LICENSE",
+    "{invalid_glob}",
+    "licenses/**",
+]
+""",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError) as e:
+        Factory().create_poetry(tmp_path)
+    assert str(e.value) == expected_message
 
 
 def test_create_poetry_fails_with_missing_license_file() -> None:
@@ -781,6 +933,78 @@ def test_validate_python_non_package_mode(with_project_section: bool) -> None:
     assert Factory.validate(content, strict=True) == expected
 
 
+@pytest.mark.parametrize("section", ["project", "poetry"])
+@pytest.mark.parametrize("with_license_classifier", [True, False])
+def test_validate_deprecated_license_classifiers(
+    section: str, with_license_classifier: bool
+) -> None:
+    content: dict[str, Any] = {
+        "project": {"name": "my-project", "version": "1.0", "license": "MIT"},
+        "tool": {"poetry": {}},
+    }
+    classifiers = ["Topic :: Software Development :: Libraries :: Python Modules"]
+
+    expected: dict[str, list[str]] = {"errors": [], "warnings": []}
+    if with_license_classifier:
+        classifiers.append("License :: OSI Approved :: MIT License")
+        expected["warnings"].append(
+            "License classifiers are deprecated. Use [project.license] instead."
+        )
+
+    if section == "project":
+        content["project"]["classifiers"] = classifiers
+    elif section == "poetry":
+        content["tool"]["poetry"]["classifiers"] = classifiers
+        content["project"]["dynamic"] = ["classifiers"]
+    else:
+        raise RuntimeError("unexpected section")
+
+    assert Factory.validate(content, strict=True) == expected
+
+
+@pytest.mark.parametrize(
+    "project", ["none", "file", "text", "text_spdx", "str", "str_empty", "str_no_spdx"]
+)
+@pytest.mark.parametrize("with_license_files", [False, True])
+def test_validate_with_license_type(
+    project: str, with_license_files: bool, tmp_path: Path
+) -> None:
+    project_dir = fixtures_dir / f"with_license_type_{project}"
+    pyproject_file = project_dir / "pyproject.toml"
+    if with_license_files:
+        orig_project_dir = project_dir
+        project_dir = tmp_path / project
+        shutil.copytree(orig_project_dir, project_dir)
+        pyproject_file = project_dir / "pyproject.toml"
+        new_lines = []
+        for line in pyproject_file.read_text(encoding="utf-8").splitlines():
+            if line.startswith("keywords = "):
+                new_lines.append('license-files = ["LICEN[CS]E*", "AUTHORS*"]')
+            new_lines.append(line)
+        pyproject_file.write_text("\n".join(new_lines), encoding="utf-8")
+
+    expected_warnings = []
+    if project.split("_", 1)[0] in {"file", "text"}:
+        expected_warnings.append(
+            "Defining [project.license] as a table is deprecated."
+            " [project.license] should be a valid SPDX license expression."
+            " License files can be referenced in [project.license-files]."
+        )
+    elif project in {"str_empty", "str_no_spdx"}:
+        expected_warnings.append(
+            "[project.license] is not a valid SPDX expression."
+            " This is deprecated and will raise an error in the future."
+        )
+
+    with pyproject_file.open("rb") as f:
+        content = tomllib.load(f)
+
+    assert Factory.validate(content, strict=True) == {
+        "errors": [],
+        "warnings": expected_warnings,
+    }
+
+
 def test_strict_validation_success_on_multiple_readme_files() -> None:
     with_readme_files = fixtures_dir / "with_readme_files" / "pyproject.toml"
     with with_readme_files.open("rb") as f:
@@ -854,6 +1078,74 @@ def test_create_poetry_with_invalid_dev_dependencies(caplog: LogCaptureFixture) 
     assert record.levelname == "WARNING"
     assert "does not exist" in record.message
     assert any("dev" in r.groups for r in poetry.package.all_requires)
+
+
+@pytest.mark.parametrize("with_groups", [True, False])
+def test_create_poetry_with_invalid_dependency_groups(with_groups: bool) -> None:
+    with pytest.raises(RuntimeError) as e:
+        _ = Factory().create_poetry(
+            fixtures_dir / "project_with_invalid_dependency_groups",
+            with_groups=with_groups,
+        )
+
+    expected = """\
+The Poetry configuration is invalid:
+  - dependency-groups.testing[1] must be valid exactly by one definition\
+ (0 matches found)
+"""
+    assert str(e.value) == expected
+
+
+def test_create_poetry_with_duplicated_dependency_groups() -> None:
+    with pytest.raises(RuntimeError) as e:
+        _ = Factory().create_poetry(
+            fixtures_dir / "project_with_duplicated_dependency_groups",
+        )
+
+    assert (
+        "Duplicate dependency group name after normalization: test (Test, test)"
+        in str(e.value)
+    )
+
+
+def test_create_poetry_with_dependency_groups_missing_include() -> None:
+    with pytest.raises(ValueError) as e:
+        _ = Factory().create_poetry(
+            fixtures_dir / "project_with_dependency_groups_missing_include",
+        )
+
+    assert (
+        str(e.value) == "Group 'test' includes group 'coverage' which is not defined."
+    )
+
+
+@pytest.mark.parametrize(
+    ("fixture", "expected"),
+    [
+        (
+            "project_with_dependency_groups_simple_cycle",
+            [
+                "Cyclic dependency group include in test: coverage -> test",
+                "Cyclic dependency group include in coverage: test -> coverage",
+            ],
+        ),
+        (
+            "project_with_dependency_groups_complex_cycle",
+            [
+                "Cyclic dependency group include in test: coverage -> dev -> test",
+                "Cyclic dependency group include in coverage: dev -> test -> coverage",
+                "Cyclic dependency group include in dev: test -> coverage -> dev",
+            ],
+        ),
+    ],
+)
+def test_create_poetry_with_dependency_groups_simple_cycle(
+    fixture: str, expected: list[str]
+) -> None:
+    with pytest.raises(RuntimeError) as e:
+        _ = Factory().create_poetry(fixtures_dir / fixture)
+
+    assert all(exp in str(e.value) for exp in expected)
 
 
 def test_create_poetry_with_groups_and_legacy_dev(caplog: LogCaptureFixture) -> None:
@@ -994,6 +1286,7 @@ def test_all_classifiers_unique_even_if_classifiers_is_duplicated() -> None:
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
         "Topic :: Software Development :: Build Tools",
     ]
 
@@ -1072,3 +1365,644 @@ build-backend = "some.api.we.do.not.care.about"
     poetry = Factory().create_poetry(temporary_directory)
 
     assert set(poetry.build_system_dependencies) == expected
+
+
+@pytest.mark.parametrize("in_order", [True, False])
+@pytest.mark.parametrize(
+    ("group_name", "included_group_name"),
+    [
+        ("testing", "testing"),
+        ("testing", "TESTING"),
+        ("group_a", "group-a"),
+        # Examples from the PEP 508 spec
+        # https://packaging.python.org/en/latest/specifications/name-normalization/#valid-non-normalized-names
+        ("friendly-bard", "friendly-bard"),
+        ("friendly-bard", "Friendly-Bard"),
+        ("friendly-bard", "FRIENDLY-BARD"),
+        ("friendly-bard", "friendly.bard"),
+        ("friendly-bard", "friendly_bard"),
+        ("friendly-bard", "friendly--bard"),
+        ("friendly-bard", "FrIeNdLy-._.-bArD"),
+        ("friendly-Bard", "friendly-bard"),
+        ("FRIENDLY-BARD", "friendly-bard"),
+        ("friendly.bard", "friendly-bard"),
+        ("friendly_bard", "friendly-bard"),
+        ("friendly--bard", "friendly-bard"),
+        ("FrIeNdLy-._.-bArD", "friendly-bard"),
+    ],
+)
+def test_create_poetry_with_nested_dependency_groups(
+    group_name: str, included_group_name: str, in_order: bool, temporary_directory: Path
+) -> None:
+    pyproject_toml = temporary_directory / "pyproject.toml"
+
+    replace_group_name = "%REPLACE_GROUP_NAME%"
+    replace_included_group_name = "%REPLACE_INCLUDED_GROUP_NAME%"
+    in_order_content = """\
+[project]
+name = "my-package"
+version = "1.2.3"
+
+[tool.poetry.group.%REPLACE_GROUP_NAME%.dependencies]
+pytest = "*"
+pytest-cov ="*"
+
+[tool.poetry.group.dev]
+include-groups = [
+    "%REPLACE_INCLUDED_GROUP_NAME%",
+]
+[tool.poetry.group.dev.dependencies]
+black = "*"
+"""
+    # The dev group refers to a group that is defined after it.
+    out_of_order_content = """\
+[project]
+name = "my-package"
+version = "1.2.3"
+
+[tool.poetry.group.dev]
+include-groups = [
+    "%REPLACE_INCLUDED_GROUP_NAME%",
+]
+[tool.poetry.group.dev.dependencies]
+black = "*"
+
+[tool.poetry.group.%REPLACE_GROUP_NAME%.dependencies]
+pytest = "*"
+pytest-cov ="*"
+"""
+
+    # Generate the content. If `group_name` has a `.` in it, we "escape" it with
+    # quotes to make it a valid TOML key.
+    base_content = in_order_content if in_order else out_of_order_content
+    group_name_to_use = group_name if "." not in group_name else f'"{group_name}"'
+    content = base_content.replace(replace_group_name, group_name_to_use).replace(
+        replace_included_group_name, included_group_name
+    )
+
+    pyproject_toml.write_text(content, encoding="utf-8")
+    poetry = Factory().create_poetry(temporary_directory)
+
+    # Groups are reported internally using their canonical names.
+    canonical_name = canonicalize_name(group_name)
+
+    assert len(poetry.package.all_requires) == 5
+    assert sorted(
+        [(dep.name, ",".join(dep.groups)) for dep in poetry.package.all_requires],
+        key=lambda x: x[0] + x[1],
+    ) == sorted(
+        [
+            ("black", "dev"),
+            ("pytest-cov", "dev"),
+            ("pytest-cov", canonical_name),
+            ("pytest", "dev"),
+            ("pytest", canonical_name),
+        ],
+        key=lambda x: x[0] + x[1],
+    )
+
+
+def assert_invalid_group_including(
+    toml_data: str,
+    expected_error: str,
+    error_type: type[Exception],
+    temporary_directory: Path,
+) -> None:
+    pyproject_toml = temporary_directory / "pyproject.toml"
+    pyproject_toml.write_text(toml_data, encoding="utf-8")
+
+    with pytest.raises(error_type) as error:
+        _ = Factory().create_poetry(temporary_directory)
+
+    assert str(error.value) == expected_error
+
+
+@pytest.mark.parametrize(
+    "include_group_name", ["testing_group", "Testing-Group", "testing-group"]
+)
+def test_create_poetry_with_self_referenced_dependency_groups(
+    include_group_name: str,
+    temporary_directory: Path,
+) -> None:
+    """testing-group -> testing-group"""
+    content = f"""\
+[project]
+name = "my-package"
+version = "1.2.3"
+
+[tool.poetry.group.testing-group]
+include-groups = [
+    "{include_group_name}",
+]
+
+[tool.poetry.group.testing-group.dependencies]
+pytest = "*"
+pytest-cov ="*"
+"""
+
+    expected = """\
+The Poetry configuration is invalid:
+  - Cyclic dependency group include in testing-group: testing-group
+"""
+    assert_invalid_group_including(
+        toml_data=content,
+        expected_error=expected,
+        error_type=RuntimeError,
+        temporary_directory=temporary_directory,
+    )
+
+
+def test_create_poetry_with_direct_cyclic_dependency_groups(
+    temporary_directory: Path,
+) -> None:
+    """
+    testing -> dev
+    dev -> testing
+    """
+    content = """\
+[project]
+name = "my-package"
+version = "1.2.3"
+
+[tool.poetry.group.testing]
+include-groups = [
+    "dev",
+]
+
+[tool.poetry.group.testing.dependencies]
+pytest = "*"
+pytest-cov ="*"
+
+[tool.poetry.group.dev]
+include-groups = [
+    "testing",
+]
+[tool.poetry.group.dev.dependencies]
+black = "*"
+"""
+
+    expected = """\
+The Poetry configuration is invalid:
+  - Cyclic dependency group include in testing: dev -> testing
+  - Cyclic dependency group include in dev: testing -> dev
+"""
+    assert_invalid_group_including(
+        toml_data=content,
+        expected_error=expected,
+        error_type=RuntimeError,
+        temporary_directory=temporary_directory,
+    )
+
+
+def test_create_poetry_with_indirect_full_cyclic_dependency_groups(
+    temporary_directory: Path,
+) -> None:
+    """
+    group-1 -> group-3
+    group-2 -> group-1
+    group-3 -> group-2
+    """
+    content = """\
+[project]
+name = "my-package"
+version = "1.2.3"
+
+[tool.poetry.group.group_1]
+include-groups = [
+    "group_3",
+]
+
+[tool.poetry.group.group_1.dependencies]
+foo = "*"
+
+[tool.poetry.group.group_2]
+include-groups = [
+    "group_1",
+]
+[tool.poetry.group.group_2.dependencies]
+bar = "*"
+
+[tool.poetry.group.group_3]
+include-groups = [
+    "group_2",
+]
+[tool.poetry.group.group_3.dependencies]
+baz = "*"
+"""
+
+    expected = """\
+The Poetry configuration is invalid:
+  - Cyclic dependency group include in group-1: group-3 -> group-2 -> group-1
+  - Cyclic dependency group include in group-2: group-1 -> group-3 -> group-2
+  - Cyclic dependency group include in group-3: group-2 -> group-1 -> group-3
+"""
+    assert_invalid_group_including(
+        toml_data=content,
+        expected_error=expected,
+        error_type=RuntimeError,
+        temporary_directory=temporary_directory,
+    )
+
+
+def test_create_poetry_with_indirect_partial_cyclic_dependency_groups(
+    temporary_directory: Path,
+) -> None:
+    """
+    group-1 -> group-2
+    group-2 -> group-1
+    group-3 -> group-2
+    """
+    content = """\
+[project]
+name = "my-package"
+version = "1.2.3"
+
+[tool.poetry.group.group_1]
+include-groups = [
+    "group_2",
+]
+
+[tool.poetry.group.group_1.dependencies]
+foo = "*"
+
+[tool.poetry.group.group_2]
+include-groups = [
+    "group_1",
+]
+[tool.poetry.group.group_2.dependencies]
+bar = "*"
+
+[tool.poetry.group.group_3]
+include-groups = [
+    "group_2",
+]
+[tool.poetry.group.group_3.dependencies]
+baz = "*"
+"""
+
+    expected = """\
+The Poetry configuration is invalid:
+  - Cyclic dependency group include in group-1: group-2 -> group-1
+  - Cyclic dependency group include in group-2: group-1 -> group-2
+  - Cyclic dependency group include in group-3: group-2 -> group-1 -> group-2
+"""
+    assert_invalid_group_including(
+        toml_data=content,
+        expected_error=expected,
+        error_type=RuntimeError,
+        temporary_directory=temporary_directory,
+    )
+
+
+def test_create_poetry_with_shared_dependency_groups(
+    temporary_directory: Path,
+) -> None:
+    """
+    root -> child-1, child-2
+    child-1 -> shared
+    child-2 -> shared
+    """
+    content = """\
+[project]
+name = "my-package"
+version = "1.2.3"
+
+[tool.poetry.group.root]
+include-groups = [
+    "child_1",
+    "child_2",
+]
+
+[tool.poetry.group.root.dependencies]
+foo = "*"
+
+[tool.poetry.group.child_1]
+include-groups = [
+    "shared",
+]
+[tool.poetry.group.child_1.dependencies]
+bar = "*"
+
+[tool.poetry.group.child_2]
+include-groups = [
+    "shared",
+]
+[tool.poetry.group.child_2.dependencies]
+baz = "*"
+
+[tool.poetry.group.shared.dependencies]
+quux = "*"
+"""
+    pyproject_toml = temporary_directory / "pyproject.toml"
+    pyproject_toml.write_text(content, encoding="utf-8")
+    poetry = Factory().create_poetry(temporary_directory)
+
+    assert len(poetry.package.all_requires) == 10
+    assert sorted(
+        [(dep.name, ",".join(dep.groups)) for dep in poetry.package.all_requires],
+        key=lambda x: x[0] + x[1],
+    ) == [
+        ("bar", "child-1"),
+        ("bar", "root"),
+        ("baz", "child-2"),
+        ("baz", "root"),
+        ("foo", "root"),
+        ("quux", "child-1"),
+        ("quux", "child-2"),
+        # Duplicates because dependency is included via several groups.
+        # This is ok because they are merged during dependency resolution.
+        ("quux", "root"),
+        ("quux", "root"),
+        ("quux", "shared"),
+    ]
+
+
+def test_create_poetry_with_shared_dependency_groups_more_complicated(
+    temporary_directory: Path,
+) -> None:
+    """
+    root -> child-1, child-2
+    child-1 -> shared
+    child-2 -> grandchild
+    grandchild -> shared
+    """
+    content = """\
+[project]
+name = "my-package"
+version = "1.2.3"
+
+[tool.poetry.group.root]
+include-groups = [
+    "child_1",
+    "child_2",
+]
+
+[tool.poetry.group.root.dependencies]
+foo = "*"
+
+[tool.poetry.group.child_1]
+include-groups = [
+    "shared",
+]
+[tool.poetry.group.child_1.dependencies]
+bar = "*"
+
+[tool.poetry.group.child_2]
+include-groups = [
+    "grandchild",
+]
+[tool.poetry.group.child_2.dependencies]
+baz = "*"
+
+[tool.poetry.group.grandchild]
+include-groups = [
+    "shared",
+]
+[tool.poetry.group.grandchild.dependencies]
+bax = "*"
+
+[tool.poetry.group.shared.dependencies]
+quux = "*"
+"""
+    pyproject_toml = temporary_directory / "pyproject.toml"
+    pyproject_toml.write_text(content, encoding="utf-8")
+    poetry = Factory().create_poetry(temporary_directory)
+
+    assert len(poetry.package.all_requires) == 14
+    assert sorted(
+        [(dep.name, ",".join(dep.groups)) for dep in poetry.package.all_requires],
+        key=lambda x: x[0] + x[1],
+    ) == [
+        ("bar", "child-1"),
+        ("bar", "root"),
+        ("bax", "child-2"),
+        ("bax", "grandchild"),
+        ("bax", "root"),
+        ("baz", "child-2"),
+        ("baz", "root"),
+        ("foo", "root"),
+        ("quux", "child-1"),
+        ("quux", "child-2"),
+        ("quux", "grandchild"),
+        # Duplicates because dependency is included via several groups.
+        # This is ok because they are merged during dependency resolution.
+        ("quux", "root"),
+        ("quux", "root"),
+        ("quux", "shared"),
+    ]
+
+
+def test_create_poetry_with_complicated_cyclic_diamond_dependency_groups(
+    temporary_directory: Path,
+) -> None:
+    """
+    root -> child-1, child-2
+    child-1 -> shared
+    child-2 -> shared
+    shared -> grandchild
+    grandchild -> child-2
+    """
+    content = """\
+[project]
+name = "my-package"
+version = "1.2.3"
+
+[tool.poetry.group.root]
+include-groups = [
+    "child_1",
+    "child_2",
+]
+
+[tool.poetry.group.root.dependencies]
+foo = "*"
+
+[tool.poetry.group.child_1]
+include-groups = [
+    "shared",
+]
+[tool.poetry.group.child_1.dependencies]
+bar = "*"
+
+[tool.poetry.group.child_2]
+include-groups = [
+    "shared",
+]
+[tool.poetry.group.child_2.dependencies]
+baz = "*"
+
+[tool.poetry.group.shared]
+include-groups = [
+    "grandchild",
+]
+[tool.poetry.group.shared.dependencies]
+quux = "*"
+
+[tool.poetry.group.grandchild]
+include-groups = [
+    "child_2",
+]
+[tool.poetry.group.grandchild.dependencies]
+bar = "*"
+"""
+
+    expected = """\
+The Poetry configuration is invalid:
+  - Cyclic dependency group include in root: child-2 -> shared -> grandchild -> child-2
+  - Cyclic dependency group include in root: child-1 -> shared -> grandchild -> child-2 -> shared
+  - Cyclic dependency group include in child-1: shared -> grandchild -> child-2 -> shared
+  - Cyclic dependency group include in child-2: shared -> grandchild -> child-2
+  - Cyclic dependency group include in shared: grandchild -> child-2 -> shared
+  - Cyclic dependency group include in grandchild: child-2 -> shared -> grandchild
+"""
+
+    assert_invalid_group_including(
+        toml_data=content,
+        expected_error=expected,
+        error_type=RuntimeError,
+        temporary_directory=temporary_directory,
+    )
+
+
+def test_create_poetry_with_noncanonical_names_cyclic_dependency_groups(
+    temporary_directory: Path,
+) -> None:
+    """
+    group-1 -> group-2
+    group-2 -> group-1
+    group-3 -> group-2
+    """
+    content = """\
+[project]
+name = "my-package"
+version = "1.2.3"
+
+[tool.poetry.group.GROUP_1]
+include-groups = [
+    "gRoup_2",
+]
+
+[tool.poetry.group.GROUP_1.dependencies]
+foo = "*"
+
+[tool.poetry.group.group_2]
+include-groups = [
+    "groUp_1",
+]
+[tool.poetry.group.group_2.dependencies]
+bar = "*"
+
+[tool.poetry.group.group_3]
+include-groups = [
+    "group_2",
+]
+[tool.poetry.group.group_3.dependencies]
+baz = "*"
+"""
+
+    expected = """\
+The Poetry configuration is invalid:
+  - Cyclic dependency group include in group-1: group-2 -> group-1
+  - Cyclic dependency group include in group-2: group-1 -> group-2
+  - Cyclic dependency group include in group-3: group-2 -> group-1 -> group-2
+"""
+    assert_invalid_group_including(
+        toml_data=content,
+        expected_error=expected,
+        error_type=RuntimeError,
+        temporary_directory=temporary_directory,
+    )
+
+
+def test_create_poetry_with_unknown_nested_dependency_groups(
+    temporary_directory: Path,
+) -> None:
+    content = """\
+[project]
+name = "my-package"
+version = "1.2.3"
+
+[tool.poetry.group.dev]
+include-groups = [
+    "testing",
+]
+[tool.poetry.group.dev.dependencies]
+black = "*"
+"""
+    expected = "Group 'dev' includes group 'testing' which is not defined."
+
+    assert_invalid_group_including(
+        toml_data=content,
+        expected_error=expected,
+        error_type=ValueError,
+        temporary_directory=temporary_directory,
+    )
+
+
+def test_create_poetry_with_included_groups_only(temporary_directory: Path) -> None:
+    pyproject_toml = temporary_directory / "pyproject.toml"
+    content = """\
+[project]
+name = "my-package"
+version = "1.2.3"
+
+[tool.poetry.group.lint.dependencies]
+black = "*"
+
+[tool.poetry.group.testing.dependencies]
+pytest = "*"
+
+[tool.poetry.group.all]
+include-groups = [
+    "lint",
+    "testing",
+]
+"""
+    pyproject_toml.write_text(content, encoding="utf-8")
+
+    poetry = Factory().create_poetry(temporary_directory)
+    assert len(poetry.package.all_requires) == 4
+    assert [
+        (dep.name, ",".join(dep.groups)) for dep in poetry.package.all_requires
+    ] == [
+        ("black", "lint"),
+        ("pytest", "testing"),
+        ("black", "all"),
+        ("pytest", "all"),
+    ]
+
+
+def test_create_poetry_with_nested_similar_dependencies(
+    temporary_directory: Path,
+) -> None:
+    pyproject_toml = temporary_directory / "pyproject.toml"
+    content = """\
+[project]
+name = "my-package"
+version = "1.2.3"
+
+[tool.poetry.group.parent.dependencies]
+foo = "*"
+
+[tool.poetry.group.parent]
+include-groups = [
+    "child",
+]
+
+[tool.poetry.group.child.dependencies]
+foo = "*"
+
+"""
+
+    pyproject_toml.write_text(content, encoding="utf-8")
+
+    poetry = Factory().create_poetry(temporary_directory)
+    assert len(poetry.package.all_requires) == 3
+    assert [
+        (dep.name, ",".join(dep.groups)) for dep in poetry.package.all_requires
+    ] == [
+        # Duplicates because dependency is included via several groups.
+        # This is ok because they are merged during dependency resolution.
+        ("foo", "parent"),
+        ("foo", "parent"),
+        ("foo", "child"),
+    ]

@@ -5,7 +5,7 @@ from collections import UserList
 from collections.abc import Iterable
 from collections.abc import Iterable as IterableType
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Generic, NamedTuple, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Generic, NamedTuple, TypeVar
 
 import pandas as pd
 from django.core.exceptions import FieldError
@@ -13,9 +13,10 @@ from django.db import models
 from django.db.models import F, ForeignKey, ManyToManyField, Q, Subquery
 from django.db.models.fields.related import ForeignObjectRel
 from lamin_utils import logger
+from lamindb_setup.core import deprecated
 from lamindb_setup.core._docs import doc_args
 
-from ..errors import DoesNotExist
+from ..errors import DoesNotExist, MultipleResultsFound
 from ._is_versioned import IsVersioned
 from .can_curate import CanCurate, _inspect, _standardize, _validate
 from .query_manager import _lookup, _search
@@ -25,10 +26,6 @@ if TYPE_CHECKING:
     from lamindb.base.types import ListLike, StrField
 
 T = TypeVar("T")
-
-
-class MultipleResultsFound(Exception):
-    pass
 
 
 pd.set_option("display.max_columns", 200)
@@ -62,15 +59,28 @@ def get_keys_from_df(data: list, registry: SQLRecord) -> list[str]:
     return keys
 
 
-def one_helper(self: QuerySet | SQLRecordList, does_not_exist_msg: str | None = None):
-    if isinstance(self, SQLRecord):
-        not_exists = len(self) == 0
-    else:
-        not_exists = not self.exists()  # type: ignore
+def one_helper(
+    self: QuerySet | SQLRecordList,
+    does_not_exist_msg: str | None = None,
+    raise_doesnotexist: bool = True,
+    not_exists: bool | None = None,
+    raise_multipleresultsfound: bool = True,
+):
+    if not_exists is None:
+        if isinstance(self, SQLRecordList):
+            not_exists = len(self) == 0
+        else:
+            not_exists = not self.exists()  # type: ignore
     if not_exists:
-        raise DoesNotExist(does_not_exist_msg)
+        if raise_doesnotexist:
+            raise DoesNotExist(does_not_exist_msg)
+        else:
+            return None
     elif len(self) > 1:
-        raise MultipleResultsFound(self)
+        if raise_multipleresultsfound:
+            raise MultipleResultsFound(self)
+        else:
+            return self[0]
     else:
         return self[0]
 
@@ -87,7 +97,7 @@ def get_backward_compat_filter_kwargs(queryset, expressions):
             "visibility": "branch_id",
             "_branch_code": "branch_id",
         }
-    elif queryset.model == Artifact:
+    elif queryset.model is Artifact:
         name_mappings = {
             "visibility": "branch_id",
             "_branch_code": "branch_id",
@@ -144,7 +154,6 @@ def process_expressions(queryset: QuerySet, expressions: dict) -> dict:
         queryset,
         expressions,
     )
-
     if issubclass(queryset.model, SQLRecord):
         # branch_id is set to 1 unless expressions contains id or uid
         if not (
@@ -173,32 +182,46 @@ def process_expressions(queryset: QuerySet, expressions: dict) -> dict:
 
 
 def get(
-    registry_or_queryset: Union[type[SQLRecord], QuerySet],
+    registry_or_queryset: Registry | BasicQuerySet,
     idlike: int | str | None = None,
     **expressions,
 ) -> SQLRecord:
-    if isinstance(registry_or_queryset, QuerySet):
+    if isinstance(registry_or_queryset, BasicQuerySet):
+        # not QuerySet but only BasicQuerySet
+        assert not isinstance(registry_or_queryset, QuerySet)  # noqa: S101
+
         qs = registry_or_queryset
         registry = qs.model
     else:
-        qs = QuerySet(model=registry_or_queryset)
+        qs = BasicQuerySet(model=registry_or_queryset)
         registry = registry_or_queryset
-    if isinstance(idlike, int):
-        return super(QuerySet, qs).get(id=idlike)  # type: ignore
-    elif isinstance(idlike, str):
-        qs = qs.filter(uid__startswith=idlike)
 
+    if isinstance(idlike, int):
+        return qs.get(id=idlike)
+    elif isinstance(idlike, str):
         NAME_FIELD = (
             registry._name_field if hasattr(registry, "_name_field") else "name"
         )
         DOESNOTEXIST_MSG = f"No record found with uid '{idlike}'. Did you forget a keyword as in {registry.__name__}.get({NAME_FIELD}='{idlike}')?"
-
-        if issubclass(registry, IsVersioned):
-            if len(idlike) <= registry._len_stem_uid:
-                return one_helper(qs.latest_version(), DOESNOTEXIST_MSG)
+        # this is the case in which the user passes an under-specified uid
+        if issubclass(registry, IsVersioned) and len(idlike) <= registry._len_stem_uid:
+            new_qs = qs.filter(uid__startswith=idlike, is_latest=True)
+            not_exists = None
+            if not new_qs.exists():
+                # also try is_latest is False due to nothing found
+                new_qs = qs.filter(uid__startswith=idlike, is_latest=False)
             else:
-                return one_helper(qs, DOESNOTEXIST_MSG)
+                not_exists = False
+            # it doesn't make sense to raise MultipleResultsFound when querying with an
+            # underspecified uid
+            return one_helper(
+                new_qs,
+                DOESNOTEXIST_MSG,
+                not_exists=not_exists,
+                raise_multipleresultsfound=False,
+            )
         else:
+            qs = qs.filter(uid__startswith=idlike)
             return one_helper(qs, DOESNOTEXIST_MSG)
     else:
         assert idlike is None  # noqa: S101
@@ -210,24 +233,19 @@ def get(
         if issubclass(registry, IsVersioned) and is_latest_was_not_in_expressions:
             expressions["is_latest"] = True
         try:
-            return registry.objects.using(qs.db).get(**expressions)
-        except registry.DoesNotExist:
+            return qs.get(**expressions)
+        except registry.DoesNotExist as e:
             # handle the case in which the is_latest injection led to a missed query
             if "is_latest" in expressions and is_latest_was_not_in_expressions:
                 expressions.pop("is_latest")
-                result = (
-                    registry.objects.using(qs.db)
-                    .filter(**expressions)
-                    .order_by("-created_at")
-                    .first()
-                )
+                result = qs.filter(**expressions).order_by("-created_at").first()
                 if result is not None:
                     return result
-            raise registry.DoesNotExist from registry.DoesNotExist
+            raise registry.DoesNotExist from e
 
 
 class SQLRecordList(UserList, Generic[T]):
-    """Is ordered, can't be queried, but has `.df()`."""
+    """Is ordered, can't be queried, but has `.to_dataframe()`."""
 
     def __init__(self, records: Iterable[T]):
         if isinstance(records, list):
@@ -235,15 +253,23 @@ class SQLRecordList(UserList, Generic[T]):
         else:
             super().__init__(records)  # Let UserList handle the conversion
 
-    def df(self) -> pd.DataFrame:
+    def to_dataframe(self) -> pd.DataFrame:
         keys = get_keys_from_df(self.data, self.data[0].__class__)
         values = [record.__dict__ for record in self.data]
         return pd.DataFrame(values, columns=keys)
 
-    def list(
+    @deprecated(new_name="to_dataframe")
+    def df(self) -> pd.DataFrame:
+        return self.to_dataframe()
+
+    def to_list(
         self, field: str
-    ) -> list[str]:  # meaningful to be parallel with list() in QuerySet
+    ) -> list[str]:  # meaningful to be parallel with to_list() in QuerySet
         return [getattr(record, field) for record in self.data]
+
+    @deprecated(new_name="to_list")
+    def list(self, field: str) -> list[str]:
+        return self.to_list(field)
 
     def one(self) -> T:
         """Exactly one result. Throws error if there are more or none."""
@@ -348,7 +374,7 @@ def get_feature_annotate_kwargs(
             | Q(dtype__startswith="cat[ULabel")
             | Q(dtype__startswith="cat[Record")
         )
-        feature_names = feature_qs.list("name")
+        feature_names = feature_qs.to_list("name")
         logger.important(
             f"queried for all categorical features with dtype ULabel or Record and non-categorical features: ({len(feature_names)}) {feature_names}"
         )
@@ -387,6 +413,9 @@ def get_feature_annotate_kwargs(
     # Prepare Django's annotate for features
     annotate_kwargs = {}
     for link_attr, feature_type in link_attributes_on_models.items():
+        if link_attr == "links_project" and registry is Record:
+            # we're only interested in values_project when "annotating" records
+            continue
         annotate_kwargs[f"{link_attr}__feature__name"] = F(
             f"{link_attr}__feature__name"
         )
@@ -642,6 +671,27 @@ def process_cols_from_include(
     return result
 
 
+def _queryset_class_factory(
+    registry: Registry, queryset_cls: type[models.QuerySet]
+) -> type[models.QuerySet]:
+    from lamindb.models import Artifact, ArtifactSet
+
+    # If the model is Artifact, create a new class
+    # for BasicQuerySet or QuerySet that inherits from ArtifactSet.
+    # This allows to add artifact specific functionality to all classes
+    # inheriting from BasicQuerySet.
+    # Thus all query sets of artifacts (and only of artifacts)
+    # will have functions from ArtifactSet.
+    if registry is Artifact and not issubclass(queryset_cls, ArtifactSet):
+        new_cls = type(
+            "Artifact" + queryset_cls.__name__, (queryset_cls, ArtifactSet), {}
+        )
+    else:
+        new_cls = queryset_cls
+
+    return new_cls
+
+
 class BasicQuerySet(models.QuerySet):
     """Sets of records returned by queries.
 
@@ -657,22 +707,26 @@ class BasicQuerySet(models.QuerySet):
     """
 
     def __new__(cls, model=None, query=None, using=None, hints=None):
-        from lamindb.models import Artifact, ArtifactSet
+        # see comments in _queryset_class_factory
+        return object.__new__(_queryset_class_factory(model, cls))
 
-        # If the model is Artifact, create a new class
-        # for BasicQuerySet or QuerySet that inherits from ArtifactSet.
-        # This allows to add artifact specific functionality to all classes
-        # inheriting from BasicQuerySet.
-        # Thus all query sets of artifacts (and only of artifacts)
-        # will have functions from ArtifactSet.
-        if model is Artifact and not issubclass(cls, ArtifactSet):
-            new_cls = type("Artifact" + cls.__name__, (cls, ArtifactSet), {})
-        else:
-            new_cls = cls
-        return object.__new__(new_cls)
+    def _to_class(
+        self, cls: type[models.QuerySet], copy: bool = True
+    ) -> models.QuerySet:
+        qs = self.all() if copy else self
+        qs.__class__ = cls
+        return qs
 
-    @doc_args(SQLRecord.df.__doc__)
-    def df(
+    def _to_basic(self, copy: bool = True) -> BasicQuerySet:
+        cls = _queryset_class_factory(self.model, BasicQuerySet)
+        return self._to_class(cls, copy)
+
+    def _to_non_basic(self, copy: bool = True) -> QuerySet:
+        cls = _queryset_class_factory(self.model, QuerySet)
+        return self._to_class(cls, copy)
+
+    @doc_args(SQLRecord.to_dataframe.__doc__)
+    def to_dataframe(
         self,
         include: str | list[str] | None = None,
         features: bool | list[str] | str | None = None,
@@ -706,7 +760,7 @@ class BasicQuerySet(models.QuerySet):
             id_subquery = self.values("id")
             time = logger.debug("finished get id values", time=time)
             # for annotate, we want the queryset without filters so that joins don't affect the annotations
-            query_set_without_filters = self.model.objects.filter(
+            query_set_without_filters = self.model.objects.using(self._db).filter(
                 id__in=Subquery(id_subquery)
             )
             time = logger.debug("finished get query_set_without_filters", time=time)
@@ -739,32 +793,73 @@ class BasicQuerySet(models.QuerySet):
         time = logger.debug("finished", time=time)
         return df_reshaped
 
-    def delete(self, *args, **kwargs):
-        """Delete all records in the query set."""
-        from lamindb.models import Artifact, Collection, Run, Transform
+    @deprecated(new_name="to_dataframe")
+    def df(
+        self,
+        include: str | list[str] | None = None,
+        features: bool | list[str] | str | None = None,
+    ) -> pd.DataFrame:
+        return self.to_dataframe(include, features)
 
-        # both Transform & Run might reference artifacts
+    def delete(self, *args, permanent: bool | None = None, **kwargs):
+        """Delete all records in the query set.
+
+        Args:
+            permanent: Whether to permanently delete the record (skips trash).
+                Is only relevant for records that have the `branch` field.
+
+        Note:
+            Calling `delete()` twice on the same queryset does NOT permanently delete in bulk operations.
+            Use `permanent=True` for actual deletion.
+
+        Examples:
+
+            For any `QuerySet` object `qs`, call:
+
+            >>> qs.delete()
+        """
+        from lamindb.models import Artifact, Collection, Run, Storage, Transform
+
+        # all these models have non-trivial delete behavior, hence we need to handle in a loop
         if self.model in {Artifact, Collection, Transform, Run}:
             for record in self:
-                logger.important(f"deleting {record}")
-                record.delete(*args, **kwargs)
+                record.delete(*args, permanent=permanent, **kwargs)
+        elif self.model is Storage:  # storage does not have soft delete
+            if permanent is False:
+                logger.warning(
+                    "the Storage registry doesn't support soft delete, hard deleting"
+                )
+            for record in self:
+                record.delete()
         else:
-            super().delete(*args, **kwargs)
+            if not permanent and hasattr(self.model, "branch_id"):
+                logger.warning("moved records to trash (branch_id = -1)")
+                self.update(branch_id=-1)
+            else:
+                if permanent is False:
+                    logger.warning(
+                        f"model {self.model.__name__} doesn't support soft delete, hard deleting"
+                    )
+                super().delete(*args, **kwargs)
 
-    def list(self, field: str | None = None) -> list[SQLRecord] | list[str]:
+    def to_list(self, field: str | None = None) -> list[SQLRecord] | list[str]:
         """Populate an (unordered) list with the results.
 
         Note that the order in this list is only meaningful if you ordered the underlying query set with `.order_by()`.
 
         Examples:
-            >>> queryset.list()  # list of records
-            >>> queryset.list("name")  # list of values
+            >>> queryset.to_list()  # list of records
+            >>> queryset.to_list("name")  # list of values
         """
         if field is None:
             return list(self)
         else:
             # list casting is necessary because values_list does not return a list
             return list(self.values_list(field, flat=True))
+
+    @deprecated(new_name="to_list")
+    def list(self, field: str | None = None) -> list[SQLRecord] | list[str]:
+        return self.to_list(field)
 
     def first(self) -> SQLRecord | None:
         """If non-empty, the first result in the query set, otherwise ``None``.
@@ -787,12 +882,7 @@ class BasicQuerySet(models.QuerySet):
             >>> ULabel.filter(name="benchmark").one_or_none()
             >>> ULabel.filter(name="non existing label").one_or_none()
         """
-        if not self.exists():
-            return None
-        elif len(self) == 1:
-            return self[0]
-        else:
-            raise MultipleResultsFound(self.all())
+        return one_helper(self, raise_doesnotexist=False)
 
     def latest_version(self) -> QuerySet:
         """Filter every version family by latest version."""
@@ -869,8 +959,18 @@ class QuerySet(BasicQuerySet):
         """Query a single record. Raises error if there are more or none."""
         is_run_input = expressions.pop("is_run_input", False)
 
+        # artifacts_from_path and get accept only BasicQuerySet
+        qs = self._to_class(BasicQuerySet, copy=True)
+
+        if path := expressions.pop("path", None):
+            from .artifact_set import ArtifactSet, artifacts_from_path
+
+            if not isinstance(self, ArtifactSet):
+                raise ValueError("Querying by path is only possible for artifacts.")
+            qs = artifacts_from_path(qs, path)
+
         try:
-            record = get(self, idlike, **expressions)
+            record = get(qs, idlike, **expressions)
         except ValueError as e:
             # Pass through original error for explicit id lookups
             if "Field 'id' expected a number" in str(e):
@@ -886,8 +986,8 @@ class QuerySet(BasicQuerySet):
             raise  # pragma: no cover
 
         if is_run_input is not False:  # might be None or True or Run
-            from lamindb.models.artifact import Artifact, _track_run_input
-            from lamindb.models.collection import Collection
+            from .artifact import Artifact, _track_run_input
+            from .collection import Collection
 
             if isinstance(record, (Artifact, Collection)):
                 _track_run_input(record, is_run_input)
@@ -896,15 +996,28 @@ class QuerySet(BasicQuerySet):
 
     def filter(self, *queries, **expressions) -> QuerySet:
         """Query a set of records."""
+        from lamindb.models import Artifact, Record, Run
+
+        registry = self.model
+
+        if not expressions.pop("_skip_filter_with_features", False) and registry in {
+            Artifact,
+            Run,
+            Record,
+        }:
+            from ._feature_manager import filter_with_features
+
+            return filter_with_features(self, *queries, **expressions)
+
         # Suggest to use __name for related fields such as id when not passed
         for field, value in expressions.items():
             if (
                 isinstance(value, str)
                 and value.strip("-").isalpha()
                 and "__" not in field
-                and hasattr(self.model, field)
+                and hasattr(registry, field)
             ):
-                field_attr = getattr(self.model, field)
+                field_attr = getattr(registry, field)
                 if hasattr(field_attr, "field") and field_attr.field.related_model:
                     raise FieldError(
                         f"Invalid lookup '{value}' for {field}. Did you mean {field}__name?"

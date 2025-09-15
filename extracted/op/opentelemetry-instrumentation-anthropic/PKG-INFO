@@ -1,6 +1,6 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: opentelemetry-instrumentation-anthropic
-Version: 0.47.0
+Version: 0.47.1
 Summary: OpenTelemetry Anthropic instrumentation
 License: Apache-2.0
 Author: Gal Kleinman
@@ -13,6 +13,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Provides-Extra: instruments
 Requires-Dist: opentelemetry-api (>=1.28.0,<2.0.0)
 Requires-Dist: opentelemetry-instrumentation (>=0.50b0)

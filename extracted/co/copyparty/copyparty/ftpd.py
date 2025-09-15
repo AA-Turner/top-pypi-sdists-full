@@ -198,6 +198,9 @@ class FtpFs(AbstractedFS):
                 if r and not cr or w and not cw or m and not cm or d and not cd:
                     raise FSE(t.format(vpath), 1)
 
+            if "bcasechk" in vfs.flags and not vfs.casechk(rem, True):
+                raise FSE("No such file or directory", 1)
+
             return os.path.join(vfs.realpath, rem), vfs, rem
         except Pebkac as ex:
             raise FSE(str(ex))

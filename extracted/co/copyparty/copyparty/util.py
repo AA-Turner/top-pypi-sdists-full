@@ -1495,10 +1495,12 @@ def vol_san(vols , txt )  :
         bvp = vol.vpath.encode("utf-8")
         bvph = b"$hist(/" + bvp + b")"
 
-        txt = txt.replace(bap, bvp)
-        txt = txt.replace(bhp, bvph)
-        txt = txt.replace(bap.replace(b"\\", b"\\\\"), bvp)
-        txt = txt.replace(bhp.replace(b"\\", b"\\\\"), bvph)
+        if bap:
+            txt = txt.replace(bap, bvp)
+            txt = txt.replace(bap.replace(b"\\", b"\\\\"), bvp)
+        if bhp:
+            txt = txt.replace(bhp, bvph)
+            txt = txt.replace(bhp.replace(b"\\", b"\\\\"), bvph)
 
         if vol.histpath != vol.dbpath:
             bdp = vol.dbpath.encode("utf-8")
@@ -2174,14 +2176,14 @@ def odfusion(
     ret = base.copy()
     if oth.startswith("+"):
         for k in words1:
-            ret[k] = True
+            ret[k] = True  # type: ignore
     elif oth[:1] in ("-", "/"):
         for k in words1:
-            ret.pop(k, None)
+            ret.pop(k, None)  # type: ignore
     else:
         ret = ODict.fromkeys(words0, True)
 
-    return ret
+    return ret  # type: ignore
 
 
 def ipnorm(ip )  :
@@ -2553,6 +2555,24 @@ def set_fperms(f  , vf  )  :
         os.fchown(fno, vf["uid"], vf["gid"])
 
 
+def trystat_shutil_copy2(log , src , dst )  :
+    try:
+        return shutil.copy2(src, dst)
+    except:
+        # ignore failed mtime on linux+ntfs; for example:
+        # shutil.py:437 <copy2>: copystat(src, dst, follow_symlinks=follow_symlinks)
+        # shutil.py:376 <copystat>: lookup("utime")(dst, ns=(st.st_atime_ns, st.st_mtime_ns),
+        # [PermissionError] [Errno 1] Operation not permitted, '/windows/_videos'
+        _, _, tb = sys.exc_info()
+        for _, _, fun, _ in traceback.extract_tb(tb):
+            if fun == "copystat":
+                if log:
+                    t = "warning: failed to retain some file attributes (timestamp and/or permissions) during copy from %r to %r:\n%s"
+                    log(t % (src, dst, min_ex()), 3)
+                return dst  # close enough
+        raise
+
+
 def _fs_mvrm(
     log , src , dst , atomic , flags  
 )  :
@@ -2591,7 +2611,7 @@ def _fs_mvrm(
                 t = "something appeared at dst; aborting rename %r ==> %r"
                 log(t % (src, dst), 1)
                 return False
-            osfun(*args)
+            osfun(*args)  # type: ignore
             if attempt:
                 now = time.time()
                 t = "%sd in %.2f sec, attempt %d: %r"
@@ -2641,7 +2661,7 @@ def atomic_move(log , src , dst , flags  )  :
                 os.unlink(bdst)
             except:
                 pass
-            shutil.move(bsrc, bdst)
+            shutil.move(bsrc, bdst)  # type: ignore
 
 
 def wunlink(log , abspath , flags  )  :
@@ -3046,7 +3066,7 @@ def sendfile_kern(
         try:
             req = min(0x2000000, upper - ofs)  # 32 MiB
             if use_poll:
-                poll.poll(10000)
+                poll.poll(10000)  # type: ignore
             else:
                 select.select([], [out_fd], [], 10)
             n = os.sendfile(out_fd, in_fd, ofs, req)
@@ -3334,7 +3354,9 @@ NICEB = NICES.encode("utf-8")
 
 
 def runcmd(
-    argv  , timeout  = None, **ka 
+    argv   ,
+    timeout  = None,
+    **ka 
 )    :
     isbytes = isinstance(argv[0], (bytes, bytearray))
     oom = ka.pop("oom", 0)  # 0..1000
@@ -3353,19 +3375,19 @@ def runcmd(
     if ANYWIN:
         if isbytes:
             if argv[0] in CMD_EXEB:
-                argv[0] += b".exe"
+                argv[0] += b".exe"  # type: ignore
         else:
             if argv[0] in CMD_EXES:
-                argv[0] += ".exe"
+                argv[0] += ".exe"  # type: ignore
 
     if ka.pop("nice", None):
         if WINDOWS:
             ka["creationflags"] = 0x4000
         elif NICEB:
             if isbytes:
-                argv = [NICEB] + argv
+                argv = [NICEB] + argv  # type: ignore
             else:
-                argv = [NICES] + argv
+                argv = [NICES] + argv  # type: ignore
 
     p = sp.Popen(argv, stdout=cout, stderr=cerr, **ka)
 
@@ -3377,10 +3399,10 @@ def runcmd(
             pass
 
     if not timeout or PY2:
-        bout, berr = p.communicate(sin)
+        bout, berr = p.communicate(sin)  # type: ignore
     else:
         try:
-            bout, berr = p.communicate(sin, timeout=timeout)
+            bout, berr = p.communicate(sin, timeout=timeout)  # type: ignore
         except sp.TimeoutExpired:
             if kill == "n":
                 return -18, "", ""  # SIGCONT; leave it be
@@ -3390,7 +3412,7 @@ def runcmd(
                 killtree(p.pid)
 
             try:
-                bout, berr = p.communicate(timeout=1)
+                bout, berr = p.communicate(timeout=1)  # type: ignore
             except:
                 bout = b""
                 berr = b""
@@ -3812,7 +3834,7 @@ def runhook(
     at ,
     txt ,
 )   :
-    args = (broker or up2k).args
+    args = (broker or up2k).args  # type: ignore
     verbose = args.hook_v
     vp = vp.replace("\\", "/")
     ret = {"rc": 0}

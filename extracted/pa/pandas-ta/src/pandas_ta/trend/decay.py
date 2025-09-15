@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
-from numpy import float64, zeros_like
 from numba import njit
+from numpy import float64, zeros_like
 from pandas import Series
-from pandas_ta._typing import Array, DictLike, Int
+from pandas_ta._typing import DictLike, Int
 from pandas_ta.utils import v_offset, v_pos_default, v_series, v_str
 
 

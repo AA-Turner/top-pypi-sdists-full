@@ -1,8 +1,9 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: PyArtifactory
-Version: 2.11.0
+Version: 2.11.1
 Summary: Typed interactions with the Jfrog Artifactory REST API
 License: MIT
+License-File: LICENSE
 Keywords: artifactory
 Author: Ananias CARVALHO
 Author-email: carvalhoananias@hotmail.com
@@ -19,6 +20,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: System :: Filesystems
 Classifier: Typing :: Typed

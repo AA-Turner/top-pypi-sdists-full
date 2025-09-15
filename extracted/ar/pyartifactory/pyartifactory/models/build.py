@@ -54,7 +54,7 @@ class BuildRuns(BaseModel):
 class BuildArtifact(BaseModel):
     """Models artifactory build artifact."""
 
-    type: str
+    type: Optional[str] = None
     sha1: str
     sha256: str
     md5: str

@@ -1,21 +1,22 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: poetry-core
-Version: 2.1.3
+Version: 2.2.0
 Summary: Poetry PEP 517 Build Backend
-License: MIT
+License-Expression: MIT
+License-File: LICENSE
 Keywords: packaging,dependency,poetry
 Author: Sébastien Eustace
 Author-email: sebastien@eustace.io
 Maintainer: Arun Babu Neelicattu
 Maintainer-email: arun.neelicattu@gmail.com
 Requires-Python: >=3.9, <4.0
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Build Tools
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Project-URL: Bug Tracker, https://github.com/python-poetry/poetry/issues
@@ -68,4 +69,16 @@ project.
 In order to improve the above situation, `poetry-core` was created. Shared functionality pertaining to PEP 517 build
 backends, including reading `pyproject.toml` and building wheel/sdist, were implemented in this package. This
 makes PEP 517 builds extremely fast for Poetry-managed packages.
+
+## Contributing
+
+Contributing is similar to [the main `poetry` repo](https://github.com/python-poetry/poetry?tab=readme-ov-file#contribute):
+
+```bash
+# For example:
+poetry install
+poetry run pytest
+```
+
+For full documentation, see [the full contributing documentation](https://python-poetry.org/docs/contributing).
 

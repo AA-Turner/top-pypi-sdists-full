@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 from numpy import isnan, zeros
 from pandas import DataFrame, Series
-
 from pandas_ta._typing import DictLike, Int
 from pandas_ta.ma import ma
 from pandas_ta.utils import (
@@ -15,8 +14,8 @@ from pandas_ta.utils import (
 
 
 def tmo(
-    open_: Series, close: Series,
-    tmo_length: Int = None, calc_length: Int = None, smooth_length: Int = None,
+    open_: Series, close: Series, tmo_length: Int = None,
+    calc_length: Int = None, smooth_length: Int = None,
     momentum: bool = None, normalize: bool = None, exclusive: bool = None,
     mamode: str = None, offset: Int = None, **kwargs: DictLike,
 ) -> DataFrame:

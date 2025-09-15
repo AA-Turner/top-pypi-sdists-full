@@ -32,9 +32,9 @@ use exceptions::ZstdError;
 
 // Remember to change the string in c-ext/python-zstandard.h, zstandard/__init__.py,
 // and debian/changelog as well.
-const VERSION: &'static str = "0.24.0";
+const VERSION: &'static str = "0.25.0";
 
-#[pymodule]
+#[pymodule(gil_used = false)]
 fn backend_rust(py: Python, module: &Bound<'_, PyModule>) -> PyResult<()> {
     let features = PySet::new(
         py,

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-from numpy import floor, isnan, nan, zeros, zeros_like, roll
 from numba import njit
+from numpy import floor, nan, zeros, zeros_like, roll
 from pandas import Series, DataFrame
 from pandas_ta._typing import DictLike, Int, IntFloat
 from pandas_ta.utils import (

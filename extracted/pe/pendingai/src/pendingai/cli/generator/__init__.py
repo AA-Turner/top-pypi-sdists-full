@@ -5,13 +5,13 @@ from __future__ import annotations
 
 import pathlib
 import typing
+from typing import Annotated
 
 import rich
 import rich.progress
 import rich.prompt
-import typer
 from rich.table import Column, Table, box
-from typer import Exit, Typer
+from typer import Exit, Option, Typer
 
 from pendingai.api_resources.object import ListObject
 from pendingai.cli.console import Console
@@ -43,16 +43,24 @@ app = Typer(
 )
 @catch_exception()
 def models(ctx: PendingAiContext, json: JsonOption = False, limit: LimitOption = 100):
-    # collect model resources by enumerating list pointers; for each
-    # model we also want to know the status to render
+    # List available generator models with a limit parameter on returned
+    # model resources; default limit is 100 but can be increased to make
+    # repeated calls until the requested number of models is met.
     models: list[Model] = []
-    r: ListObject[Model] = ctx.obj["client"].generator.models.list()
-    models.extend(r.data)
+    next_page_cursor: str | None = None
     while len(models) < limit:
-        r = ctx.obj["client"].generator.models.list(created_after=models[-1].id)
-        models.extend(r.data)
-        if not r.has_more:
+        model_list: ListObject[Model] = ctx.obj["client"].generator.models.list(
+            limit=min(100, limit - len(models)),
+            next_page=next_page_cursor,
+        )
+        models.extend(model_list.data)
+        if len(models) >= limit or not model_list.has_more:
             break
+        next_page_cursor = model_list.data[-1].id
+
+    # Retrieve the status for each model and prepare results for
+    # output to the console; if no models are available then print
+    # a warning and exit with a non-zero status code.
     res: list = [
         (model, ctx.obj["client"].generator.models.status(model.id).status)
         for model in models[:limit]
@@ -99,9 +107,9 @@ def _generate_sample_output_file() -> pathlib.Path:
 @catch_exception()
 def sample(
     ctx: PendingAiContext,
-    output_file: typing.Annotated[
+    path: Annotated[
         pathlib.Path,
-        typer.Option(
+        Option(
             "-o",
             "--output-file",
             default_factory=_generate_sample_output_file,
@@ -117,9 +125,9 @@ def sample(
             resolve_path=True,
         ),
     ],
-    samples: typing.Annotated[
+    samples: Annotated[
         int,
-        typer.Option(
+        Option(
             "-n",
             "--num-samples",
             help="Number of samples to generate. Defaults to 500.",
@@ -130,17 +138,17 @@ def sample(
             max=1_000_000,
         ),
     ] = 500,
-    append_flag: typing.Annotated[
+    file_append: Annotated[
         bool,
-        typer.Option(
+        Option(
             "-a",
             "--append",
             help=("Append to the output file without prompting."),
         ),
     ] = False,
-    model_id: typing.Annotated[
+    model_id: Annotated[
         str | None,
-        typer.Option(
+        Option(
             "--model",
             "-m",
             help=(
@@ -149,18 +157,62 @@ def sample(
             ),
         ),
     ] = None,
+    file_overwrite: Annotated[
+        bool,
+        Option(
+            "-f",
+            "--force",
+            help="Force overwrite of the output file without being prompted.",
+        ),
+    ] = False,
 ):
-    # validate output file and append flags to correctly prepare where
-    # sampled molecules are written with an output io wrapper flag
-    output_file_flag: str = "w"
-    prompt: str = f"[warn]? Would you like to overwrite the file: {output_file.name}"
-    if output_file.exists() and append_flag:
-        cout.print(f"[warn]! Appending results to file: {output_file.name}")
-        output_file_flag = "a"
-    elif output_file.exists() and not rich.prompt.Confirm.ask(prompt, console=cout):
-        cout.print(f"[warn]! See --append for appending to file: {output_file.name}")
-        raise typer.Exit(0)
-    writer: typing.Any = output_file.open(output_file_flag)
+    # Detect if the output file exists and set the correct write flag to
+    # either append to file or overwrite the file contents; requires the
+    # user to specify overwrite if the file exists without a flag.
+    flag: str = "w"
+    if path.exists() and file_overwrite:
+        flag = "w"
+    elif path.exists() and file_append and not file_overwrite:
+        flag = "a"
+    elif path.exists():
+        prompt: str = f"[warn]? Would you like to overwrite the file: {path.name}"
+        if not rich.prompt.Confirm.ask(prompt, console=cout):
+            cout.print(f"[warn]! See --append for appending to file: {path.name}")
+            raise Exit()
+        flag = "w"
+
+    # Validate the provided model id exists and is ready for sampling;
+    # when no model id is provided, check that at least one model is
+    # available and ready for sampling.
+    if model_id:
+        try:
+            status: str = ctx.obj["client"].generator.models.status(model_id).status
+        except Exception:
+            cout.print(f"[fail]! Model does not exist: '{model_id}'")
+            raise Exit(1)
+        if status != "online":
+            cout.print(f"[fail]! Model is not ready for sampling: '{model_id}'")
+            raise Exit(1)
+
+    else:
+        models: list[Model] = ctx.obj["client"].generator.models.list(limit=100).data
+        if len(models) == 0:
+            cout.print("[fail]! No models available for sampling.")
+            raise Exit(1)
+        for model in models:
+            status = ctx.obj["client"].generator.models.status(model.id).status
+            if status == "online":
+                cout.print(f"[info]  Selected model '{model.id}' for sampling.")
+                model_id = model.id
+                break
+        else:
+            cout.print("[fail]! No models are ready for sampling.")
+            raise Exit(1)
+
+    # Open the output file for writing sampled SMILES; use a set to
+    # track unique samples and a progress bar to track sampling
+    # progress until the requested number of samples is reached.
+    writer: typing.Any = path.open(flag)
 
     # build progress bar to track sampling progress, note that file
     # content is being written on each iteration and does not need to
@@ -179,7 +231,7 @@ def sample(
         task: rich.progress.TaskID = progress.add_task("Sampling...", total=samples)
         while not progress.finished:
             result: list[str] = (
-                ctx.obj["client"].generator.generate.call(id=model_id, n=500).smiles
+                ctx.obj["client"].generator.samples.create(size=500).smiles
             )
             sample: set[str] = set(result) - all_samples
             output: list[str] = [x + "\n" for x in sample][: samples - len(all_samples)]
@@ -187,4 +239,4 @@ def sample(
             writer.writelines(output)
             progress.update(task, completed=len(all_samples))
 
-    cout.print(f"[success]Sampled {len(all_samples)} molecules: {output_file.name}")
+    cout.print(f"[success]Sampled {len(all_samples)} molecules: {path.name}")

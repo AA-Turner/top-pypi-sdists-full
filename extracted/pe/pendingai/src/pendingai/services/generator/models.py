@@ -3,8 +3,6 @@
 
 from __future__ import annotations
 
-from typing import Literal
-
 from requests import Response
 
 from pendingai.api_resources.interfaces import (
@@ -37,9 +35,9 @@ class Model(Object):
     """
     Optional name of the model.
     """
-    desc: str | None
+    description: str | None
     """
-    Optional name of the model.
+    Optional description of the model.
     """
     version: str | None
     """
@@ -47,11 +45,11 @@ class Model(Object):
     """
     summary: dict
     """
-    Additional summary statistics of the model.
+    Optional summary statistics of the model.
     """
     metadata: dict
     """
-    Additional metadata describing specific model features.
+    Optional metadata describing specific model features.
     """
 
 
@@ -74,24 +72,22 @@ class ModelInterface(
     def list(
         self,
         *,
-        created_before: str | None = None,
-        created_after: str | None = None,
-        sort: Literal["asc", "desc"] = "desc",
-        size: int = 25,
-    ) -> ListObject[Model]:  # FIXME: Update api with additional pagination values.
-        if sort not in ["asc", "desc"]:
-            raise ValueError(f"'sort' must be one of: {['asc', 'desc']}")
+        limit: int = 25,
+        next_page: str | None = None,
+        prev_page: str | None = None,
+    ) -> ListObject[Model]:
+        if next_page and prev_page:
+            raise ValueError("Cannot specify both next_page and prev_page")
+        if limit < 1 or limit > 100:
+            raise ValueError("List 'limit' must be in range: [1, 100].")
+        params: dict[str, str | int] = {"limit": limit}
+        if next_page is not None:
+            params["next-page"] = next_page
+        if prev_page is not None:
+            params["prev-page"] = prev_page
+
         r: Response = self._requestor.request(
-            "GET",
-            "/generator/v1/models",
-            params={
-                "pagination-key": created_after,  # FIXME: To be removed.
-                "limit": size,  # FIXME: To be removed.
-                "created-before": created_before,
-                "created-after": created_after,
-                "sort": sort,
-                "size": size,
-            },
+            "GET", "/generator/v1/models", params=params
         )
         if r.status_code == 200:
             return cast(ListObject[Model], r.json())
@@ -115,4 +111,4 @@ class ModelInterface(
             raise NotFoundError(id, "Model")
         elif r.status_code == 503:
             raise ServiceUnavailableError
-        raise UnexpectedResponseError("GET", "retrieve_model")
+        raise UnexpectedResponseError("GET", "retrieve_model_status")

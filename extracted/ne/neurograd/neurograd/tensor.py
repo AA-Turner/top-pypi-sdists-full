@@ -168,6 +168,37 @@ class Tensor:
     def get_dtype(self):
         """Get the dtype of the tensor"""
         return self.data.dtype
+    
+
+    
+    def to(self, device):
+        """Move tensor to specified device ('cpu' or 'cuda')."""
+        if device == self.device:
+            return self
+            
+        if device == 'cpu':
+            # Move to CPU
+            if xp is not real_np:  # Currently on GPU
+                import cupy as cp
+                cpu_data = cp.asnumpy(self.data)
+                return Tensor(cpu_data, requires_grad=self.requires_grad,
+                            grad_fn=self.grad_fn, name=f"{self.name}_cpu")
+            else:
+                return self  # Already on CPU
+        elif device == 'cuda':
+            # Move to GPU
+            if xp is real_np:  # Currently on CPU
+                try:
+                    import cupy as cp
+                    gpu_data = cp.asarray(self.data)
+                    return Tensor(gpu_data, requires_grad=self.requires_grad,
+                                grad_fn=self.grad_fn, name=f"{self.name}_cuda")
+                except ImportError:
+                    raise RuntimeError("CuPy not available. Cannot move tensor to CUDA.")
+            else:
+                return self  # Already on GPU
+        else:
+            raise ValueError(f"Unsupported device: {device}. Use 'cpu' or 'cuda'.")
          
     
     def zero_grad(self):

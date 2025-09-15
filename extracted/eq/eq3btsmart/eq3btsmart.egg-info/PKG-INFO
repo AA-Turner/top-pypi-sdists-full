@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: eq3btsmart
-Version: 2.1.1
+Version: 2.2.0
 Summary: Python library to interact with eQ-3 Bluetooth Smart thermostats
 Author-email: Lennard Beers <l.beers@outlook.de>
 Maintainer-email: Lennard Beers <l.beers@outlook.de>
@@ -26,8 +26,9 @@ Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.12
 Description-Content-Type: text/markdown
 License-File: LICENSE.md
-Requires-Dist: bleak>=0.22.3
-Requires-Dist: construct-typing>=0.6.2
+Requires-Dist: bleak
+Requires-Dist: bleak-retry-connector
+Requires-Dist: construct-typing
 Dynamic: license-file
 
 ![PyPI - Version](https://img.shields.io/pypi/v/eq3btsmart?logo=python&logoColor=green&color=blue)
@@ -46,4 +47,4 @@ Dynamic: license-file
 
 A Python library for interaction with [eQ-3 Bluetooth Smart Thermostat](https://www.eq-3.de/produkte/eqiva/detail/bluetooth-smart-heizkoerperthermostat.html) devices using [bleak](https://github.com/hbldh/bleak) and `asyncio`.
 
-For more information, see the [documentation](https://eq3btsmart.eulenet.io/).
+For more information, see the [documentation](https://eulemitkeule.github.io/eq3btsmart/).

@@ -1,24 +1,11 @@
 # -*- coding: utf-8 -*-
-from math import isnan
-from numpy import (
-    clip,
-    cumsum,
-    diff,
-    float64,
-    int64,
-    isnan,
-    nan,
-    nan_to_num,
-    where,
-    zeros_like
-)
 from numba import njit
+from numpy import clip, cumsum, int64, nan, where
 from pandas import DataFrame, Series
 from pandas_ta._typing import DictLike, Int
 from pandas_ta.utils import (
     nb_ffill,
     nb_idiff,
-    nb_shift,
     v_bool,
     v_int,
     v_offset,

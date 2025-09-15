@@ -18,7 +18,7 @@ use crate::{
     },
     lib_context::LibContext,
     ops::interface::FlowInstanceContext,
-    py::IntoPyResult,
+    py::{AnyhowIntoPyResult, IntoPyResult},
 };
 use crate::{lib_context::FlowContext, py};
 
@@ -247,8 +247,12 @@ pub struct FlowBuilder {
 #[pymethods]
 impl FlowBuilder {
     #[new]
-    pub fn new(name: &str) -> PyResult<Self> {
-        let lib_context = get_lib_context().into_py_result()?;
+    pub fn new(py: Python<'_>, name: &str) -> PyResult<Self> {
+        let lib_context = py
+            .allow_threads(|| -> anyhow::Result<Arc<LibContext>> {
+                get_runtime().block_on(get_lib_context())
+            })
+            .into_py_result()?;
         let root_op_scope = OpScope::new(
             spec::ROOT_SCOPE_NAME.to_string(),
             None,

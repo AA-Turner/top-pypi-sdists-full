@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from pandas import DataFrame, RangeIndex, Timedelta, Series, concat, date_range
+from pandas import DataFrame, RangeIndex, Timedelta, Series, date_range
 from pandas_ta._typing import DictLike, Int, Tuple
 from pandas_ta.utils import v_offset, v_pos_default, v_series
 from .midprice import midprice

@@ -47,7 +47,7 @@ class AwsTemporaryCredentials(google.protobuf.message.Message):
     """Aws session token"""
     @property
     def expiration_time(self) -> google.protobuf.timestamp_pb2.Timestamp:
-        """Expiration timestamp of the credentials"""
+        """Expiration timestamp of the  credentials"""
     def __init__(
         self,
         *,

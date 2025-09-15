@@ -113,7 +113,7 @@ class TOTALVI(
 
     1. :doc:`/tutorials/notebooks/multimodal/totalVI`
     2. :doc:`/tutorials/notebooks/multimodal/cite_scrna_integration_w_totalVI`
-    3. :doc:`/tutorials/notebooks/scrna/scarches_scvi_tools`
+    3. :doc:`/tutorials/notebooks/multimodal/scarches_scvi_tools`
     """
 
     _module_cls = TOTALVAE
@@ -531,6 +531,7 @@ class TOTALVI(
                     px_scale += generative_outputs["px_"]["rate"].cpu()[..., gene_mask]
                 else:
                     px_scale += generative_outputs["px_"]["scale"].cpu()[..., gene_mask]
+                    px_scale *= library_size
 
                 py_ = generative_outputs["py_"]
                 # probability of background

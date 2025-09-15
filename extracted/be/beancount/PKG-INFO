@@ -1,12 +1,13 @@
 Metadata-Version: 2.1
 Name: beancount
-Version: 3.1.0
+Version: 3.2.0
 Summary: Command-line Double-Entry Accounting
 Author-Email: Martin Blais <blais@furius.ca>
 License: GPL-2.0-only
 Project-URL: homepage, https://beancount.github.io/
 Project-URL: documentation, https://beancount.github.io/docs/
 Project-URL: repository, https://github.com/beancount/beancount
+Project-URL: donations, https://www.paypal.com/paypalme/misislavski
 Requires-Python: >=3.9
 Requires-Dist: click>=7.0
 Requires-Dist: python-dateutil>=2.6.0

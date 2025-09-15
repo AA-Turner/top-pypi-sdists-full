@@ -22,7 +22,7 @@
 ##                                                                          ##
 ##############################################################################
 
-VERSION_TUPLE = (1, 0, 7)
+VERSION_TUPLE = (1, 0, 8)
 VERSION_SUFFIX = ""
 
 PYVCG_VERSION = ("%u.%u.%u" % VERSION_TUPLE) + \

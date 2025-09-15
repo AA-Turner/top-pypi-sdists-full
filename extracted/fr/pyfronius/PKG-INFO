@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: PyFronius
-Version: 0.8.0
+Version: 0.8.1
 Summary: Client for Fronius SolarAPI JSON interface
 Author-email: Niels Mündler <n.muendler@web.de>, Matthias Alphart <farmio@alphart.net>, Gerrit Beine <mail@gerritbeine.de>
 License: MIT
@@ -24,7 +24,7 @@ Requires-Dist: aiohttp
 Dynamic: license-file
 
 # PyFronius - a very basic Fronius python bridge
-[![Build Status](https://app.travis-ci.com/nielstron/pyfronius.svg?branch=master)](https://app.travis-ci.com/nielstron/pyfronius)
+[![Build and Test](https://github.com/nielstron/pyfronius/actions/workflows/build.yml/badge.svg)](https://github.com/nielstron/pyfronius/actions/workflows/build.yml)
 [![Coverage Status](https://coveralls.io/repos/github/nielstron/pyfronius/badge.svg?branch=master)](https://coveralls.io/github/nielstron/pyfronius?branch=master)
  [![PyPI version](https://badge.fury.io/py/PyFronius.svg)](https://pypi.org/project/pyfronius/)
  ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/PyFronius.svg)

@@ -8,6 +8,9 @@ from typing import cast
 
 import pytest
 
+from packaging.licenses import canonicalize_license_expression
+from packaging.utils import canonicalize_name
+
 from poetry.core.constraints.version import Version
 from poetry.core.constraints.version.exceptions import ParseConstraintError
 from poetry.core.factory import Factory
@@ -15,6 +18,7 @@ from poetry.core.packages.dependency import Dependency
 from poetry.core.packages.dependency_group import DependencyGroup
 from poetry.core.packages.package import Package
 from poetry.core.packages.project_package import ProjectPackage
+from poetry.core.spdx.helpers import license_by_id
 from poetry.core.version.exceptions import InvalidVersionError
 
 
@@ -29,7 +33,7 @@ if TYPE_CHECKING:
 def package_with_groups() -> Package:
     package = Package("foo", "1.2.3")
 
-    optional_group = DependencyGroup("optional", optional=True)
+    optional_group = DependencyGroup("Optional", optional=True)
     optional_group.add_dependency(Factory.create_dependency("bam", "^3.0.0"))
 
     package.add_dependency(Factory.create_dependency("bar", "^1.0.0"))
@@ -111,6 +115,27 @@ def test_package_author_names_invalid(name: str) -> None:
     package.authors = [name]
     with pytest.raises(ValueError):
         package.author_name  # noqa: B018
+
+
+@pytest.mark.parametrize(
+    "license",
+    [None, "MIT", "Apache-2.0 OR BSD-2-clause", "LicenseRef-MyProprietaryLicense"],
+)
+def test_all_classifiers_no_license_classifiers_if_spdx(license: str) -> None:
+    package = Package("foo", "0.1.0")
+    if license:
+        package.license_expression = canonicalize_license_expression(license)
+
+    assert not any(c.lower().startswith("license") for c in package.all_classifiers)
+
+
+def test_all_classifiers_with_license_classifiers_if_no_spdx() -> None:
+    package = Package("foo", "0.1.0")
+    package.license = license_by_id("MIT")
+
+    assert [c for c in package.all_classifiers if c.lower().startswith("license")] == [
+        "License :: OSI Approved :: MIT License"
+    ]
 
 
 @pytest.mark.parametrize("groups", [["main"], ["dev"]])
@@ -479,6 +504,20 @@ def test_without_dependency_groups(package_with_groups: Package) -> None:
     assert len(package.all_requires) == 2
 
 
+def test_without_dependency_groups_uses_normalized_names(
+    package_with_groups: Package,
+) -> None:
+    package = package_with_groups.without_dependency_groups(["DeV"])
+
+    assert len(package.requires) == 2
+    assert len(package.all_requires) == 3
+
+    package = package_with_groups.without_dependency_groups(["DeV", "OpTioNal"])
+
+    assert len(package.requires) == 2
+    assert len(package.all_requires) == 2
+
+
 def test_with_dependency_groups(package_with_groups: Package) -> None:
     package = package_with_groups.with_dependency_groups([])
 
@@ -486,6 +525,15 @@ def test_with_dependency_groups(package_with_groups: Package) -> None:
     assert len(package.all_requires) == 3
 
     package = package_with_groups.with_dependency_groups(["optional"])
+
+    assert len(package.requires) == 2
+    assert len(package.all_requires) == 4
+
+
+def test_with_dependency_groups_uses_normalized_names(
+    package_with_groups: Package,
+) -> None:
+    package = package_with_groups.with_dependency_groups(["OpTioNal"])
 
     assert len(package.requires) == 2
     assert len(package.all_requires) == 4
@@ -619,7 +667,7 @@ def test_cannot_update_package_version() -> None:
 
 def test_project_package_version_update_string() -> None:
     package = ProjectPackage("foo", "1.2.3")
-    package.version = "1.2.4"  # type: ignore[assignment]
+    package.version = "1.2.4"
     assert package.version.text == "1.2.4"
 
 
@@ -667,3 +715,54 @@ def test_package_empty_python_versions() -> None:
 
     expected = "Python versions '~2.7, >=3.4, <3.8' on foo (1.2.3) is empty"
     assert str(exc_info.value) == expected
+
+
+def test_package_dependency_group_names(package_with_groups: Package) -> None:
+    assert package_with_groups.dependency_group_names() == {"main", "dev"}
+    assert package_with_groups.dependency_group_names(include_optional=True) == {
+        "main",
+        "dev",
+        "optional",
+    }
+
+
+@pytest.mark.parametrize(
+    ("group_name", "expected"),
+    [("optional", True), ("Optional", True), ("OpTiOnAl", True), ("other", False)],
+)
+def test_package_has_dependency_group(
+    package_with_groups: Package, group_name: str, expected: bool
+) -> None:
+    assert package_with_groups.has_dependency_group(group_name) is expected
+
+
+@pytest.mark.parametrize("group_name", ["optional", "Optional", "OpTiOnAl"])
+def test_package_get_dependency_group(
+    package_with_groups: Package, group_name: str
+) -> None:
+    group = package_with_groups.dependency_group(group_name)
+
+    assert group.name == "optional"
+    assert group.pretty_name == "Optional"
+
+
+@pytest.mark.parametrize("group_name", ["optional", "Optional", "OpTiOnAl"])
+def test_package_add_to_dependency_group(
+    package_with_groups: Package, group_name: str
+) -> None:
+    dependency = Dependency("foo-bar", "^1.0.0", groups=[group_name])
+    normalized_name = canonicalize_name(group_name)
+
+    assert dependency not in package_with_groups.all_requires
+    assert (
+        dependency
+        not in package_with_groups._dependency_groups[normalized_name].dependencies
+    )
+
+    package_with_groups.add_dependency(dependency)
+
+    assert dependency in package_with_groups.all_requires
+    assert (
+        dependency
+        in package_with_groups._dependency_groups[normalized_name].dependencies
+    )

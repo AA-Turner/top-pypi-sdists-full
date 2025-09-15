@@ -42,7 +42,7 @@ from beancount.core.data import Transaction
 from beancount.core.data import TxnPosting
 
 
-class RealAccount(dict):
+class RealAccount(dict):  # noqa: PLW1641
     """A realized account, inserted in a tree, that contains the list of realized entries.
 
     Attributes:
@@ -136,18 +136,11 @@ def iter_children(real_account, leaf_only=False):
       Instances of RealAccount, beginning with this account. The order is
       undetermined.
     """
-    if leaf_only:
-        if len(real_account) == 0:
-            yield real_account
-        else:
-            for key, real_child in sorted(real_account.items()):
-                for real_subchild in iter_children(real_child, leaf_only):
-                    yield real_subchild
-    else:
+    if not leaf_only or len(real_account) == 0:
         yield real_account
-        for key, real_child in sorted(real_account.items()):
-            for real_subchild in iter_children(real_child):
-                yield real_subchild
+
+    for _, real_child in sorted(real_account.items()):
+        yield from iter_children(real_child, leaf_only)
 
 
 def get(real_account, account_name, default=None):
@@ -432,9 +425,9 @@ def iterate_with_balance(txn_postings):
             entry = txn_posting
 
         if entry.date != prev_date:
-            assert (
-                prev_date is None or entry.date > prev_date
-            ), "Invalid date order for postings: {} > {}".format(prev_date, entry.date)
+            assert prev_date is None or entry.date > prev_date, (
+                "Invalid date order for postings: {} > {}".format(prev_date, entry.date)
+            )
             prev_date = entry.date
 
             # Flush the dated entries.

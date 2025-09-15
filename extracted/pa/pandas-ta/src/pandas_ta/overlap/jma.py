@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-# from numpy import average, log, nan, power, sqrt, zeros_like
 from numpy import average, log, nan, sqrt, zeros_like
 from numpy import power as np_power
 from pandas import Series

@@ -117,7 +117,7 @@ def infer_tolerances(postings, options_map, use_cost=None):
 
     The tolerance for units of USD will calculated as the MAXIMUM of:
 
-      0.01 * M = 0.005 (from the 1150.00 USD leg)
+      0.01 * M = 0.005 (0.01 is inferred from the 1150.00 USD leg)
 
       The sum of
         0.001 * M x 30.96 = 0.01548 +
@@ -127,7 +127,7 @@ def infer_tolerances(postings, options_map, use_cost=None):
     So the tolerance for USD in this case is max(0.005, 0.03096) = 0.03096. Prices
     contribute similarly to the maximum tolerance allowed.
 
-    Note that 'M' above is the inferred_tolerance_multiplier and its default
+    Note that 'M' above is the `tolerance_multiplier` and its default
     value is 0.5.
 
     Args:
@@ -144,10 +144,24 @@ def infer_tolerances(postings, options_map, use_cost=None):
     if use_cost is None:
         use_cost = options_map["infer_tolerance_from_cost"]
 
-    inferred_tolerance_multiplier = options_map["inferred_tolerance_multiplier"]
+    tolerance_multiplier = options_map["tolerance_multiplier"]
 
+    # Initialize the default tolerances to just the ones seen in this
+    # transaction.
     default_tolerances = options_map["inferred_tolerance_default"]
-    tolerances = default_tolerances.copy()
+    seen_currencies = set()
+    for posting in postings:
+        if posting.units not in {None, MISSING}:
+            seen_currencies.add(posting.units.currency)
+        if posting.cost:
+            seen_currencies.add(posting.cost.currency)
+        if posting.price:
+            seen_currencies.add(posting.price.currency)
+    tolerances = {
+        currency: tol
+        for currency, tol in default_tolerances.items()
+        if currency == "*" or currency in seen_currencies
+    }
 
     cost_tolerances = collections.defaultdict(D)
     for posting in postings:
@@ -163,7 +177,7 @@ def infer_tolerances(postings, options_map, use_cost=None):
         expo = units.number.as_tuple().exponent
         if expo < 0:
             # Note: the exponent is a negative value.
-            tolerance = ONE.scaleb(expo) * inferred_tolerance_multiplier
+            tolerance = ONE.scaleb(expo) * tolerance_multiplier
 
             # Note that we take the max() and not the min() here because the
             # tolerance has a dual purpose: it's used to infer the resolution
@@ -346,6 +360,10 @@ def quantize_with_tolerance(tolerances, currency, number):
     # Applying rounding to the default tolerance, if there is one.
     tolerance = tolerances.get(currency)
     if tolerance:
+        # TODO(blais): "2" is used here but really it ought to be the reciprocal
+        # of the "tolerance_multiplier" value. The better fix would be to apply
+        # the multiplier late elsewhere, and to just not apply the multiplier
+        # here.
         quantum = (tolerance * 2).normalize()
 
         # If the tolerance is a neat number provided by the user,

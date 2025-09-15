@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pendingai"
-version = "0.4.6"
+version = "0.4.7"
 description = "Python SDK and CLI for the Pending AI API"
 authors = ["Pending AI <support@pending.ai>"]
 maintainers = ["Pending AI <support@pending.ai>"]

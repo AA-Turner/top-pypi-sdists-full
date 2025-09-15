@@ -72,7 +72,7 @@ def _cast_mapping(
 
 def _cast_datetime(_: type[T_datetime], instance: T_datetime) -> Any:
     if isinstance(instance, str):
-        return datetime.fromisoformat(instance)
+        return datetime.fromisoformat(instance.replace("Z", "+00:00"))
     elif isinstance(instance, (int, float)):
         return datetime.fromtimestamp(instance)
     raise TypeError(

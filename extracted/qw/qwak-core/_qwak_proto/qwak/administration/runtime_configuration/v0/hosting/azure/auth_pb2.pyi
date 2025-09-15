@@ -57,16 +57,20 @@ class AzureBlobStorageAuth(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     SAS_TOKEN_FIELD_NUMBER: builtins.int
+    MANAGED_IDENTITY_FIELD_NUMBER: builtins.int
     @property
     def sas_token(self) -> global___AzureSASToken: ...
+    @property
+    def managed_identity(self) -> global___AzureManagedIdentity: ...
     def __init__(
         self,
         *,
         sas_token: global___AzureSASToken | None = ...,
+        managed_identity: global___AzureManagedIdentity | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing_extensions.Literal["auth_type", b"auth_type", "sas_token", b"sas_token"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["auth_type", b"auth_type", "sas_token", b"sas_token"]) -> None: ...
-    def WhichOneof(self, oneof_group: typing_extensions.Literal["auth_type", b"auth_type"]) -> typing_extensions.Literal["sas_token"] | None: ...
+    def HasField(self, field_name: typing_extensions.Literal["auth_type", b"auth_type", "managed_identity", b"managed_identity", "sas_token", b"sas_token"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["auth_type", b"auth_type", "managed_identity", b"managed_identity", "sas_token", b"sas_token"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing_extensions.Literal["auth_type", b"auth_type"]) -> typing_extensions.Literal["sas_token", "managed_identity"] | None: ...
 
 global___AzureBlobStorageAuth = AzureBlobStorageAuth
 
@@ -86,3 +90,17 @@ class AzureSASToken(google.protobuf.message.Message):
     def WhichOneof(self, oneof_group: typing_extensions.Literal["location", b"location"]) -> typing_extensions.Literal["secret"] | None: ...
 
 global___AzureSASToken = AzureSASToken
+
+class AzureManagedIdentity(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    CLIENT_ID_FIELD_NUMBER: builtins.int
+    client_id: builtins.str
+    def __init__(
+        self,
+        *,
+        client_id: builtins.str = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["client_id", b"client_id"]) -> None: ...
+
+global___AzureManagedIdentity = AzureManagedIdentity

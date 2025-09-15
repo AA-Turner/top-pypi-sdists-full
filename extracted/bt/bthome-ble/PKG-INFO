@@ -1,14 +1,14 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: bthome-ble
-Version: 3.14.1
+Version: 3.14.2
 Summary: BThome BLE support
-License: MIT
+License-Expression: MIT
+License-File: LICENSE
 Author: Ernst Klamer
 Author-email: e.klamer@gmail.com
 Requires-Python: >=3.11
 Classifier: Development Status :: 2 - Pre-Alpha
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
